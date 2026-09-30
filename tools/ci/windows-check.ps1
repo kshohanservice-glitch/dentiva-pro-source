@@ -88,9 +88,30 @@ function Invoke-SelfCheck {
     $onStdout = if ((Test-Path $stdoutFile) -and (Get-Content $stdoutFile -Raw)) { 'yes' } else { 'no' }
     $raw = if (Test-Path $reportFile) { Get-Content $reportFile -Raw } else { '' }
     if (-not $raw -and $onStdout -eq 'yes') { $raw = Get-Content $stdoutFile -Raw }
+    # The application always keeps a copy beside its own logs.
+    $logCopy = Join-Path (Join-Path $env:APPDATA 'Dentiva Pro') 'logs\self-check.json'
+    if (-not $raw -and (Test-Path $logCopy)) { $raw = Get-Content $logCopy -Raw }
     Write-Log "  report on stdout: $onStdout · report file: $(Split-Path $reportFile -Leaf)"
     Write-Log $raw
-    if (-not $raw) { throw "The $Label self-check produced no report (exit code $exitCode)." }
+    if (-not $raw) {
+      Write-Log "  exit code: $exitCode"
+      Write-Log "  DENTIVA_SELF_CHECK_FILE: $env:DENTIVA_SELF_CHECK_FILE"
+      Write-Log "  requested report file exists: $(Test-Path $reportFile)"
+      Write-Log "  copy beside the logs exists: $(Test-Path $logCopy)"
+      Write-Log "  stdout captured: $((if (Test-Path $stdoutFile) { (Get-Content $stdoutFile -Raw) } else { '(no file)' }))"
+      Write-Log "  clinic data folder: $(if (Test-Path $defaultDataDir) { "$((Get-ChildItem $defaultDataDir -Recurse -File | Measure-Object).Count) file(s)" } else { 'missing' })"
+      # Does the self-check branch run at all? A data folder whose parent is a file
+      # must make it fail loudly, so an exit code of 0 here means the flag and the
+      # environment variable never reached the application.
+      $probeParent = Join-Path $env:RUNNER_TEMP 'dentiva-probe'
+      Set-Content -Path $probeParent -Value 'not a folder' -Encoding utf8
+      $env:DENTIVA_DATA_DIR = Join-Path $probeParent 'data'
+      & $appExe --self-check > (Join-Path $env:RUNNER_TEMP 'probe.stdout.txt') 2>&1
+      Write-Log "  probe with an unusable data folder exited: $LASTEXITCODE (1 means the self-check ran)"
+      Remove-Item Env:\DENTIVA_DATA_DIR -ErrorAction SilentlyContinue
+      Remove-Item $probeParent -ErrorAction SilentlyContinue
+      throw "The $Label self-check produced no report (exit code $exitCode)."
+    }
 
     $json = $raw | ConvertFrom-Json
     Write-Evidence "self-check ($Label): state=$($json.state) licence=$($json.licenceActivated) schema=$($json.schemaVersion) database=$($json.databaseFile) stdout=$onStdout"

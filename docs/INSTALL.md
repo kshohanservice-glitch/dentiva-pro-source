@@ -112,7 +112,9 @@ Get-Content $env:DENTIVA_SELF_CHECK_FILE
 ```
 
 `--self-check-file=<path>` does the same when the platform passes switches through.
-Either way the exit code tells the story on its own: `0` healthy, `1` not healthy —
+Every run also leaves a copy at `%APPDATA%\Dentiva Pro\logs\self-check.json`, so a
+report can always be found afterwards. Either way the exit code tells the story on
+its own: `0` healthy, `1` not healthy —
 and on `1` the report explains why. If the data folder cannot even be opened (a
 locked drive, a read-only folder, a full disk) the report says so instead of
 failing silently.

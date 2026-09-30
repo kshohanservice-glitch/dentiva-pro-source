@@ -51,6 +51,22 @@ function selfCheckFile(): string | null {
 function isSelfCheckRun(): boolean {
   return process.argv.includes(SELF_CHECK_FLAG) || selfCheckFile() !== null;
 }
+
+/**
+ * Where a self-check report is written. The requested path comes first; the data
+ * folder's own `logs` directory always gets a copy, so a support engineer can ask
+ * for one file no matter how the application was started.
+ */
+function selfCheckWriteTargets(requested: string | null): string[] {
+  const targets: string[] = [];
+  if (requested) targets.push(requested);
+  try {
+    targets.push(join(resolveCorePaths().logsDir, 'self-check.json'));
+  } catch {
+    // The data folder itself is unusable; the requested path is all there is.
+  }
+  return targets;
+}
 const EVENT_CHANNEL = 'dentiva:event';
 const BACKGROUND_TICK_MS = 15_000;
 const NOTIFICATION_TICK_MS = 5 * 60_000;
@@ -539,12 +555,12 @@ function runSelfCheckAndExit(): void {
     }
     const json = `${JSON.stringify(report, null, 2)}\n`;
     process.stdout.write(json);
-    if (reportFile) {
+    for (const target of selfCheckWriteTargets(reportFile)) {
       try {
-        mkdirSync(dirname(reportFile), { recursive: true });
-        writeFileSync(reportFile, json, 'utf8');
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, json, 'utf8');
       } catch (error) {
-        process.stdout.write(`Could not write ${reportFile}: ${error instanceof Error ? error.message : String(error)}\n`);
+        process.stdout.write(`Could not write ${target}: ${error instanceof Error ? error.message : String(error)}\n`);
       }
     }
     container?.close();

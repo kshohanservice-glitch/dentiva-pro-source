@@ -20,7 +20,9 @@ Get-Content $env:DENTIVA_SELF_CHECK_FILE
 ```
 
 An exit code of `1` with `"ok": false` means the application found a real problem;
-the `error` or `problems` field names it.
+the `error` or `problems` field names it. Every self-check also leaves the report in
+`%APPDATA%\Dentiva Pro\logs\self-check.json`, so it can be collected later without
+re-running anything.
 
 ## The application does not start
 
