@@ -187,13 +187,13 @@ export function createUiApp(options: Parameters<typeof createTestApp>[0] = {}): 
  */
 export async function createReadyUiApp(
   options: Parameters<typeof createTestApp>[0] = {},
-  { clinicName = 'Smile Dental Care', route = '/', signIn = true } = {},
+  { clinicName = 'Smile Dental Care', route = '/', signIn = true, render = true } = {},
 ): Promise<UiApp & { readonly ownerId: number }> {
   const uiApp = createUiApp(options);
   uiApp.activateLicense();
   await uiApp.completeSetup({ clinicName });
   if (signIn) await uiApp.invoke('auth.login', { username: 'owner', password: DEFAULT_PASSWORD });
-  uiApp.renderApp(route);
+  if (render) uiApp.renderApp(route);
   const ownerId = (await uiApp.invoke('auth.session'))?.id ?? 0;
   return Object.assign(uiApp, { ownerId });
 }

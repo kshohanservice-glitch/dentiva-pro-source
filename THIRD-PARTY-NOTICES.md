@@ -3,8 +3,8 @@
 Dentiva Pro is built on free and open-source software. This file lists every package that
 is compiled into or shipped with the application, together with its licence.
 
-Generated: 2026-09-30T08:07:51.828Z
-Packages: 573 (35 direct, 538 transitive)
+Generated: 2026-09-30T09:43:36.032Z
+Packages: 574 (36 direct, 538 transitive)
 
 ## Direct dependencies
 
@@ -35,6 +35,7 @@ Packages: 573 (35 direct, 538 transitive)
 | hash-wasm | 4.12.0 | MIT | Copyright (c) 2020 Dani Biró |
 | jsdom | 26.1.0 | MIT | Copyright (c) 2010 Elijah Insua |
 | lucide-react | 0.577.0 | ISC | Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2026 as part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2026. |
+| prettier | 3.6.2 | MIT | Copyright © James Long and contributors |
 | puppeteer-core | 24.43.1 | Apache-2.0 | — |
 | react | 19.3.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. |
 | react-dom | 19.3.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. |
@@ -992,6 +993,7 @@ The complete licence text of every package is distributed inside the application
 - postcss@8.5.28 — LICENSE (MIT)
 - postject@1.0.0-alpha.6 — LICENSE (MIT)
 - prelude-ls@1.2.1 — LICENSE (MIT)
+- prettier@3.6.2 — LICENSE (MIT)
 - pretty-format@27.5.1 — LICENSE (MIT)
 - proc-log@6.1.0 — LICENSE (ISC)
 - process-nextick-args@2.0.1 — license.md (MIT)

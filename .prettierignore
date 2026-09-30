@@ -9,5 +9,4 @@ build/icon-source.png
 src/renderer/styles/*.css
 src/generated/
 THIRD-PARTY-NOTICES.md
-docs/LICENSE-AUDIT.md
 package-lock.json

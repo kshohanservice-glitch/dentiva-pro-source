@@ -124,9 +124,15 @@ describe('shell', () => {
       expect(within(navigation).getByRole('link', { name: new RegExp(link) })).toBeTruthy();
     }
 
-    // The dashboard is role-aware and starts empty rather than fake.
-    const cards = await screen.findAllByText(/Patients registered|Appointments today|Collected/);
-    expect(cards.length).toBeGreaterThan(0);
+    // The dashboard is role-aware and starts empty rather than fake: the owner
+    // sees today's appointment cards and, unlike the front desk, collections.
+    await waitFor(() => expect(document.querySelector('.stat-grid')?.querySelectorAll('.stat').length ?? 0).toBeGreaterThan(0));
+    const grid = document.querySelector('.stat-grid') as HTMLElement;
+    expect(within(grid).getByText('Collected today')).toBeTruthy();
+    expect(within(grid).getByText('New patients this month')).toBeTruthy();
+    // The owner holds every permission, so the money cards show real figures.
+    const collected = [...grid.querySelectorAll('.stat')].find((element) => element.textContent?.includes('Collected today'));
+    expect(collected?.textContent).toContain('৳');
 
     // Lock the screen from the user menu and unlock it with the password.
     await uiApp.user.click(screen.getByRole('button', { name: /Clinic Owner/ }));

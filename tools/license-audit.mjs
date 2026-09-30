@@ -8,6 +8,9 @@
  *   - `THIRD-PARTY-NOTICES.md`           (shipped with the source)
  *   - `src/renderer/generated/licenses.ts` (bundled, shown on the About screen)
  *
+ * The generated TypeScript is run through Prettier with the repository config, so
+ * regenerating the notices never leaves `npm run format:check` dirty.
+ *
  * Fails with a non-zero exit code if an unapproved licence is found, so CI can
  * block a release whose dependency terms changed underneath us.
  */
@@ -15,6 +18,7 @@ import { createHash } from 'node:crypto';
 import { readFile, readdir, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { format as prettierFormat, resolveConfig } from 'prettier';
 
 const root = path.resolve(new URL('..', import.meta.url).pathname);
 const nodeModules = path.join(root, 'node_modules');
@@ -123,8 +127,15 @@ async function findLicenseText(dir) {
  * boilerplate ("Copyright law", "copyright owner or entity authorized by")
  * carries no information, so it is filtered out.
  */
-const BOILERPLATE =
-  /copyright\s+(?:law|notice|owner|holder|and\s+related|license|protection)|without\s+limitation|as\s+defined|in\s+the\s+(?:software|document)/i;
+const BOILERPLATE = new RegExp(
+  [
+    'copyright\\s+(?:law|notice|owner|holder|and\\s+related|license|protection)',
+    'without\\s+limitation',
+    'as\\s+defined',
+    'in\\s+the\\s+(?:software|document)',
+  ].join('|'),
+  'i',
+);
 
 function copyrightLine(text) {
   if (!text) return null;
@@ -266,7 +277,9 @@ export const THIRD_PARTY_NOTICES: readonly ThirdPartyNotice[] = ${JSON.stringify
 
 const outDir = path.join(root, 'src', 'renderer', 'generated');
 await mkdir(outDir, { recursive: true });
-await writeFile(path.join(outDir, 'licenses.ts'), header + body, 'utf8');
+const outFile = path.join(outDir, 'licenses.ts');
+const prettierOptions = (await resolveConfig(outFile)) ?? {};
+await writeFile(outFile, await prettierFormat(header + body, { ...prettierOptions, parser: 'typescript' }), 'utf8');
 
 console.log(`licence-audit: ${notices.length} package(s) checked`);
 console.log(`licence-audit: THIRD-PARTY-NOTICES.md written`);

@@ -12,8 +12,8 @@ export interface ThirdPartyNotice {
   readonly direct: boolean;
 }
 
-export const LICENSES_GENERATED_AT = '2026-09-30T08:07:51.828Z';
-export const LICENSES_DIGEST = 'bc669db8f1d0ed53b36f228ead494bc52cb08ca6d936991a5ba9ca0e5d4c4c8c';
+export const LICENSES_GENERATED_AT = '2026-09-30T09:43:36.032Z';
+export const LICENSES_DIGEST = '503fccde55d802654fa77cb6736d67c8eee5c38880e297d9c506727c239b0b77';
 export const THIRD_PARTY_NOTICES: readonly ThirdPartyNotice[] = [
   {
     name: '@ampproject/remapping',
@@ -3454,6 +3454,14 @@ export const THIRD_PARTY_NOTICES: readonly ThirdPartyNotice[] = [
     homepage: 'http://preludels.com',
     copyright: 'Copyright (c) George Zahariev',
     direct: false,
+  },
+  {
+    name: 'prettier',
+    version: '3.6.2',
+    license: 'MIT',
+    homepage: 'https://prettier.io',
+    copyright: 'Copyright © James Long and contributors',
+    direct: true,
   },
   {
     name: 'pretty-format',

@@ -44,14 +44,14 @@ interface NavItem {
   readonly permission: string;
 }
 
-interface NavSection {
+export interface NavSection {
   readonly title: string;
   readonly items: readonly NavItem[];
 }
 
 const ICON = 17;
 
-const SECTIONS: readonly NavSection[] = [
+export const NAV_SECTIONS: readonly NavSection[] = [
   {
     title: 'Practice',
     items: [
@@ -95,7 +95,7 @@ const SECTIONS: readonly NavSection[] = [
 export function Sidebar(): JSX.Element {
   const { session, clinic, bootstrap } = useApp();
   const granted = session?.permissions ?? [];
-  const visible = SECTIONS.map((section) => ({
+  const visible = NAV_SECTIONS.map((section) => ({
     ...section,
     items: section.items.filter((item) => permissionMatches(granted, item.permission)),
   })).filter((section) => section.items.length > 0);
