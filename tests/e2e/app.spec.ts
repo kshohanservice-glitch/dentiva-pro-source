@@ -157,78 +157,69 @@ test.describe('packaged desktop application', () => {
     const window = await app.firstWindow();
     await window.waitForLoadState('domcontentloaded');
 
-    // 1. The activation gate refuses to open the clinic without the code.
+    // 1. The gate refuses an unknown code and keeps the reason on screen. The
+    //    queries below mirror the interface suite, which drives the same flow
+    //    against the same renderer; here it is the real packaged application.
     await expect(window.getByRole('heading', { name: /activation/i })).toBeVisible();
     await window.getByLabel(/Activation code/).fill('0000000000000000');
     await window.getByRole('button', { name: /Activate this device/ }).click();
-    // The reason stays on screen, including how many attempts are left.
     await expect(window.getByText(/not valid/i).first()).toBeVisible();
     await expect(window.getByText(/attempt/i).first()).toBeVisible();
 
-    note('step 2: the real activation code opens the setup wizard');
     // 2. The real code opens the setup wizard.
+    note('step 2: the real activation code opens the setup wizard');
     await window.getByLabel(/Activation code/).fill(LICENSE_CODE);
     await window.getByRole('button', { name: /Activate this device/ }).click();
-    await expect(window.getByText('Clinic profile')).toBeVisible();
+    await expect(window.getByRole('heading', { name: 'Clinic profile' })).toBeVisible();
 
+    // 3. Clinic profile. Saving a step advances the wizard.
     note('step 3: clinic profile');
-    // 3. Clinic profile.
     await window.getByLabel(/^Clinic name/).fill('Smile Dental Care');
     await window.getByLabel(/^Phone/).fill('01711111111');
     await window.getByLabel(/^Address/).fill('12 Mirpur Road, Tangail');
     await window.getByRole('button', { name: /Save clinic profile/ }).click();
-    await expect(window.getByText(/Clinic profile saved/i)).toBeVisible();
-    await window.getByRole('button', { name: /Continue/ }).click();
 
+    // 4. Dentists: one consultant with a registration number.
     note('step 4: dentists');
-    // 4. Dentists: one consultant with a qualification.
-    await expect(window.getByText('Dentists', { exact: true }).first()).toBeVisible();
+    await expect(window.getByRole('button', { name: /Add dentist/ })).toBeVisible();
     await window
       .getByLabel(/^Full name/)
       .first()
       .fill('Dr. Ayesha Rahman');
     await window
-      .getByLabel(/^Registration number/)
+      .getByLabel(/BDS \/ registration number/)
       .first()
       .fill('BDS-4471');
     await window.getByRole('button', { name: /Save dentists/ }).click();
-    await expect(window.getByText(/Dentists saved/i)).toBeVisible();
-    await window.getByRole('button', { name: /Continue/ }).click();
 
-    note('step 5: preferences');
     // 5. Preferences keep their validated defaults.
-    await expect(window.getByText('Save preferences')).toBeVisible();
+    note('step 5: preferences');
     await window.getByRole('button', { name: /Save preferences/ }).click();
-    await expect(window.getByText(/Preferences saved/i)).toBeVisible();
-    await window.getByRole('button', { name: /Continue/ }).click();
 
-    note('step 6: administrator account');
     // 6. The administrator account.
+    note('step 6: administrator account');
     await window.getByLabel(/^Username/).fill('owner');
+    await window.getByLabel(/^Repeat password/).fill(OWNER_PASSWORD);
     await window.getByLabel(/^Full name/).fill('Clinic Owner');
     await window.getByLabel(/^Password/).fill(OWNER_PASSWORD);
-    await window.getByLabel(/^Repeat password/).fill(OWNER_PASSWORD);
     await window.getByRole('button', { name: /Create administrator/ }).click();
-    await expect(window.getByText(/Administrator created/i)).toBeVisible();
-    await window.getByRole('button', { name: /Continue/ }).click();
 
+    // 7. Review shows what was captured, then finishes and locks the clinic.
     note('step 7: review and finish');
-    // 7. Review, then finish.
-    await expect(window.getByText('Smile Dental Care').first()).toBeVisible();
+    await window.getByText('Smile Dental Care').first().waitFor();
     await window.getByRole('button', { name: /Continue/ }).click();
     await window.getByRole('button', { name: /Complete setup and open Dentiva Pro/ }).click();
 
-    note('step 8: sign in');
     // 8. The clinic is configured: sign in with the account just created.
-    await expect(window.getByText(/Sign in/i).first()).toBeVisible();
+    note('step 8: sign in');
     await signIn(window, 'owner', OWNER_PASSWORD);
     await expect(window.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
 
     const database = path.join(dataDir, 'data', 'dentiva.sqlite');
     expect(existsSync(database)).toBe(true);
 
-    note('step 9: restart over the same data folder');
     // 9. Restarting the machine does not ask for the code or the wizard again.
+    note('step 9: restart over the same data folder');
     await app.close();
     app = await launch(dataDir);
     const restarted = await app.firstWindow();
