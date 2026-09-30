@@ -303,3 +303,8 @@ SQLite arithmetic and invoice UI edit regressions. Dashboard card grid now uses
 predictable 3+3 or 4+3 desktop rows, with responsive collapse. Exact tests and
 CI for this new commit must be recorded after they run. The interactive Windows
 ledger (`WINDOWS-ACCEPTANCE-LEDGER.md`) remains 44/44 NOT TESTABLE here.
+
+The Windows installation script now also runs Playwright's activation→wizard→
+dashboard→restart scenario against the **installed** executable in a fresh data
+folder. This is an automated Windows GUI gate, not the 44-step human acceptance
+or the DPI/printer review. Record its outcome from the new CI run only.

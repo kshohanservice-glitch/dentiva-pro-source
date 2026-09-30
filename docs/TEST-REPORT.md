@@ -246,3 +246,8 @@ checksum-evidence commit requires its own CI run before these results apply to i
   replaced, and the saved invoice preserves its patient and recalculates total.
 - No 44-step Windows interactive workflow or physical printer test was run;
   exact statuses: `WINDOWS-ACCEPTANCE-LEDGER.md`.
+
+The Windows job has a new installed-executable Playwright scenario covering
+activation, all wizard steps, owner login, dashboard and restart on a fresh data
+folder. Its result is **pending** on this change until CI completes. It is
+separate from the Linux bundled-app scenario and from human inspection.

@@ -258,4 +258,5 @@ jobs:
             test-results/windows-check.log
             test-results/windows-check-transcript.txt
             test-results/windows-build.log
+            test-results/windows-gui-workflow.log
           if-no-files-found: warn

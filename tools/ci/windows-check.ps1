@@ -294,6 +294,20 @@ try {
         $gui.WaitForExit(10000) | Out-Null
     }
 
+    # Drive activation → wizard → owner sign-in → dashboard → restart against
+    # the INSTALLED executable. This is automated GUI evidence, not an owner
+    # inspection or physical printer acceptance.
+    Write-Log '--- 3b. Installed GUI activation, setup, dashboard and restart'
+    $env:DENTIVA_INSTALLED_EXE = $appExe
+    try {
+        & (Join-Path $repoRoot 'node_modules\.bin\playwright.cmd') test --config tests/e2e/playwright.config.ts --grep 'activates, walks the setup wizard' *>&1 |
+            Tee-Object -FilePath (Join-Path $resultsDir 'windows-gui-workflow.log')
+        if ($LASTEXITCODE -ne 0) { throw "Installed GUI workflow failed (Playwright exit $LASTEXITCODE)." }
+        Write-Evidence 'installed GUI: activation, full setup, dashboard, restart and sign-in passed'
+    } finally {
+        Remove-Item Env:\DENTIVA_INSTALLED_EXE -ErrorAction SilentlyContinue
+    }
+
     # -----------------------------------------------------------------------
     # 4. The installed application opens its own database
     # -----------------------------------------------------------------------

@@ -82,10 +82,11 @@ function watch(app: ElectronApplication): void {
 }
 
 async function launch(dataDir: string, extraArgs: string[] = []): Promise<ElectronApplication> {
-  const args = [mainEntry, ...ciSwitches(), ...extraArgs];
+  const installedExe = process.env.DENTIVA_INSTALLED_EXE;
+  const args = installedExe ? [...ciSwitches(), ...extraArgs] : [mainEntry, ...ciSwitches(), ...extraArgs];
   note(`launch: ${args.join(' ')}`);
   const app = await electron.launch({
-    executablePath: electronBinary() ?? undefined,
+    executablePath: installedExe || electronBinary() || undefined,
     args,
     env: { ...process.env, DENTIVA_DATA_DIR: dataDir },
   });

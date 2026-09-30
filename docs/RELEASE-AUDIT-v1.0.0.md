@@ -39,3 +39,9 @@ reachable, patient/visit/whole-invoice discount not restored, patient transfer
 ignored by update) and a settings error path that cleared failed edits. These
 are repaired with regression tests. Manual Windows acceptance and visual review
 remain **NOT TESTABLE** from this Linux workspace; see the acceptance ledger.
+
+The earlier Windows smoke only established a live application window; this
+revision adds Playwright automation against the installed EXE for activation,
+setup, dashboard and restart. It must pass on the exact commit before claiming
+that narrower Windows GUI gate. Manual 44-step and DPI/physical printer checks
+remain independent blockers.
