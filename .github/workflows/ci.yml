@@ -180,9 +180,19 @@ jobs:
         if: steps.installcheck.outcome == 'failure'
         shell: pwsh
         run: |
-          $log = 'test-results/windows-check.log'
-          if (Test-Path $log) { $tail = Get-Content $log | Select-Object -Last 80 } else { $tail = @('(no transcript was written)') }
-          $escaped = (($tail | ForEach-Object { $_.Replace('%', '%25') }) -join '%0A')
+          # The transcript ends with a compact FAILURE block written by the script;
+          # fall back to the tail when the failure happened before that block existed.
+          $ansi = [regex]'\x1B\[[0-9;]*[a-zA-Z]'
+          $transcriptFile = 'test-results/windows-check-transcript.txt'
+          $logFile = 'test-results/windows-check.log'
+          if (Test-Path $transcriptFile) { $lines = Get-Content $transcriptFile }
+          elseif (Test-Path $logFile) { $lines = Get-Content $logFile }
+          else { $lines = @('(no transcript was written)') }
+
+          $start = ($lines | Select-String -Pattern '^=== FAILURE ===$' | Select-Object -Last 1).LineNumber
+          if ($start) { $lines = $lines[($start - 1)..($lines.Count - 1)] } else { $lines = $lines | Select-Object -Last 40 }
+          $clean = $lines | ForEach-Object { $ansi.Replace($_, '') }
+          $escaped = (($clean | ForEach-Object { $_.Replace('%', '%25') }) -join '%0A')
           Write-Host "::error title=Windows installer check::$escaped"
           exit 1
 
@@ -197,4 +207,6 @@ jobs:
             release/*.yml
             test-results/windows-install-evidence.txt
             test-results/windows-check.log
+            test-results/windows-check-transcript.txt
+            test-results/windows-build.log
           if-no-files-found: warn
