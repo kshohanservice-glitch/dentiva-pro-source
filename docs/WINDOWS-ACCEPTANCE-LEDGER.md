@@ -74,3 +74,13 @@ and issues. Verify patient picker in invoice, prescription, visit, appointment,
 queue, payment and other linked workflows; some flows link patients by invoice
 rather than using the shared picker. Log findings with reproduction and regression
 coverage. The current automated tests are partial and do not certify this walk.
+
+## Automated installed Windows GUI evidence (not manual acceptance)
+
+CI `36746197430` on `1f0d781` ran Playwright against the installed EXE using a
+fresh data directory: invalid/valid activation, clinic profile, dentist,
+preferences, owner account, review, completion, sign-in, dashboard, restart,
+re-login and visible clinic name all **PASS as automated Windows checks**.
+The associated numbered _real-user_ ledger remains NOT TESTABLE in this Linux
+workspace. CI's runner does not perform the remaining workflows or change
+Windows display scaling. Printer hardware was unavailable.

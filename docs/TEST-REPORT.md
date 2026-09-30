@@ -264,3 +264,11 @@ name locator selected the _first_ matching node: the sidebar's hidden name at
 narrow layout, instead of the visible header name. The final check now targets a
 visible match. It still requires the actual clinic name to appear after restart;
 this is a locator correction, not removal of the assertion. Re-run pending.
+
+Run `36746197430` on `1f0d781` passed both Linux and Windows jobs. The installed
+Windows executable completed activation, the seven wizard steps, owner sign-in,
+dashboard, restart and re-login in Playwright on a fresh data directory. The
+ordinary GUI launch, default/relocated/broken self-check and clean uninstall
+also passed. This does **not** cover the other 44-step user workflow entries or
+any physical printer/DPI inspection. The artifacts and hashes from this run
+are _historical_ if further commits are made.

@@ -308,3 +308,8 @@ The Windows installation script now also runs Playwright's activation→wizard�
 dashboard→restart scenario against the **installed** executable in a fresh data
 folder. This is an automated Windows GUI gate, not the 44-step human acceptance
 or the DPI/printer review. Record its outcome from the new CI run only.
+
+CI run `36746197430` (`1f0d781`) passed Linux and Windows, including installed
+EXE activation→wizard→dashboard→restart; see `docs/TEST-REPORT.md`. This is not
+a complete manual acceptance. Any subsequent documentation commit re-runs the
+installer and changes which artifact belongs to the exact commit.

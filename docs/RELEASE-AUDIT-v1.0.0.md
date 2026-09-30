@@ -45,3 +45,9 @@ revision adds Playwright automation against the installed EXE for activation,
 setup, dashboard and restart. It must pass on the exact commit before claiming
 that narrower Windows GUI gate. Manual 44-step and DPI/physical printer checks
 remain independent blockers.
+
+The installed Windows GUI Playwright gate passed on `1f0d781` (run
+`36746197430`): activation through dashboard and restart are now supported by
+automated Windows evidence, in addition to the startup smoke. Full interactive
+user acceptance and physical printer/DPI checks remain blocked. A later commit
+must obtain its own green run and fresh artifact hashes.
