@@ -150,8 +150,19 @@ jobs:
               [ -f "$path" ] || continue
               if [ "$log" = "build" ] && [ "${{ steps.build.outcome }}" != "failure" ]; then continue; fi
               echo "===== $path (last 40 lines) ====="
-              grep -v -E 'assets/[A-Za-z0-9_.-]+ +[0-9.]{1,6} kB' "$path" | tail -n 40
+              grep -v -E 'assets/[A-Za-z0-9_.-]+ +[0-9.]{1,6} kB' "$path" | tail -n 40 || true
             done
+            if [ -f test-results/packaged.log ]; then
+              echo "===== packaged.log: the failure lines ====="
+              grep -E '✘|Error|error:|Timed out|Expected|Received|at tests/|waiting for|locator' test-results/packaged.log | tail -n 100 || true
+            fi
+            # Playwright's per-test page snapshot: usually the fastest way to see
+            # what the application was actually showing.
+            context_file=$(ls -1 tests/e2e/test-results/playwright/*/error-context.md 2>/dev/null | head -n 1 || true)
+            if [ -n "${context_file:-}" ]; then
+              echo "===== $context_file (first 60 lines) ====="
+              head -n 60 "$context_file" || true
+            fi
           } > test-results/failure-annotation.txt
           text=$(tr -d '\r' < test-results/failure-annotation.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
           printf '::error title=CI failure::%s\n' "$text"

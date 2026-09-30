@@ -11,7 +11,8 @@
  * pipeline uses against the installed copy.
  */
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
@@ -63,21 +64,21 @@ function ciSwitches(): string[] {
 // annotations, which is what a maintainer actually reads.
 
 const diagnosticsFile = path.join(root, 'test-results', 'e2e-diagnostics.log');
-const diagnostics: string[] = [];
+
+/** Append one line, so nothing is lost when a run dies mid-test. */
+function record(line: string): void {
+  mkdirSync(path.dirname(diagnosticsFile), { recursive: true });
+  appendFileSync(diagnosticsFile, `${line}\n`, 'utf8');
+}
 
 function note(message: string): void {
-  diagnostics.push(`[${new Date().toISOString()}] ${message}`);
+  record(`[${new Date().toISOString()}] ${test.info().title} · ${message}`);
 }
 
 function watch(app: ElectronApplication): void {
   const child = app.process();
-  child.stdout?.on('data', (chunk: Buffer) => diagnostics.push(`[stdout] ${String(chunk).trimEnd()}`));
-  child.stderr?.on('data', (chunk: Buffer) => diagnostics.push(`[stderr] ${String(chunk).trimEnd()}`));
-}
-
-function flushDiagnostics(): void {
-  mkdirSync(path.dirname(diagnosticsFile), { recursive: true });
-  writeFileSync(diagnosticsFile, `${diagnostics.join('\n')}\n`, 'utf8');
+  child.stdout?.on('data', (chunk: Buffer) => record(`[stdout] ${String(chunk).trimEnd()}`));
+  child.stderr?.on('data', (chunk: Buffer) => record(`[stderr] ${String(chunk).trimEnd()}`));
 }
 
 async function launch(dataDir: string, extraArgs: string[] = []): Promise<ElectronApplication> {
@@ -96,6 +97,36 @@ async function signIn(window: Page, username: string, password: string): Promise
   await window.getByLabel(/^Username/).fill(username);
   await window.getByLabel(/^Password/).fill(password);
   await window.getByRole('button', { name: /Sign in/ }).click();
+}
+
+/**
+ * Run the application in its self-check mode and return its exit code and output.
+ *
+ * The application prints the report and exits immediately, which is exactly what
+ * Playwright's Electron API cannot drive: the process is gone before the debugger
+ * attaches. Spawning the same binary with the same arguments is the same test the
+ * release pipeline performs on a freshly installed copy.
+ */
+async function runSelfCheck(
+  dataDir: string,
+  args: string[] = [],
+  env: Record<string, string> = {},
+): Promise<{ code: number | null; stdout: string }> {
+  const executable = electronBinary();
+  if (!executable) throw new Error('The Electron binary is not installed.');
+  const child = spawn(executable, [mainEntry, ...ciSwitches(), '--self-check', ...args], {
+    env: { ...process.env, DENTIVA_DATA_DIR: dataDir, ...env },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let stdout = '';
+  child.stdout.on('data', (chunk: Buffer) => {
+    stdout += chunk.toString();
+  });
+  child.stderr.on('data', (chunk: Buffer) => {
+    record(`[stderr] ${String(chunk).trimEnd()}`);
+  });
+  const code = await new Promise<number | null>((resolve) => child.on('exit', (value) => resolve(value)));
+  return { code, stdout };
 }
 
 const binary = electronBinary();
@@ -118,11 +149,6 @@ test.describe('packaged desktop application', () => {
     await app?.close().catch(() => undefined);
     app = null;
     rmSync(dataDir, { recursive: true, force: true });
-    flushDiagnostics();
-  });
-
-  test.afterAll(() => {
-    flushDiagnostics();
   });
 
   test('activates, walks the setup wizard, signs in and survives a restart', async () => {
@@ -212,30 +238,21 @@ test.describe('packaged desktop application', () => {
   });
 
   test('--self-check reports a healthy installation and exits 0', async () => {
-    note('self-check: launch with --self-check and --self-check-file');
+    // The self-check is a command, not a window: driving it through Playwright's
+    // Electron API fails, because the application exits before Playwright can
+    // attach to the debugger. It is started the way the pipeline starts it.
+    note('self-check: --self-check and --self-check-file');
     const reportFile = path.join(dataDir, 'self-check.json');
-    const checked = await electron.launch({
-      executablePath: electronBinary() ?? undefined,
-      args: [mainEntry, ...ciSwitches(), '--self-check', `--self-check-file=${reportFile}`],
-      env: { ...process.env, DENTIVA_DATA_DIR: dataDir },
-    });
-    watch(checked);
-    const child = checked.process();
-    let output = '';
-    child.stdout?.on('data', (chunk: Buffer) => {
-      output += chunk.toString();
-    });
-    const exitCode = await new Promise<number | null>((resolve) => child.on('exit', (code) => resolve(code)));
-    await checked.close().catch(() => undefined);
-    note(`self-check exit ${String(exitCode)}: ${output.trim()}`);
+    const { code, stdout } = await runSelfCheck(dataDir, [`--self-check-file=${reportFile}`]);
+    note(`self-check exit ${String(code)}: ${stdout.trim()}`);
 
-    expect(output).toContain('"ok": true');
-    expect(output).toContain('"databaseOk": true');
-    expect(output).toContain('"integrityOk": true');
-    expect(exitCode).toBe(0);
+    expect(stdout).toContain('"ok": true');
+    expect(stdout).toContain('"databaseOk": true');
+    expect(stdout).toContain('"integrityOk": true');
+    expect(code).toBe(0);
 
-    // The packaged Windows build cannot rely on stdout, so the same report must
-    // be written to the file the pipeline asks for.
+    // A packaged Windows build cannot rely on stdout, so the same report must be
+    // written to the file the pipeline asks for.
     expect(existsSync(reportFile)).toBe(true);
     const written = JSON.parse(readFileSync(reportFile, 'utf8')) as Record<string, unknown>;
     expect(written.ok).toBe(true);
@@ -250,16 +267,9 @@ test.describe('packaged desktop application', () => {
     // platform does not always pass command-line switches through to `process.argv`.
     note('self-check: healthy run through DENTIVA_SELF_CHECK_FILE');
     const envReport = path.join(dataDir, 'env-self-check.json');
-    const healthy = await electron.launch({
-      executablePath: electronBinary() ?? undefined,
-      args: [mainEntry, ...ciSwitches(), '--self-check'],
-      env: { ...process.env, DENTIVA_DATA_DIR: dataDir, DENTIVA_SELF_CHECK_FILE: envReport },
-    });
-    watch(healthy);
-    const healthyExit = await new Promise<number | null>((resolve) => healthy.process().on('exit', (code) => resolve(code)));
-    await healthy.close().catch(() => undefined);
+    const healthy = await runSelfCheck(dataDir, [], { DENTIVA_SELF_CHECK_FILE: envReport });
 
-    expect(healthyExit).toBe(0);
+    expect(healthy.code).toBe(0);
     expect(existsSync(envReport)).toBe(true);
     const healthyReport = JSON.parse(readFileSync(envReport, 'utf8')) as Record<string, unknown>;
     expect(healthyReport.ok).toBe(true);
@@ -270,20 +280,11 @@ test.describe('packaged desktop application', () => {
     const blocked = path.join(dataDir, 'blocked');
     writeFileSync(blocked, 'not a folder', 'utf8');
     const brokenReport = path.join(dataDir, 'broken-self-check.json');
-    const broken = await electron.launch({
-      executablePath: electronBinary() ?? undefined,
-      args: [mainEntry, ...ciSwitches(), '--self-check'],
-      env: {
-        ...process.env,
-        DENTIVA_DATA_DIR: path.join(blocked, 'data'),
-        DENTIVA_SELF_CHECK_FILE: brokenReport,
-      },
+    const broken = await runSelfCheck(path.join(blocked, 'data'), [], {
+      DENTIVA_SELF_CHECK_FILE: brokenReport,
     });
-    watch(broken);
-    const brokenExit = await new Promise<number | null>((resolve) => broken.process().on('exit', (code) => resolve(code)));
-    await broken.close().catch(() => undefined);
 
-    expect(brokenExit).toBe(1);
+    expect(broken.code).toBe(1);
     expect(existsSync(brokenReport)).toBe(true);
     const brokenJson = JSON.parse(readFileSync(brokenReport, 'utf8')) as Record<string, unknown>;
     expect(brokenJson.ok).toBe(false);
