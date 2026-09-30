@@ -11,11 +11,12 @@
  * as PNG-compressed entries, which Windows Vista and later read natively.
  */
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import process from 'node:process';
 import { deflateSync, inflateSync } from 'node:zlib';
 
-const root = path.resolve(new URL('..', import.meta.url).pathname);
+const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const sourcePath = path.join(root, 'build', 'icon-source.png');
 const outDir = path.join(root, 'build', 'icons');
 

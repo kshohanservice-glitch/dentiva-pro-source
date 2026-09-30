@@ -18,12 +18,13 @@
  * block a release whose dependency terms changed underneath us.
  */
 import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { readFile, readdir, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { format as prettierFormat, resolveConfig } from 'prettier';
 
-const root = path.resolve(new URL('..', import.meta.url).pathname);
+const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const nodeModules = path.join(root, 'node_modules');
 
 /**

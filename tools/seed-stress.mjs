@@ -16,12 +16,13 @@
  *   npm run seed:stress -- 500 --keep   # keep the data in .dentiva-stress
  */
 import { mkdtemp, rm } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
-const root = path.resolve(new URL('..', import.meta.url).pathname);
+const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const args = process.argv.slice(2);
 const keep = args.includes('--keep');
 const targetPatients = Number(args.find((arg) => /^\d+$/.test(arg)) ?? '250');

@@ -12,10 +12,11 @@
  * enough that a formatter would only hide what changed.
  */
 import { readdir, readFile, stat } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import process from 'node:process';
 
-const root = path.resolve(new URL('..', import.meta.url).pathname);
+const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 const INCLUDE_DIRS = ['src', 'tests', 'tools', 'docs'];
 const EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.mjs', '.js', '.json', '.css', '.html', '.md', '.yml', '.yaml', '.nsh', '.txt']);

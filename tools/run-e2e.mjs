@@ -17,9 +17,9 @@ import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
-import {} from 'node:url';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(new URL('..', import.meta.url).pathname);
+const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const dataDir = await mkdtemp(path.join(tmpdir(), 'dentiva-e2e-'));
 const port = 4399;
 const base = `http://127.0.0.1:${port}`;

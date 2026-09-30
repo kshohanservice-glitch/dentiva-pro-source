@@ -14,6 +14,10 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: '.',
   testMatch: '**/*.spec.ts',
+  // Playwright clears its output folder before every run. It must not be the
+  // `test-results` folder itself: the CI job keeps its step transcripts and the
+  // suite's diagnostics there, and they have to survive for the failure report.
+  outputDir: 'test-results/playwright',
   timeout: 240_000,
   expect: { timeout: 20_000 },
   fullyParallel: false,

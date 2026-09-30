@@ -11,12 +11,13 @@
  * pipeline uses against the installed copy.
  */
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
-const root = path.resolve(new URL('../..', import.meta.url).pathname);
+const root = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const mainEntry = path.join(root, 'dist', 'main', 'index.cjs');
 const LICENSE_CODE = '1516591935015165';
 const OWNER_PASSWORD = 'Ayesha-Clinic-2026';
