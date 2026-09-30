@@ -94,23 +94,21 @@ function Invoke-SelfCheck {
     Write-Log "  report on stdout: $onStdout · report file: $(Split-Path $reportFile -Leaf)"
     Write-Log $raw
     if (-not $raw) {
-      Write-Log "  exit code: $exitCode"
-      Write-Log "  DENTIVA_SELF_CHECK_FILE: $env:DENTIVA_SELF_CHECK_FILE"
-      Write-Log "  requested report file exists: $(Test-Path $reportFile)"
-      Write-Log "  copy beside the logs exists: $(Test-Path $logCopy)"
-      Write-Log "  stdout captured: $((if (Test-Path $stdoutFile) { (Get-Content $stdoutFile -Raw) } else { '(no file)' }))"
-      Write-Log "  clinic data folder: $(if (Test-Path $defaultDataDir) { "$((Get-ChildItem $defaultDataDir -Recurse -File | Measure-Object).Count) file(s)" } else { 'missing' })"
       # Does the self-check branch run at all? A data folder whose parent is a file
-      # must make it fail loudly, so an exit code of 0 here means the flag and the
-      # environment variable never reached the application.
+      # must make it fail, so an exit code of 0 here means neither the flag nor the
+      # environment variable reached the application.
       $probeParent = Join-Path $env:RUNNER_TEMP 'dentiva-probe'
       Set-Content -Path $probeParent -Value 'not a folder' -Encoding utf8
       $env:DENTIVA_DATA_DIR = Join-Path $probeParent 'data'
       & $appExe --self-check > (Join-Path $env:RUNNER_TEMP 'probe.stdout.txt') 2>&1
-      Write-Log "  probe with an unusable data folder exited: $LASTEXITCODE (1 means the self-check ran)"
+      $probeExit = $LASTEXITCODE
       Remove-Item Env:\DENTIVA_DATA_DIR -ErrorAction SilentlyContinue
       Remove-Item $probeParent -ErrorAction SilentlyContinue
-      throw "The $Label self-check produced no report (exit code $exitCode)."
+
+      throw ("The $Label self-check left no report (exit code $exitCode; probe with an unusable data folder " +
+        "exited $probeExit where 1 means the self-check ran). Requested file written: $(Test-Path $reportFile); " +
+        "logs copy written: $(Test-Path $logCopy); stdout: $(if ((Test-Path $stdoutFile) -and (Get-Content $stdoutFile -Raw)) { 'captured' } else { 'empty' }); " +
+        'DENTIVA_SELF_CHECK_FILE=' + $env:DENTIVA_SELF_CHECK_FILE)
     }
 
     $json = $raw | ConvertFrom-Json
@@ -282,11 +280,14 @@ try {
     Write-Log ''
     Write-Log 'PASS: the installer, the shortcuts, the uninstall entry, the self-check and the data-preservation policy all behave as documented.'
 } catch {
-    $tail = @($transcript | Select-Object -Last 20)
+    # The annotation is size-limited, so the failure block is deliberately short: the
+    # reason, then the handful of lines that led to it. The full transcript is
+    # written next to it and uploaded with the artifacts.
+    $tail = @($transcript | Select-Object -Last 8)
     Write-Log ''
     Write-Log '=== FAILURE ==='
     Write-Log $_.Exception.Message
-    Write-Log '--- the last lines before the failure ---'
+    Write-Log '--- just before that ---'
     foreach ($line in $tail) { Write-Log $line }
     Set-Content -Path $transcriptFile -Value ($transcript -join "`n") -Encoding utf8
     exit 1
