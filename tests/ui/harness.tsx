@@ -33,6 +33,9 @@ import { setRouter } from './bridge';
  */
 export const DEFAULT_PASSWORD = 'Clinic-Secret-2026';
 
+/** The one-time activation code supplied with the licence (see the test report). */
+export const ACTIVATION_CODE = '1516591935015165';
+
 export interface UiApp {
   readonly app: TestApp;
   readonly router: IpcRouter;

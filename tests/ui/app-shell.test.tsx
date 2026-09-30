@@ -7,7 +7,7 @@
  */
 import { screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createUiApp, DEFAULT_PASSWORD, type UiApp } from './harness';
+import { ACTIVATION_CODE, createUiApp, DEFAULT_PASSWORD, type UiApp } from './harness';
 
 const apps: UiApp[] = [];
 
@@ -43,6 +43,29 @@ describe('activation gate', () => {
     // No navigation, no shell, no data.
     expect(screen.queryByRole('navigation', { name: /Main navigation/ })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Dashboard' })).toBeNull();
+  });
+});
+
+describe('activation gate', () => {
+  it('explains a refused code and opens the wizard for the real one', async () => {
+    const uiApp = app();
+    uiApp.renderApp();
+
+    const code = await screen.findByLabelText(/Activation code/);
+    await uiApp.user.type(code, '0000000000000000');
+    await uiApp.user.click(screen.getByRole('button', { name: /Activate/ }));
+
+    // The reason stays on screen — including how many attempts are left — instead
+    // of disappearing with a toast.
+    expect(await screen.findByText(/not valid/i)).toBeTruthy();
+    expect(screen.getByText(/attempt/i)).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: /Dentiva Pro setup/ })).toBeNull();
+
+    await uiApp.user.clear(code);
+    await uiApp.user.type(code, ACTIVATION_CODE);
+    await uiApp.user.click(screen.getByRole('button', { name: /Activate/ }));
+
+    await screen.findByRole('heading', { name: /Dentiva Pro setup/ });
   });
 });
 

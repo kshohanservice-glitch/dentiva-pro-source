@@ -524,7 +524,9 @@ function runSelfCheckAndExit(): void {
         packaged: app.isPackaged,
         platform: process.platform,
         arch: process.arch,
-        version: app.getVersion(),
+        // The product version, not `app.getVersion()`: outside a packaged build the
+        // latter reports Electron's own version, which is not what support needs.
+        version: APP_VERSION,
       });
       exitCode = (report as { ok: boolean }).ok ? 0 : 1;
     } catch (error) {

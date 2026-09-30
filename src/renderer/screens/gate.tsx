@@ -14,7 +14,7 @@ import { Avatar, Button, Banner, Field, Input } from '@renderer/components/ui';
 
 export function ActivationScreen(): JSX.Element {
   const { toast, refresh } = useApp();
-  const { run, busy } = useAction();
+  const { runOk, busy } = useAction();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const status = useApi('activation.status', undefined);
@@ -26,11 +26,16 @@ export function ActivationScreen(): JSX.Element {
 
   const submit = async () => {
     setError(null);
-    const result = await run(() => bridge.invoke('activation.activate', { code }), {
-      success: 'This device is activated.',
+    const activated = await runOk(() => bridge.invoke('activation.activate', { code }), {
       failure: 'The activation code was not accepted.',
     });
-    if (!result) return;
+    if (!activated) {
+      // The core records every attempt and why it failed — including how many are
+      // left before activation is blocked. Reloading the status keeps that reason on
+      // screen, where a transient toast would lose it.
+      status.reload();
+      return;
+    }
     toast('success', 'Activation complete', 'The setup wizard opens next.');
     await refresh();
   };

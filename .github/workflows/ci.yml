@@ -111,6 +111,10 @@ jobs:
       # `continue-on-error`, so this step runs unconditionally and reads each
       # step's own outcome. A masked failure still fails the job, and it is always
       # explained: this is the channel the maintainers read.
+      # `failure()` is false when the only failures are in steps marked
+      # `continue-on-error`, so this step runs unconditionally and reads each
+      # step's own outcome. A masked failure still fails the job, and it is always
+      # explained: this is the channel the maintainers read.
       - name: Explain what failed, in the job annotations
         if: always()
         shell: bash
@@ -140,28 +144,41 @@ jobs:
             exit 0
           fi
 
+          # Annotations are size-limited, so this is a précis: what failed, why, and
+          # the lines around the first failure of each log. The full transcripts and
+          # Playwright's page snapshots are in the `ci-logs` artifact.
           {
             echo "failing steps: ${failures[*]}"
             echo "all steps: ${outcomes[*]}"
-            # Most relevant first, and never the bundler's asset listing (it is
-            # hundreds of lines of file sizes that hide the actual failure).
-            for log in packaged e2e-diagnostics e2e ui tests stress licences format typecheck build; do
+
+            if [ -f test-results/packaged.log ]; then
+              echo "===== packaged test: first failure ====="
+              first=$(grep -n -m 1 -E '^\s+[0-9]+\) |^\s+Error:|^\s+✘' test-results/packaged.log | cut -d: -f1 || true)
+              if [ -n "${first:-}" ]; then
+                sed -n "${first},$((first + 22))p" test-results/packaged.log || true
+              else
+                tail -n 25 test-results/packaged.log || true
+              fi
+              echo "===== packaged test: summary ====="
+              grep -E '^\s+[0-9]+ (passed|failed|skipped)|passed \(|failed$|Error: No tests found' test-results/packaged.log | tail -n 12 || true
+            fi
+
+            # The suite's own step markers: where it got to, in order.
+            if [ -f test-results/e2e-diagnostics.log ]; then
+              echo "===== packaged test: diagnostics ====="
+              tail -n 20 test-results/e2e-diagnostics.log || true
+            fi
+
+            for log in e2e ui tests stress licences format typecheck; do
               path="test-results/$log.log"
               [ -f "$path" ] || continue
-              if [ "$log" = "build" ] && [ "${{ steps.build.outcome }}" != "failure" ]; then continue; fi
-              echo "===== $path (last 40 lines) ====="
-              grep -v -E 'assets/[A-Za-z0-9_.-]+ +[0-9.]{1,6} kB' "$path" | tail -n 40 || true
+              echo "===== $path (last 15 lines) ====="
+              grep -v -E 'assets/[A-Za-z0-9_.-]+ +[0-9.]{1,6} kB' "$path" | tail -n 15 || true
             done
-            if [ -f test-results/packaged.log ]; then
-              echo "===== packaged.log: the failure lines ====="
-              grep -E '✘|Error|error:|Timed out|Expected|Received|at tests/|waiting for|locator' test-results/packaged.log | tail -n 100 || true
-            fi
-            # Playwright's per-test page snapshot: usually the fastest way to see
-            # what the application was actually showing.
-            context_file=$(ls -1 test-results/playwright/*/error-context.md 2>/dev/null | head -n 1 || true)
-            if [ -n "${context_file:-}" ]; then
-              echo "===== $context_file (first 60 lines) ====="
-              head -n 60 "$context_file" || true
+
+            if [ "${{ steps.build.outcome }}" = "failure" ] && [ -f test-results/build.log ]; then
+              echo "===== test-results/build.log (last 25 lines) ====="
+              tail -n 25 test-results/build.log || true
             fi
           } > test-results/failure-annotation.txt
           text=$(tr -d '\r' < test-results/failure-annotation.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')

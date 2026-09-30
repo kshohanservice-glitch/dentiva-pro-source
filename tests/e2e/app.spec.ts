@@ -161,7 +161,9 @@ test.describe('packaged desktop application', () => {
     await expect(window.getByRole('heading', { name: /activation/i })).toBeVisible();
     await window.getByLabel(/Activation code/).fill('0000000000000000');
     await window.getByRole('button', { name: /Activate this device/ }).click();
-    await expect(window.getByText(/not valid/i)).toBeVisible();
+    // The reason stays on screen, including how many attempts are left.
+    await expect(window.getByText(/not valid/i).first()).toBeVisible();
+    await expect(window.getByText(/attempt/i).first()).toBeVisible();
 
     note('step 2: the real activation code opens the setup wizard');
     // 2. The real code opens the setup wizard.
@@ -249,6 +251,7 @@ test.describe('packaged desktop application', () => {
     expect(stdout).toContain('"ok": true');
     expect(stdout).toContain('"databaseOk": true');
     expect(stdout).toContain('"integrityOk": true');
+    expect(stdout).toContain('"version": "1.0.0"');
     expect(code).toBe(0);
 
     // A packaged Windows build cannot rely on stdout, so the same report must be
@@ -258,7 +261,10 @@ test.describe('packaged desktop application', () => {
     expect(written.ok).toBe(true);
     expect(written.databaseOk).toBe(true);
     expect(written.integrityOk).toBe(true);
-    expect(written.packaged).toBe(true);
+    // This suite runs the built bundle without an installer, so `packaged` is
+    // false here; the installed copy is the one that must report true, and the
+    // Windows job asserts exactly that.
+    expect(written.packaged).toBe(false);
   });
 
   test('the self-check honours DENTIVA_SELF_CHECK_FILE and reports a broken installation', async () => {
