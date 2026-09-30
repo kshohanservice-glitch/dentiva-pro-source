@@ -286,3 +286,8 @@ coverage but explicitly keeps the per-screen real Windows review open. Locally,
 the patient-picker repair passes 102 unit/integration, 25 UI, 8 stress and 38
 IPC E2E checks, plus lint, typecheck, format and production build. These are
 **not** evidence of full packaged manual acceptance; v1.0.0 remains blocked.
+
+CI run `36740789514` on `314ecc5` was green for both jobs. The installed Windows
+GUI opened its window and stayed alive on the clean runner; this does not verify
+complete real-user Windows acceptance. The next change adds SHA-256 evidence
+calculated inside Windows CI; do not treat the preceding run as final-commit CI.

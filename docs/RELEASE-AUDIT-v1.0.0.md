@@ -27,3 +27,9 @@ include unrelated field text; this picker now uses non-interactive field chrome.
 An invoice UI regression exercises keyboard and mouse selection of distinct
 patient IDs. Full patient-linked-form and Windows DPI review remains open; see
 `MASTER-AUDIT-MATRIX.md`. CI for this subsequent commit must pass independently.
+
+Windows CI now writes and uploads `release/CHECKSUMS-SHA256.txt` by hashing the
+new installer, portable and update manifest on the build runner. This is build
+provenance, **not** an approval to publish or a substitute for independent
+verification after downloading. The previous artifact download from this sandbox
+failed with an EOF from GitHub's artifact blob host.

@@ -208,6 +208,20 @@ try {
     Write-Evidence "installer: $($installer.Name) ($([math]::Round($installer.Length / 1MB, 2)) MB)"
     Write-Evidence "portable:  $($portable.Name) ($([math]::Round($portable.Length / 1MB, 2)) MB)"
 
+    # Hash the actual files produced by this checkout, on the same runner that
+    # uploads them. Never copy an older run's digest into release evidence.
+    $updateManifest = Join-Path $releaseDir 'latest.yml'
+    Assert-Truthy (Test-Path $updateManifest) 'the update manifest was produced'
+    $checksums = @($installer.FullName, $portable.FullName, $updateManifest) | ForEach-Object {
+        $digest = (Get-FileHash -Algorithm SHA256 -LiteralPath $_).Hash.ToLowerInvariant()
+        "$digest  $(Split-Path $_ -Leaf)"
+    }
+    $checksumFile = Join-Path $releaseDir 'CHECKSUMS-SHA256.txt'
+    [System.IO.File]::WriteAllText($checksumFile, (($checksums -join "`n") + "`n"), [System.Text.UTF8Encoding]::new($false))
+    Write-Evidence "SHA-256 from exact files in this build:"
+    foreach ($entry in $checksums) { Write-Evidence $entry }
+
+
     # -----------------------------------------------------------------------
     # 2. A clean machine: nothing installed, nothing configured
     # -----------------------------------------------------------------------

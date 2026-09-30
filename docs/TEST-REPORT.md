@@ -226,3 +226,11 @@ the existing invoice creation tests remain passing. Local results: 102
 unit/integration, 25 UI, 8 stress and 38 IPC E2E checks; lint, typecheck,
 format and build passed. Windows GUI/DPI, hardware printing and exhaustive
 screen-by-screen acceptance are **not** verified by these local checks.
+
+On commit `314ecc5`, CI run `36740789514` passed both Linux verification and
+Windows clean-machine jobs. Windows evidence includes normal installed GUI
+window and surviving process, healthy default/relocated self-check, broken-data
+negative case, shortcut and registry installation, and uninstall retaining data.
+Activation/wizard/dashboard in the _installed Windows GUI_ were not traversed;
+Linux packaged E2E tests cover those flows on Linux, not Windows. The subsequent
+checksum-evidence commit requires its own CI run before these results apply to it.
