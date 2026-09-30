@@ -53,6 +53,22 @@ function Write-Evidence {
     Write-Log $Line
 }
 
+# The application is a GUI-subsystem executable, and PowerShell's call operator does
+# not wait for those: `& $appExe --self-check` returns immediately and the check then
+# looks for a report that has not been written yet. Start-Process -Wait is the only
+# reliable way to run it and read its exit code.
+function Invoke-DentivaExecutable {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)][string]$StdOut,
+        [Parameter(Mandatory = $true)][string]$StdErr
+    )
+    Remove-Item $StdOut, $StdErr -ErrorAction SilentlyContinue
+    $process = Start-Process -FilePath $appExe -ArgumentList $Arguments -Wait -PassThru -NoNewWindow `
+        -RedirectStandardOutput $StdOut -RedirectStandardError $StdErr
+    return $process.ExitCode
+}
+
 function Assert-Truthy {
     param([bool]$Condition, [string]$Message)
     if (-not $Condition) { throw $Message }
@@ -86,8 +102,8 @@ function Invoke-SelfCheck {
     # never a mystery.
     $env:DENTIVA_LAUNCH_TRACE = '1'
 
-    & $appExe --self-check "--self-check-file=$reportFile" > $stdoutFile 2>&1
-    $exitCode = $LASTEXITCODE
+    $stderrFile = Join-Path $env:RUNNER_TEMP "self-check-$Label.stderr.txt"
+    $exitCode = Invoke-DentivaExecutable -Arguments @('--self-check', "--self-check-file=$reportFile") -StdOut $stdoutFile -StdErr $stderrFile
     $onStdout = if ((Test-Path $stdoutFile) -and (Get-Content $stdoutFile -Raw)) { 'yes' } else { 'no' }
     $raw = if (Test-Path $reportFile) { Get-Content $reportFile -Raw } else { '' }
     if (-not $raw -and $onStdout -eq 'yes') { $raw = Get-Content $stdoutFile -Raw }
@@ -103,8 +119,9 @@ function Invoke-SelfCheck {
       $probeParent = Join-Path $env:RUNNER_TEMP 'dentiva-probe'
       Set-Content -Path $probeParent -Value 'not a folder' -Encoding utf8
       $env:DENTIVA_DATA_DIR = Join-Path $probeParent 'data'
-      & $appExe --self-check > (Join-Path $env:RUNNER_TEMP 'probe.stdout.txt') 2>&1
-      $probeExit = $LASTEXITCODE
+      $probeStdout = Join-Path $env:RUNNER_TEMP 'probe.stdout.txt'
+      $probeStderr = Join-Path $env:RUNNER_TEMP 'probe.stderr.txt'
+      $probeExit = Invoke-DentivaExecutable -Arguments @('--self-check') -StdOut $probeStdout -StdErr $probeStderr
       Remove-Item Env:\DENTIVA_DATA_DIR -ErrorAction SilentlyContinue
       Remove-Item $probeParent -ErrorAction SilentlyContinue
 
@@ -247,8 +264,8 @@ try {
     Remove-Item $brokenReport, $brokenStdout -ErrorAction SilentlyContinue
     $env:DENTIVA_DATA_DIR = Join-Path $blockedParent 'data'
     $env:DENTIVA_SELF_CHECK_FILE = $brokenReport
-    & $appExe --self-check > $brokenStdout 2>&1
-    $brokenExit = $LASTEXITCODE
+    $brokenStderr = Join-Path $env:RUNNER_TEMP 'self-check-broken.stderr.txt'
+    $brokenExit = Invoke-DentivaExecutable -Arguments @('--self-check') -StdOut $brokenStdout -StdErr $brokenStderr
     $brokenRaw = if (Test-Path $brokenReport) { Get-Content $brokenReport -Raw } elseif (Test-Path $brokenStdout) { Get-Content $brokenStdout -Raw } else { '' }
     if (-not $brokenRaw) { throw "The broken-installation self-check produced no report (exit code $brokenExit)." }
     $broken = $brokenRaw | ConvertFrom-Json
