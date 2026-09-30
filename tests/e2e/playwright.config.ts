@@ -23,7 +23,9 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
-  reporter: [['list']],
+  // `list` keeps the terminal transcript readable; `html` leaves a browsable
+  // report that the pipeline uploads, so a failure can be inspected after the run.
+  reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   use: {
     trace: 'off',
     video: 'off',

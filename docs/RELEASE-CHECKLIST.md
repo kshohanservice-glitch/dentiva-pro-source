@@ -31,7 +31,14 @@ nothing is published until the packaged artifact is proven too.
 | 16  | Installed application runs       | `Dentiva Pro.exe --self-check` exits `0` with `ok`, `databaseOk`, `integrityOk` and `packaged` all true           |
 | 17  | Uninstall removes the app        | the executables are gone and the uninstall entry is gone                                                          |
 | 18  | Uninstall keeps the data         | a file written into the data folder before the uninstall is still there after it                                  |
-| 19  | Artifacts uploaded               | installer, portable build and `latest.yml` are attached to the workflow run                                       |
+| 19  | Artifacts uploaded               | installer, portable build, `latest.yml` and the installer evidence file are attached to the workflow run          |
+
+The packaging gates are executed by `tools/ci/windows-check.ps1`, which the
+`windows-installer` job runs on a clean `windows-latest` runner. The script builds
+with `--publish never`: the build scripts must never be able to publish anything on
+their own, so no build machine needs a GitHub token. It prints an evidence summary
+that the job publishes as an annotation and uploads as
+`windows-install-evidence.txt`, which is what the entries above are checked against.
 
 ## 3. Human gates
 
