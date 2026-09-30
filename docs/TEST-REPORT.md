@@ -251,3 +251,9 @@ The Windows job has a new installed-executable Playwright scenario covering
 activation, all wizard steps, owner login, dashboard and restart on a fresh data
 folder. Its result is **pending** on this change until CI completes. It is
 separate from the Linux bundled-app scenario and from human inspection.
+
+CI run `36744279197` passed Linux verification but FAILED the new installed
+Windows Playwright workflow after the ordinary installed window smoke passed.
+The exact Playwright failure was not included in the CI annotation; the check
+now appends its log tail to the failure transcript. No Windows full-GUI gate
+is claimed passed. Re-run required on the diagnostic change.

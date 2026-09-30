@@ -302,7 +302,11 @@ try {
     try {
         & (Join-Path $repoRoot 'node_modules\.bin\playwright.cmd') test --config tests/e2e/playwright.config.ts --grep 'activates, walks the setup wizard' *>&1 |
             Tee-Object -FilePath (Join-Path $resultsDir 'windows-gui-workflow.log')
-        if ($LASTEXITCODE -ne 0) { throw "Installed GUI workflow failed (Playwright exit $LASTEXITCODE)." }
+        if ($LASTEXITCODE -ne 0) {
+            $guiTail = Get-Content (Join-Path $resultsDir 'windows-gui-workflow.log') -Tail 45 -ErrorAction SilentlyContinue
+            foreach ($line in $guiTail) { Write-Log "  gui: $line" }
+            throw "Installed GUI workflow failed (Playwright exit $LASTEXITCODE)."
+        }
         Write-Evidence 'installed GUI: activation, full setup, dashboard, restart and sign-in passed'
     } finally {
         Remove-Item Env:\DENTIVA_INSTALLED_EXE -ErrorAction SilentlyContinue
