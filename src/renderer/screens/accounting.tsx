@@ -53,7 +53,7 @@ function TransactionDialog({
   onClose(): void;
   onSaved(): void;
 }): JSX.Element | null {
-  const { run, busy } = useAction();
+  const { runOk, busy } = useAction();
   const [form, setForm] = useState<AccountingTransactionInput>({
     direction,
     date: todayIso(),
@@ -100,14 +100,14 @@ function TransactionDialog({
             loading={busy}
             disabled={!form.categoryId || form.amountPaisa <= 0 || form.note.trim().length < 3}
             onClick={async () => {
-              const saved = await run(
+              const saved = await runOk(
                 () =>
                   transaction
                     ? bridge.invoke('accounting.transactions.update', { id: transaction.id, input: form })
                     : bridge.invoke('accounting.transactions.create', { input: form }),
                 { success: transaction ? 'Transaction updated.' : 'Transaction recorded.', failure: 'The entry could not be saved.' },
               );
-              if (saved !== undefined) {
+              if (saved) {
                 onSaved();
                 onClose();
               }

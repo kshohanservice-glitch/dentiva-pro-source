@@ -298,8 +298,10 @@ export function useApi<K extends ApiMethodName>(
   const [loading, setLoading] = useState(payload !== null);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
+  // `null` disables the query; `undefined` means "call this method with no
+  // payload at all" (app.bootstrap, setup.status, notifications.unreadCount…).
   const enabled = payload !== null;
-  const serialized = enabled ? JSON.stringify(payload) : '';
+  const serialized = enabled ? JSON.stringify(payload ?? null) : '';
 
   useEffect(() => {
     if (!enabled) {
@@ -309,8 +311,11 @@ export function useApi<K extends ApiMethodName>(
     let cancelled = false;
     setLoading(true);
     setError(null);
+    // The payload is re-read from the serialised dependency so the effect does
+    // not re-run for an object with the same contents.
+    const request = payload === undefined ? undefined : (JSON.parse(serialized) as ApiRequest<K>);
     bridge
-      .invoke(method, JSON.parse(serialized) as ApiRequest<K>)
+      .invoke(method, request)
       .then((result) => {
         if (!cancelled) setData(result);
       })
@@ -331,31 +336,60 @@ export function useApi<K extends ApiMethodName>(
 }
 
 /** Imperative action helper with unified error reporting and toasts. */
-export function useAction(): {
+export interface ActionRunner {
+  /**
+   * Run an action. Returns the value the action produced, or `null` when it
+   * failed (a toast is shown either way).
+   */
   run<T>(work: () => Promise<T>, options?: { success?: string; failure?: string }): Promise<T | null>;
+  /**
+   * Run an action and report only *whether it succeeded*. This is the correct
+   * branch for methods whose result is `undefined` — checking `run(…) !==
+   * undefined` can never be true for them, so follow-up work (closing a dialog,
+   * advancing the wizard) would silently never happen.
+   */
+  runOk(work: () => Promise<unknown>, options?: { success?: string; failure?: string }): Promise<boolean>;
   busy: boolean;
-} {
+}
+
+export function useAction(): ActionRunner {
   const { toast, reportFieldIssues } = useApp();
   const [busy, setBusy] = useState(false);
-  const run = useCallback(
-    async <T,>(work: () => Promise<T>, options: { success?: string; failure?: string } = {}): Promise<T | null> => {
+  const attempt = useCallback(
+    async <T,>(
+      work: () => Promise<T>,
+      options: { success?: string; failure?: string },
+    ): Promise<{ ok: true; value: T } | { ok: false }> => {
       setBusy(true);
       try {
-        const result = await work();
+        const value = await work();
         if (options.success) toast('success', options.success);
-        return result;
+        return { ok: true, value };
       } catch (error) {
         const code = apiErrorCode(error);
         if (code === 'VALIDATION') reportFieldIssues(error);
         toast('error', options.failure ?? 'The action could not be completed.', apiErrorMessage(error));
-        return null;
+        return { ok: false };
       } finally {
         setBusy(false);
       }
     },
     [reportFieldIssues, toast],
   );
-  return { run, busy };
+  const run = useCallback(
+    async <T,>(work: () => Promise<T>, options: { success?: string; failure?: string } = {}): Promise<T | null> => {
+      const result = await attempt(work, options);
+      return result.ok ? result.value : null;
+    },
+    [attempt],
+  );
+  const runOk = useCallback(
+    async (work: () => Promise<unknown>, options: { success?: string; failure?: string } = {}): Promise<boolean> => {
+      return (await attempt(work, options)).ok;
+    },
+    [attempt],
+  );
+  return { run, runOk, busy };
 }
 
 /** Re-run a callback whenever the window regains focus (fresh lists). */

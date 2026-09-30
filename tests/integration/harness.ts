@@ -32,6 +32,8 @@ export interface TestApp {
   readonly services: CoreContainer['services'];
   /** Stop the clock at a fixed instant (defaults to the real clock). */
   setNow(fixed: Date | null): void;
+  /** Record the machine activation exactly as a licensed installation has it. */
+  activateLicense(): void;
   /** Insert an owner without going through the RBAC guard (setup wizard path). */
   bootstrapOwner(input?: { username?: string; password?: string; fullName?: string }): Promise<number>;
   /** Start a session for a user that already exists. */
@@ -63,6 +65,21 @@ export function createTestPaths(root: string): CorePaths {
     mkdirSync(directory, { recursive: true });
   }
   return paths;
+}
+
+/** Write the activation record the way a licensed installation has it. */
+function writeActivation(container: CoreContainer, at: Date): void {
+  const activatedAt = toInstant(at);
+  const machineHash = machineFingerprint(machineIdentity('TEST-MACHINE-GUID-0001'));
+  container.db
+    .prepare(
+      `INSERT INTO activation (id, activated_at, code_hash, machine_hash, signature, attempts, last_error)
+       VALUES (1, ?, ?, ?, ?, 0, NULL)
+       ON CONFLICT (id) DO UPDATE SET activated_at = excluded.activated_at, code_hash = excluded.code_hash,
+         machine_hash = excluded.machine_hash, signature = excluded.signature, attempts = 0, last_error = NULL`,
+    )
+    .run(activatedAt, activationDigestForTests(), machineHash, activationSignature(activationDigestForTests(), machineHash, activatedAt));
+  container.services.settings.saveSetupStep('activation', true, 1);
 }
 
 export function createTestApp(options: { seed?: boolean; logToFile?: boolean; keepFolder?: boolean } = {}): TestApp {
@@ -142,6 +159,7 @@ export function createTestApp(options: { seed?: boolean; logToFile?: boolean; ke
     setNow: (fixed) => {
       now = fixed;
     },
+    activateLicense: () => writeActivation(container, now ?? new Date()),
     bootstrapOwner: async (input) => {
       const username = input?.username ?? 'owner';
       const password = input?.password ?? 'OwnerPass123';
@@ -159,26 +177,8 @@ export function createTestApp(options: { seed?: boolean; logToFile?: boolean; ke
         .run(username, passwordHash, fullName, timestamp, timestamp, timestamp);
       const userId = Number(result.lastInsertRowid);
       container.db.prepare(`INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)`).run(userId, ownerRoleId);
-      // A clinic copy of Dentiva Pro is activated before it is set up. The
-      // activation record is built through the real signing helpers so the test
-      // environment is byte-for-byte what a licensed installation has — without
-      // ever spelling the product code out in the test suite.
-      const activatedAt = toInstant(now ?? new Date());
-      const machineHash = machineFingerprint(machineIdentity('TEST-MACHINE-GUID-0001'));
-      container.db
-        .prepare(
-          `INSERT INTO activation (id, activated_at, code_hash, machine_hash, signature, attempts, last_error)
-           VALUES (1, ?, ?, ?, ?, 0, NULL)
-           ON CONFLICT (id) DO UPDATE SET activated_at = excluded.activated_at, code_hash = excluded.code_hash,
-             machine_hash = excluded.machine_hash, signature = excluded.signature, attempts = 0, last_error = NULL`,
-        )
-        .run(
-          activatedAt,
-          activationDigestForTests(),
-          machineHash,
-          activationSignature(activationDigestForTests(), machineHash, activatedAt),
-        );
-      container.services.settings.saveSetupStep('activation', true, 1);
+      // A clinic copy of Dentiva Pro is activated before it is set up.
+      writeActivation(container, now ?? new Date());
       return userId;
     },
     signIn: (userId) => {

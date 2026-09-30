@@ -231,7 +231,7 @@ function WelcomeStep(): JSX.Element {
 }
 
 function ClinicStep({ onDone }: { onDone(): void }): JSX.Element {
-  const { run, busy } = useAction();
+  const { runOk, busy } = useAction();
   const [form, setForm] = useState({ name: '', address: '', phone: '', email: '', website: '' });
   const [logoPath, setLogoPath] = useState<string | null>(null);
   const [logoName, setLogoName] = useState('');
@@ -281,11 +281,11 @@ function ClinicStep({ onDone }: { onDone(): void }): JSX.Element {
             loading={busy}
             disabled={form.name.trim().length < 2}
             onClick={async () => {
-              const saved = await run(() => bridge.invoke('setup.saveClinic', { ...form, logoSourcePath: logoPath }), {
+              const saved = await runOk(() => bridge.invoke('setup.saveClinic', { ...form, logoSourcePath: logoPath }), {
                 success: 'Clinic profile saved.',
                 failure: 'The clinic profile could not be saved.',
               });
-              if (saved !== undefined) onDone();
+              if (saved) onDone();
             }}
           >
             Save clinic profile
@@ -297,11 +297,34 @@ function ClinicStep({ onDone }: { onDone(): void }): JSX.Element {
 }
 
 function DentistsStep({ onDone }: { onDone(): void }): JSX.Element {
-  const { run, busy } = useAction();
+  const { runOk, busy } = useAction();
   const [dentists, setDentists] = useState<DentistInput[]>([blankDentist(true)]);
+  const [problem, setProblem] = useState<string | null>(null);
 
   const patchDentist = (index: number, value: Partial<DentistInput>) =>
     setDentists((current) => current.map((entry, position) => (position === index ? { ...entry, ...value } : entry)));
+
+  /**
+   * Credential rows start empty on purpose — plenty of dentists have nothing to
+   * list. Blank rows are dropped before saving, while a row that has been
+   * started but has no title is reported in plain language (the core's field
+   * keys would otherwise point at nothing on screen).
+   */
+  const prepared = (): { dentists: DentistInput[]; problem: string | null } => {
+    const incomplete: string[] = [];
+    const cleaned = dentists.map((dentist, index) => ({
+      ...dentist,
+      credentials: dentist.credentials.filter((credential) => {
+        const blank = credential.title.trim() === '' && credential.institution.trim() === '' && credential.year === null;
+        if (!blank && credential.title.trim() === '') incomplete.push(`${dentist.name.trim() || `Dentist ${index + 1}`}`);
+        return !blank;
+      }),
+    }));
+    if (incomplete.length > 0) {
+      return { dentists: cleaned, problem: `Every credential needs a title: ${[...new Set(incomplete)].join(', ')}.` };
+    }
+    return { dentists: cleaned, problem: null };
+  };
 
   return (
     <Card
@@ -427,17 +450,25 @@ function DentistsStep({ onDone }: { onDone(): void }): JSX.Element {
             </div>
           </Card>
         ))}
+        {problem ? (
+          <Banner tone="warning" title="Check the credentials">
+            {problem}
+          </Banner>
+        ) : null}
         <div className="row row--end">
           <Button
             variant="primary"
             loading={busy}
             disabled={dentists.some((dentist) => dentist.name.trim().length < 2)}
             onClick={async () => {
-              const saved = await run(() => bridge.invoke('setup.saveDentists', { dentists }), {
+              const { dentists: payload, problem: found } = prepared();
+              setProblem(found);
+              if (found) return;
+              const saved = await runOk(() => bridge.invoke('setup.saveDentists', { dentists: payload }), {
                 success: 'Dentists saved.',
                 failure: 'The dentist list could not be saved.',
               });
-              if (saved !== undefined) onDone();
+              if (saved) onDone();
             }}
           >
             Save dentists
@@ -449,7 +480,7 @@ function DentistsStep({ onDone }: { onDone(): void }): JSX.Element {
 }
 
 function PreferencesStep({ onDone }: { onDone(): void }): JSX.Element {
-  const { run, busy } = useAction();
+  const { runOk, busy } = useAction();
   const [form, setForm] = useState({
     dateFormat: 'DD MMM YYYY',
     timeFormat: 'hh:mm A',
@@ -553,11 +584,11 @@ function PreferencesStep({ onDone }: { onDone(): void }): JSX.Element {
             variant="primary"
             loading={busy}
             onClick={async () => {
-              const saved = await run(() => bridge.invoke('setup.savePreferences', form), {
+              const saved = await runOk(() => bridge.invoke('setup.savePreferences', form), {
                 success: 'Preferences saved.',
                 failure: 'The preferences could not be saved.',
               });
-              if (saved !== undefined) onDone();
+              if (saved) onDone();
             }}
           >
             Save preferences
@@ -569,7 +600,7 @@ function PreferencesStep({ onDone }: { onDone(): void }): JSX.Element {
 }
 
 function AdministratorStep({ onDone }: { onDone(): void }): JSX.Element {
-  const { run, busy } = useAction();
+  const { runOk, busy } = useAction();
   const [form, setForm] = useState({ username: '', fullName: '', password: '', confirm: '' });
   const patch = (value: Partial<typeof form>) => setForm((current) => ({ ...current, ...value }));
 
@@ -627,12 +658,12 @@ function AdministratorStep({ onDone }: { onDone(): void }): JSX.Element {
             loading={busy}
             disabled={!ready}
             onClick={async () => {
-              const saved = await run(
+              const saved = await runOk(
                 () =>
                   bridge.invoke('setup.createAdministrator', { username: form.username, fullName: form.fullName, password: form.password }),
                 { success: 'Administrator created.', failure: 'The administrator could not be created.' },
               );
-              if (saved !== undefined) onDone();
+              if (saved) onDone();
             }}
           >
             Create administrator
@@ -693,7 +724,7 @@ function ReviewStep(): JSX.Element {
 
 function FinishStep(): JSX.Element {
   const { refresh, toast } = useApp();
-  const { run, busy } = useAction();
+  const { runOk, busy } = useAction();
   const status = useApi('setup.status', undefined);
 
   return (
@@ -726,11 +757,11 @@ function FinishStep(): JSX.Element {
             loading={busy}
             disabled={Boolean(status.data?.completedAt)}
             onClick={async () => {
-              const finished = await run(() => bridge.invoke('setup.complete'), {
+              const finished = await runOk(() => bridge.invoke('setup.complete'), {
                 success: 'Setup complete.',
                 failure: 'Setup could not be completed.',
               });
-              if (finished !== undefined) {
+              if (finished) {
                 await refresh();
                 toast('success', 'Setup complete', 'Sign in with the administrator account you created.');
               }

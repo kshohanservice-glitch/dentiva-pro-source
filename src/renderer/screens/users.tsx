@@ -57,7 +57,7 @@ function UserDialog({
   onClose(): void;
   onSaved(): void;
 }): JSX.Element | null {
-  const { run, busy } = useAction();
+  const { runOk, busy } = useAction();
   const [form, setForm] = useState<UserInput>(EMPTY_USER);
   const [confirm, setConfirm] = useState('');
   const patch = (value: Partial<UserInput>) => setForm((current) => ({ ...current, ...value }));
@@ -112,14 +112,14 @@ function UserDialog({
             onClick={async () => {
               const input: UserInput = { ...form };
               if (user) delete input.password;
-              const saved = await run(
+              const saved = await runOk(
                 () =>
                   user
                     ? bridge.invoke('users.update', { id: user.id, input })
                     : bridge.invoke('users.create', { input: { ...input, password: form.password ?? '' } }),
                 { success: user ? 'User updated.' : 'User created.', failure: 'The user could not be saved.' },
               );
-              if (saved !== undefined) {
+              if (saved) {
                 onSaved();
                 onClose();
               }
