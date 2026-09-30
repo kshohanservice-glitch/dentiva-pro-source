@@ -28,14 +28,20 @@ const INVOKE_CHANNEL = 'dentiva:invoke';
 /** `Dentiva Pro.exe --self-check` reports on the installation and exits. */
 const SELF_CHECK_FLAG = '--self-check';
 /**
- * `--self-check-file=<path>` writes the same JSON report to a file. A packaged
- * Windows build is a GUI-subsystem executable: when it is started from a script
- * its standard output is not always connected, so the release pipeline reads the
- * report from the file. Both are written when both are available.
+ * Where the JSON report is also written. A packaged Windows build is a
+ * GUI-subsystem executable: when another program starts it, its standard output
+ * is not always connected, so the release pipeline reads the report from a file.
+ *
+ * `DENTIVA_SELF_CHECK_FILE` is the reliable form — an environment variable cannot
+ * be swallowed by the platform's command-line handling, which is exactly what
+ * happened to the flag on Windows CI. Both forms are read, and the report is
+ * printed as well when a console is attached.
  */
 const SELF_CHECK_FILE_FLAG = '--self-check-file=';
 
 function selfCheckFile(): string | null {
+  const fromEnvironment = process.env.DENTIVA_SELF_CHECK_FILE?.trim();
+  if (fromEnvironment && fromEnvironment.length > 0) return fromEnvironment;
   const argument = process.argv.find((value) => value.startsWith(SELF_CHECK_FILE_FLAG));
   if (!argument) return null;
   const target = argument.slice(SELF_CHECK_FILE_FLAG.length).trim();

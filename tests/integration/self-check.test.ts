@@ -7,6 +7,10 @@
  * change anything. Both properties are asserted here.
  */
 import { afterEach, describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { createCoreContainer } from '@core/container';
 import { collectSelfCheck } from '@main/self-check';
 import { LATEST_SCHEMA_VERSION } from '@core/db/schema';
 import { DEFAULT_DATE_FORMAT, DEFAULT_TIME_FORMAT, DEFAULT_TIME_ZONE } from '@shared/app-info';
@@ -128,5 +132,37 @@ describe('installation self-check', () => {
     expect(count('patients')).toBe(before.patients);
     expect(count('notifications')).toBe(before.notifications);
     expect(count('audit_logs')).toBe(before.audit);
+  });
+});
+
+describe('an unusable data folder', () => {
+  it('is refused, so the self-check can report a failure instead of a false success', () => {
+    // The pipeline relies on this: a broken installation must end with exit code 1
+    // and a report that names the problem, never a stack trace and never "ok".
+    const root = mkdtempSync(path.join(tmpdir(), 'dentiva-blocked-'));
+    const blocked = path.join(root, 'blocked');
+    writeFileSync(blocked, 'not a folder', 'utf8');
+    const dataDir = path.join(blocked, 'data');
+
+    try {
+      expect(() =>
+        createCoreContainer({
+          machineGuid: 'blocked-machine',
+          paths: {
+            root: dataDir,
+            dataDir,
+            databasePath: path.join(dataDir, 'dentiva.sqlite'),
+            attachmentsDir: path.join(dataDir, 'attachments'),
+            backupsDir: path.join(dataDir, 'backups'),
+            logsDir: path.join(dataDir, 'logs'),
+            configDir: path.join(dataDir, 'config'),
+            tempDir: path.join(dataDir, 'tmp'),
+            exportsDir: path.join(dataDir, 'exports'),
+          },
+        }),
+      ).toThrow();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

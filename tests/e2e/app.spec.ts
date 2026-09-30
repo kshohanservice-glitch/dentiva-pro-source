@@ -227,4 +227,51 @@ test.describe('packaged desktop application', () => {
     expect(written.integrityOk).toBe(true);
     expect(written.packaged).toBe(true);
   });
+
+  test('the self-check honours DENTIVA_SELF_CHECK_FILE and reports a broken installation', async () => {
+    // The release pipeline reads the report through the environment variable: on
+    // Windows a packaged GUI build cannot rely on its standard output, and the
+    // platform does not always pass command-line switches through to `process.argv`.
+    note('self-check: healthy run through DENTIVA_SELF_CHECK_FILE');
+    const envReport = path.join(dataDir, 'env-self-check.json');
+    const healthy = await electron.launch({
+      executablePath: electronBinary() ?? undefined,
+      args: [mainEntry, ...ciSwitches(), '--self-check'],
+      env: { ...process.env, DENTIVA_DATA_DIR: dataDir, DENTIVA_SELF_CHECK_FILE: envReport },
+    });
+    watch(healthy);
+    const healthyExit = await new Promise<number | null>((resolve) => healthy.process().on('exit', (code) => resolve(code)));
+    await healthy.close().catch(() => undefined);
+
+    expect(healthyExit).toBe(0);
+    expect(existsSync(envReport)).toBe(true);
+    const healthyReport = JSON.parse(readFileSync(envReport, 'utf8')) as Record<string, unknown>;
+    expect(healthyReport.ok).toBe(true);
+
+    // A data folder that cannot exist (its parent is a file) must produce a
+    // readable failure report and a non-zero exit code, never a crash.
+    note('self-check: broken data folder must be reported');
+    const blocked = path.join(dataDir, 'blocked');
+    writeFileSync(blocked, 'not a folder', 'utf8');
+    const brokenReport = path.join(dataDir, 'broken-self-check.json');
+    const broken = await electron.launch({
+      executablePath: electronBinary() ?? undefined,
+      args: [mainEntry, ...ciSwitches(), '--self-check'],
+      env: {
+        ...process.env,
+        DENTIVA_DATA_DIR: path.join(blocked, 'data'),
+        DENTIVA_SELF_CHECK_FILE: brokenReport,
+      },
+    });
+    watch(broken);
+    const brokenExit = await new Promise<number | null>((resolve) => broken.process().on('exit', (code) => resolve(code)));
+    await broken.close().catch(() => undefined);
+
+    expect(brokenExit).toBe(1);
+    expect(existsSync(brokenReport)).toBe(true);
+    const brokenJson = JSON.parse(readFileSync(brokenReport, 'utf8')) as Record<string, unknown>;
+    expect(brokenJson.ok).toBe(false);
+    expect(String(brokenJson.error ?? '')).not.toBe('');
+    note(`broken self-check reported: ${String(brokenJson.error)}`);
+  });
 });

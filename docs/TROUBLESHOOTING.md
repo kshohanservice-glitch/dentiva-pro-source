@@ -9,13 +9,18 @@ and never changes anything.
 
 It prints a JSON report — `ok`, `state`, `databaseOk`, `integrityOk`,
 `schemaVersion`, `databaseFile`, `licenceActivated`, `problems` — and exits `0`
-when healthy. Copy that report into a support e-mail. If the window reports
-nothing because Windows did not connect the output, ask for a file instead:
+when healthy. Copy that report into a support e-mail. If Windows did not connect
+the output, ask for a file instead — this also works from a script or a remote
+session, where standard output is often not attached:
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\Dentiva Pro\Dentiva Pro.exe" --self-check-file=$env:TEMP\dentiva-report.json
-Get-Content $env:TEMP\dentiva-report.json
+$env:DENTIVA_SELF_CHECK_FILE = "$env:TEMP\dentiva-report.json"
+& "$env:LOCALAPPDATA\Programs\Dentiva Pro\Dentiva Pro.exe" --self-check
+Get-Content $env:DENTIVA_SELF_CHECK_FILE
 ```
+
+An exit code of `1` with `"ok": false` means the application found a real problem;
+the `error` or `problems` field names it.
 
 ## The application does not start
 

@@ -101,12 +101,21 @@ healthy, `1` when it is not. This is the same check the release pipeline runs
 against a freshly installed copy.
 
 A packaged Windows build is a graphical executable, so its standard output is not
-always connected when another program starts it. Add a path to have the identical
-report written to a file as well — this is what an IT script should read:
+always connected when another program starts it. Set `DENTIVA_SELF_CHECK_FILE` to
+have the identical report written to a file as well; this is the form an IT script
+should read, and the form the release pipeline uses:
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\Dentiva Pro\Dentiva Pro.exe" --self-check-file=C:\Temp\dentiva-report.json
+$env:DENTIVA_SELF_CHECK_FILE = "$env:TEMP\dentiva-report.json"
+& "$env:LOCALAPPDATA\Programs\Dentiva Pro\Dentiva Pro.exe" --self-check
+Get-Content $env:DENTIVA_SELF_CHECK_FILE
 ```
+
+`--self-check-file=<path>` does the same when the platform passes switches through.
+Either way the exit code tells the story on its own: `0` healthy, `1` not healthy —
+and on `1` the report explains why. If the data folder cannot even be opened (a
+locked drive, a read-only folder, a full disk) the report says so instead of
+failing silently.
 
 ## Updating
 

@@ -79,6 +79,9 @@ function Invoke-SelfCheck {
     $stdoutFile = Join-Path $env:RUNNER_TEMP "self-check-$Label.stdout.txt"
     Remove-Item $reportFile, $stdoutFile -ErrorAction SilentlyContinue
     if ($DataDir) { $env:DENTIVA_DATA_DIR = $DataDir } else { Remove-Item Env:\DENTIVA_DATA_DIR -ErrorAction SilentlyContinue }
+    # The environment variable is the form the pipeline depends on; the command-line
+    # flag is passed as well so both paths are exercised.
+    $env:DENTIVA_SELF_CHECK_FILE = $reportFile
 
     & $appExe --self-check "--self-check-file=$reportFile" > $stdoutFile 2>&1
     $exitCode = $LASTEXITCODE
@@ -90,15 +93,25 @@ function Invoke-SelfCheck {
     if (-not $raw) { throw "The $Label self-check produced no report (exit code $exitCode)." }
 
     $json = $raw | ConvertFrom-Json
-    Assert-Truthy ($exitCode -eq 0) "the $Label self-check exited 0 (got $exitCode)"
-    Assert-Truthy ($json.ok -eq $true) "the $Label self-check reports ok"
-    Assert-Truthy ($json.packaged -eq $true) "the $Label self-check reports a packaged build"
-    Assert-Truthy ($json.databaseOk -eq $true) "the $Label self-check opened the database"
-    Assert-Truthy ($json.integrityOk -eq $true) "the $Label self-check passed the integrity check"
-    Assert-Truthy ($json.foreignKeyViolations -eq 0) "the $Label self-check found no foreign-key violations"
-
     Write-Evidence "self-check ($Label): state=$($json.state) licence=$($json.licenceActivated) schema=$($json.schemaVersion) database=$($json.databaseFile) stdout=$onStdout"
     return $json
+}
+
+function Assert-SelfCheckReport {
+    param([string]$Label, [object]$Json, [int]$ExitCode, [bool]$ExpectedOk)
+
+    if ($ExpectedOk) {
+        Assert-Truthy ($ExitCode -eq 0) "the $Label self-check exited 0 (got $ExitCode)"
+        Assert-Truthy ($Json.ok -eq $true) "the $Label self-check reports ok"
+        Assert-Truthy ($Json.packaged -eq $true) "the $Label self-check reports a packaged build"
+        Assert-Truthy ($Json.databaseOk -eq $true) "the $Label self-check opened the database"
+        Assert-Truthy ($Json.integrityOk -eq $true) "the $Label self-check passed the integrity check"
+        Assert-Truthy ($Json.foreignKeyViolations -eq 0) "the $Label self-check found no foreign-key violations"
+    } else {
+        Assert-Truthy ($ExitCode -eq 1) "the $Label self-check exited 1 (got $ExitCode)"
+        Assert-Truthy ($Json.ok -eq $false) "the $Label self-check reports not-ok"
+        Assert-Truthy ($Json.error) "the $Label self-check explains the failure ($($Json.error))"
+    }
 }
 
 function Show-LogTail {
@@ -186,11 +199,31 @@ try {
     Write-Log ''
     Write-Log '--- 4. The installed application self-check'
     $default = Invoke-SelfCheck -Label 'default' -DataDir ''
+    Assert-SelfCheckReport -Label 'default' -Json $default -ExitCode 0 -ExpectedOk $true
     Assert-Truthy ($default.databaseFile -like "*$defaultDataDir*") "the database lives in the clinic data folder ($($default.databaseFile))"
 
     $relocated = Invoke-SelfCheck -Label 'relocated' -DataDir $relocatedDataDir
+    Assert-SelfCheckReport -Label 'relocated' -Json $relocated -ExitCode 0 -ExpectedOk $true
     Assert-Truthy ($relocated.databaseFile -like '*dentiva-relocated-data*') 'DENTIVA_DATA_DIR relocates the whole data folder'
-    Remove-Item Env:\DENTIVA_DATA_DIR -ErrorAction SilentlyContinue
+
+    # A broken installation must be reported, not crash: an unusable data folder
+    # (its parent is a file) has to produce a readable report and exit 1.
+    $blockedParent = Join-Path $env:RUNNER_TEMP 'dentiva-blocked'
+    Set-Content -Path $blockedParent -Value 'not a folder' -Encoding utf8
+    $brokenReport = Join-Path $env:RUNNER_TEMP 'self-check-broken.json'
+    $brokenStdout = Join-Path $env:RUNNER_TEMP 'self-check-broken.stdout.txt'
+    Remove-Item $brokenReport, $brokenStdout -ErrorAction SilentlyContinue
+    $env:DENTIVA_DATA_DIR = Join-Path $blockedParent 'data'
+    $env:DENTIVA_SELF_CHECK_FILE = $brokenReport
+    & $appExe --self-check > $brokenStdout 2>&1
+    $brokenExit = $LASTEXITCODE
+    $brokenRaw = if (Test-Path $brokenReport) { Get-Content $brokenReport -Raw } elseif (Test-Path $brokenStdout) { Get-Content $brokenStdout -Raw } else { '' }
+    if (-not $brokenRaw) { throw "The broken-installation self-check produced no report (exit code $brokenExit)." }
+    $broken = $brokenRaw | ConvertFrom-Json
+    Assert-SelfCheckReport -Label 'broken instalment' -Json $broken -ExitCode $brokenExit -ExpectedOk $false
+    Write-Evidence "self-check (broken data folder) correctly reported ok=false"
+    Remove-Item Env:\DENTIVA_DATA_DIR, Env:\DENTIVA_SELF_CHECK_FILE -ErrorAction SilentlyContinue
+    Remove-Item $blockedParent -ErrorAction SilentlyContinue
 
     # -----------------------------------------------------------------------
     # 5. Uninstall: the application goes, the clinic's records stay
