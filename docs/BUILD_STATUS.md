@@ -225,14 +225,16 @@ output).
 gate that can be checked by machine has now passed, and the evidence is quoted in
 `docs/TEST-REPORT.md`. What remains is the part only a person can do:
 
-1. Push the commits after `7b81c15` (documentation only) and wait for the pipeline on the
-   final commit; take the evidence annotation from that run and replace the one quoted in
-   `docs/TEST-REPORT.md` if any number moves.
-2. **Open the pull request** if it is not open (the repository had none when this was
-   written): the branch is `arena/01a0f0ee-dentiva-pro-source`, the base is `main`. The
-   agent must not merge it.
-3. The owner reviews and merges. After the merge: tag `v1.0.0`, attach the two Windows
-   artifacts from the green run and follow `docs/RELEASE-CHECKLIST.md` section 4.
+1. Wait for the pipeline on the final documentation commit to go green (both the `push`
+   and the `pull_request` run) and check that the evidence annotation still matches the
+   table in `docs/TEST-REPORT.md`.
+2. **`docs/RELEASE-CHECKLIST.md` sections 1 and 2 are complete on commit `06fa577`; the
+   remaining gates are the human ones (section 3).** Pull request **#1** is open —
+   https://github.com/kshohanservice-glitch/dentiva-pro-source/pull/1 — `main` is
+   mergeable and the owner reviews and merges it. The agent must never merge.
+3. After the merge: tag `v1.0.0`, attach the two Windows artifacts from the green run and
+   follow `docs/RELEASE-CHECKLIST.md` section 4. The `.exe` is deliberately never built or
+   published before those gates pass.
 4. If the sandbox loses its repository token again, `git fetch origin <branch>` restores
    the history — the working tree survives a sandbox restart even when `.git` does not,
    and the branch pointer in the snapshot may lag behind the remote.
