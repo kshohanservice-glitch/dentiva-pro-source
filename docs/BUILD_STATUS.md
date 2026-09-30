@@ -178,6 +178,12 @@ complete application workflow over the real IPC surface.
   "Previous attempt" panel exists to show. Fixed with `runOk()` and a status reload; the
   interface suite drives the screen itself now, and the packaged suite drives the real
   application.
+- **A silent uninstall waited for a click that never comes.** NSIS shows a
+  `MessageBox` even in silent mode, so the message telling a person their clinic
+  data had been kept stopped the uninstaller dead on the CI machine — long enough
+  that the job would have sat there for hours with no explanation. The dialog is
+  now inside `${IfNot} ${Silent}`, and the check gives the uninstaller three
+  minutes before failing, so a stuck dialog says so instead of hanging.
 - **PowerShell does not wait for a GUI executable.** `& "Dentiva Pro.exe" --self-check`
   returned immediately, so the pipeline read the exit code of a process that had not
   exited and looked for a report that had not been written — and saw `0` for both. Every

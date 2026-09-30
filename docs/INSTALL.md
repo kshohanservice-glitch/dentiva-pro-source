@@ -80,7 +80,16 @@ The NSIS installer understands the usual switches:
 
 # choose the folder explicitly and skip shortcut creation
 .\DentivaPro-1.0.0-Windows-x64-Setup.exe /S /D=C:\Clinics\DentivaPro
+
+# remove it again without a dialog in the way
+& "$env:LOCALAPPDATA\Programs\Dentiva Pro\Uninstall Dentiva Pro.exe" /S
 ```
+
+A silent run never opens a window — including the message that tells a person
+their clinic data was kept, which is shown only to someone who is actually
+watching. In both cases the data folder below is untouched (a `/S` uninstall of
+the whole product, on any machine, is also what the release pipeline runs on a
+clean Windows runner to prove it).
 
 The portable build (`DentivaPro-1.0.0-Windows-x64-Portable.exe`) needs no
 installation at all: run it, and it unpacks into a temporary folder and starts.
