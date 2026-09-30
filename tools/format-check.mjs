@@ -20,7 +20,19 @@ const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 const INCLUDE_DIRS = ['src', 'tests', 'tools', 'docs'];
 const EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.mjs', '.js', '.json', '.css', '.html', '.md', '.yml', '.yaml', '.nsh', '.txt']);
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'release', 'coverage', 'generated', '.git', 'icons']);
+// `test-results` and `playwright-report` are run artifacts (gitignored) that a
+// test run can drop anywhere in the tree.
+const SKIP_DIRS = new Set([
+  'node_modules',
+  'dist',
+  'release',
+  'coverage',
+  'generated',
+  '.git',
+  'icons',
+  'test-results',
+  'playwright-report',
+]);
 
 const MAX_LENGTH = 140;
 // Licence bundles, generated files and this checker's own reports are exempt.

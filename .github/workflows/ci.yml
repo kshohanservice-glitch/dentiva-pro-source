@@ -158,7 +158,7 @@ jobs:
             fi
             # Playwright's per-test page snapshot: usually the fastest way to see
             # what the application was actually showing.
-            context_file=$(ls -1 tests/e2e/test-results/playwright/*/error-context.md 2>/dev/null | head -n 1 || true)
+            context_file=$(ls -1 test-results/playwright/*/error-context.md 2>/dev/null | head -n 1 || true)
             if [ -n "${context_file:-}" ]; then
               echo "===== $context_file (first 60 lines) ====="
               head -n 60 "$context_file" || true
