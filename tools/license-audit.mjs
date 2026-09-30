@@ -5,8 +5,11 @@
  * Reads the installed dependency tree, checks that every licence is on the
  * approved list for a commercial closed-source product, and writes:
  *
- *   - `THIRD-PARTY-NOTICES.md`           (shipped with the source)
+ *   - `THIRD-PARTY-NOTICES.md`            (shipped with the source)
  *   - `src/renderer/generated/licenses.ts` (bundled, shown on the About screen)
+ *   - `build/THIRD-PARTY-NOTICES.txt`     (packaged next to the application)
+ *   - `build/licenses/OPEN-SOURCE-LICENCES.txt` (the complete licence texts,
+ *     deduplicated, packaged into the application resources as `licenses/`)
  *
  * The generated TypeScript is run through Prettier with the repository config, so
  * regenerating the notices never leaves `npm run format:check` dirty.
@@ -189,6 +192,7 @@ for (const entry of [...byName.values()].sort((a, b) => a.name.localeCompare(b.n
     copyright: copyrightLine(licenseText?.text ?? null),
     direct: directNames.has(entry.name),
     licenseFile: licenseText?.file ?? null,
+    licenseText: licenseText?.text ?? null,
   });
 }
 
@@ -237,6 +241,89 @@ noticeLines.push('');
 
 await writeFile(path.join(root, 'THIRD-PARTY-NOTICES.md'), noticeLines.join('\n'), 'utf8');
 
+// --- packaged plain-text notices -------------------------------------------
+
+const plainNotices = [];
+plainNotices.push('Dentiva Pro — third-party notices');
+plainNotices.push('='.repeat(78));
+plainNotices.push('');
+plainNotices.push('Dentiva Pro is built on free and open-source software. This file lists every');
+plainNotices.push('package that is compiled into or shipped with the application, together with');
+plainNotices.push('the licence it is used under. The complete licence texts are in the file');
+plainNotices.push('OPEN-SOURCE-LICENCES.txt next to this one.');
+plainNotices.push('');
+plainNotices.push(`Generated: ${generatedAt}`);
+plainNotices.push(`Packages: ${notices.length} (${direct.length} direct, ${transitive.length} transitive)`);
+plainNotices.push('');
+plainNotices.push('Direct dependencies');
+plainNotices.push('-'.repeat(78));
+for (const entry of direct) {
+  plainNotices.push(`${entry.name} ${entry.version} — ${entry.license} — ${entry.copyright ?? 'no copyright line'}`);
+}
+plainNotices.push('');
+plainNotices.push('Transitive dependencies');
+plainNotices.push('-'.repeat(78));
+for (const entry of transitive) {
+  plainNotices.push(`${entry.name} ${entry.version} — ${entry.license}`);
+}
+plainNotices.push('');
+
+const buildDir = path.join(root, 'build');
+await mkdir(buildDir, { recursive: true });
+await writeFile(path.join(buildDir, 'THIRD-PARTY-NOTICES.txt'), plainNotices.join('\n'), 'utf8');
+
+// --- complete licence texts, deduplicated ----------------------------------
+
+const byText = new Map();
+for (const entry of notices) {
+  if (!entry.licenseText) continue;
+  const key = entry.licenseText;
+  const group = byText.get(key);
+  if (group) group.packages.push(`${entry.name}@${entry.version}`);
+  else byText.set(key, { licenses: new Set([entry.license]), packages: [`${entry.name}@${entry.version}`] });
+}
+
+const licenceLines = [];
+licenceLines.push('Dentiva Pro — complete open-source licence texts');
+licenceLines.push('='.repeat(78));
+licenceLines.push('');
+licenceLines.push(`Generated: ${generatedAt}`);
+licenceLines.push(`Distinct licence texts: ${byText.size} (covering ${notices.length} packages)`);
+licenceLines.push('');
+licenceLines.push('Every package bundled with Dentiva Pro is used under one of the licences below.');
+licenceLines.push('Packages whose licence file could not be found are listed at the end; their');
+licenceLines.push('declared licence is recorded in THIRD-PARTY-NOTICES.txt and on the About screen.');
+licenceLines.push('');
+
+let section = 0;
+for (const [text, group] of byText) {
+  section += 1;
+  licenceLines.push('');
+  licenceLines.push('-'.repeat(78));
+  licenceLines.push(`[${section}] ${[...group.licenses].join(' OR ')}`);
+  licenceLines.push(`Packages: ${group.packages.sort().join(', ')}`);
+  licenceLines.push('-'.repeat(78));
+  licenceLines.push('');
+  licenceLines.push(text);
+  licenceLines.push('');
+}
+
+const withoutText = notices.filter((entry) => !entry.licenseText);
+if (withoutText.length > 0) {
+  licenceLines.push('');
+  licenceLines.push('-'.repeat(78));
+  licenceLines.push('Packages with no licence file in their distribution');
+  licenceLines.push('-'.repeat(78));
+  for (const entry of withoutText) {
+    licenceLines.push(`${entry.name}@${entry.version} — declared ${entry.license}`);
+  }
+  licenceLines.push('');
+}
+
+const licencesDir = path.join(buildDir, 'licenses');
+await mkdir(licencesDir, { recursive: true });
+await writeFile(path.join(licencesDir, 'OPEN-SOURCE-LICENCES.txt'), licenceLines.join('\n'), 'utf8');
+
 // --- bundled module for the About screen ------------------------------------
 
 const header = `/**
@@ -284,6 +371,7 @@ await writeFile(outFile, await prettierFormat(header + body, { ...prettierOption
 console.log(`licence-audit: ${notices.length} package(s) checked`);
 console.log(`licence-audit: THIRD-PARTY-NOTICES.md written`);
 console.log(`licence-audit: src/renderer/generated/licenses.ts written`);
+console.log(`licence-audit: build/THIRD-PARTY-NOTICES.txt and build/licenses/ written`);
 
 if (problems.length > 0) {
   console.error('');

@@ -1,0 +1,170 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint, typecheck, tests and the packaged smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck the main process and the renderer
+        run: npm run typecheck
+
+      - name: Check formatting and the line-length policy
+        run: npm run format:check
+
+      - name: Regenerate the licence notices and fail if they are stale
+        run: |
+          npm run licenses
+          git diff --exit-code -- THIRD-PARTY-NOTICES.md src/renderer/generated/licenses.ts
+
+      - name: Unit and integration tests
+        run: npm test
+
+      - name: Renderer tests (the real screens over the real core)
+        run: npm run test:ui
+
+      - name: Stress test (600-patient clinic)
+        env:
+          DENTIVA_STRESS_PATIENTS: 600
+        run: npm run test:stress
+
+      - name: Build main, preload and renderer bundles
+        run: npm run build
+
+      - name: End-to-end run through the IPC surface
+        run: npm run test:e2e
+
+      - name: Packaged application test (Playwright drives real Electron)
+        run: xvfb-run -a --server-args="-screen 0 1920x1080x24" npm run test:e2e:electron
+
+      - name: Upload the Playwright report when the packaged application test fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+
+  windows-installer:
+    name: Windows installer and clean-machine test
+    runs-on: windows-latest
+    timeout-minutes: 60
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the installer and the portable executable
+        run: npm run dist:all
+
+      - name: List the produced artifacts
+        shell: pwsh
+        run: Get-ChildItem release | Format-Table Name, Length
+
+      - name: Install silently, then run the installation self-check
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Get-ChildItem release -Filter '*Setup.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'No installer was produced.' }
+
+          $installDir = Join-Path $env:LOCALAPPDATA 'Programs\Dentiva Pro'
+          $dataDir = Join-Path $env:RUNNER_TEMP 'dentiva-clean-machine'
+
+          # A clean machine: nothing installed, nothing configured.
+          if (Test-Path $installDir) { throw "The runner already has $installDir." }
+          Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait
+
+          $exe = Join-Path $installDir 'Dentiva Pro.exe'
+          $uninstaller = Join-Path $installDir 'Uninstall Dentiva Pro.exe'
+          if (-not (Test-Path $exe)) { throw 'The application executable was not installed.' }
+          if (-not (Test-Path $uninstaller)) { throw 'The uninstaller was not installed.' }
+
+          $shortcut = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Dentiva Pro.lnk'
+          if (-not (Test-Path $shortcut)) { throw 'The Start Menu shortcut was not created.' }
+          $desktop = Join-Path $env:USERPROFILE 'Desktop\Dentiva Pro.lnk'
+          if (-not (Test-Path $desktop)) { throw 'The desktop shortcut was not created.' }
+
+          $uninstallKey = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' |
+            Where-Object { $_.DisplayName -like 'Dentiva Pro*' }
+          if (-not $uninstallKey) { throw 'No uninstall entry was registered.' }
+
+          # The installed application must be able to open its own database.
+          $env:DENTIVA_DATA_DIR = $dataDir
+          $report = & $exe --self-check | Out-String
+          Write-Host $report
+          $json = $report | ConvertFrom-Json
+          if (-not $json.ok) { throw 'The installed application failed its self-check.' }
+          if ($json.databaseOk -ne $true) { throw 'The installed application could not open its database.' }
+          if ($json.integrityOk -ne $true) { throw 'The installed application failed its integrity check.' }
+          if ($json.packaged -ne $true) { throw 'The application does not believe it is packaged.' }
+
+      - name: Remove the application and prove the clinic's data survives
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installDir = Join-Path $env:LOCALAPPDATA 'Programs\Dentiva Pro'
+          $dataDir = Join-Path $env:RUNNER_TEMP 'dentiva-clean-machine'
+          $marker = Join-Path $dataDir 'data\keep-me.txt'
+          New-Item -ItemType Directory -Force -Path (Split-Path $marker) | Out-Null
+          Set-Content -Path $marker -Value 'clinic records must survive an uninstall'
+
+          $uninstaller = Join-Path $installDir 'Uninstall Dentiva Pro.exe'
+          Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait
+          Start-Sleep -Seconds 10
+
+          if (Test-Path (Join-Path $installDir 'Dentiva Pro.exe')) {
+            throw 'The application executable survived the uninstall.'
+          }
+          if (-not (Test-Path $marker)) {
+            throw 'The clinic data folder was deleted by the uninstaller.'
+          }
+          $registration = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' |
+            Where-Object { $_.DisplayName -like 'Dentiva Pro*' }
+          if ($registration) { throw 'The uninstall registry entry was left behind.' }
+          Write-Host 'Uninstall removed the application and kept the clinic data.'
+
+      - name: Upload the release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dentiva-pro-windows
+          path: |
+            release/*Setup.exe
+            release/*Portable.exe
+            release/*.yml
+          if-no-files-found: error

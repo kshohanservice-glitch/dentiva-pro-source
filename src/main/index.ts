@@ -22,8 +22,11 @@ import { ElectronPrintHost, appTempDir } from './print-host';
 import { applyPendingRestore, type PendingRestoreOutcome } from '@core/services/backup-service';
 import { createRouter, type IpcRouter } from './ipc/router';
 import { createElectronPorts } from './ports-electron';
+import { collectSelfCheck } from './self-check';
 
 const INVOKE_CHANNEL = 'dentiva:invoke';
+/** `Dentiva Pro.exe --self-check` reports on the installation and exits. */
+const SELF_CHECK_FLAG = '--self-check';
 const EVENT_CHANNEL = 'dentiva:event';
 const BACKGROUND_TICK_MS = 15_000;
 const NOTIFICATION_TICK_MS = 5 * 60_000;
@@ -480,6 +483,40 @@ function reportRestoreOutcome(outcome: PendingRestoreOutcome): void {
   }
 }
 
+/**
+ * Run the installation self-check and exit. Used by the release pipeline after
+ * installing the packaged application, and by support to diagnose a machine
+ * without opening the clinic database for writing.
+ */
+function runSelfCheckAndExit(): void {
+  const startedWithoutContainer = Date.now();
+  void app.whenReady().then(() => {
+    let report: unknown;
+    let exitCode = 1;
+    try {
+      container = startContainer();
+      report = collectSelfCheck(container, {
+        packaged: app.isPackaged,
+        platform: process.platform,
+        arch: process.arch,
+        version: app.getVersion(),
+      });
+      exitCode = (report as { ok: boolean }).ok ? 0 : 1;
+    } catch (error) {
+      report = {
+        app: APP_NAME,
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+        durationMs: Date.now() - startedWithoutContainer,
+      };
+    }
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    container?.close();
+    container = null;
+    app.exit(exitCode);
+  });
+}
+
 function bootstrap(): void {
   app.setAppUserModelId('bd.shohankhan.dentivapro');
   applySecurityPolicy();
@@ -523,7 +560,11 @@ function bootstrap(): void {
   });
 }
 
-if (!app.requestSingleInstanceLock()) {
+if (process.argv.includes(SELF_CHECK_FLAG)) {
+  // The self-check never opens a second window and never touches the single
+  // instance lock, so it cannot disturb a running clinic session.
+  runSelfCheckAndExit();
+} else if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   bootstrap();

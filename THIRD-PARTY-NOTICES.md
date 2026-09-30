@@ -3,7 +3,7 @@
 Dentiva Pro is built on free and open-source software. This file lists every package that
 is compiled into or shipped with the application, together with its licence.
 
-Generated: 2026-09-30T09:43:36.032Z
+Generated: 2026-09-30T09:52:17.927Z
 Packages: 574 (36 direct, 538 transitive)
 
 ## Direct dependencies

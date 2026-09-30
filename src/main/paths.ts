@@ -17,7 +17,11 @@ export interface ResolvedPaths extends CorePaths {
 }
 
 export function resolveCorePaths(overrides: Partial<CorePaths> = {}): ResolvedPaths {
-  const root = overrides.root ?? app.getPath('userData');
+  // `DENTIVA_DATA_DIR` relocates the entire data folder. IT departments use it to
+  // keep clinic records on a chosen drive, support uses it to inspect a copy of a
+  // clinic's folder, and the packaged smoke test uses it so it can never touch a
+  // real installation's records.
+  const root = overrides.root ?? process.env['DENTIVA_DATA_DIR'] ?? app.getPath('userData');
   const paths: ResolvedPaths = {
     root,
     dataDir: overrides.dataDir ?? join(root, 'data'),

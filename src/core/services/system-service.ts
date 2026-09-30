@@ -93,6 +93,14 @@ export class SystemService {
 
   integrityCheck(): IntegrityReport {
     requirePermission(this.context(), 'settings.view');
+    return this.integrityCheckInternal();
+  }
+
+  /**
+   * The same report without the permission check. The installation self-check
+   * runs before anybody has signed in, so it cannot borrow a user's rights.
+   */
+  integrityCheckInternal(): IntegrityReport {
     const ctx = this.context();
     const integrity = checkIntegrity(this.db);
     const foreignKeys = this.db.pragma('foreign_key_check') as Array<Record<string, unknown>>;
