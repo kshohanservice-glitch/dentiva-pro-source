@@ -11,7 +11,7 @@
  * pipeline uses against the installed copy.
  */
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
@@ -33,12 +33,50 @@ function freshDataDir(): string {
   return mkdtempSync(path.join(tmpdir(), 'dentiva-app-e2e-'));
 }
 
-async function launch(dataDir: string): Promise<ElectronApplication> {
-  return await electron.launch({
+/**
+ * Chromium switches a headless CI runner needs: no GPU, a small shared-memory
+ * area, and a kernel that restricts the namespace sandbox. They are applied only
+ * when `CI` is set, so a local run exercises exactly the shipped configuration.
+ */
+function ciSwitches(): string[] {
+  return process.env.CI ? ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'] : [];
+}
+
+// --- diagnostics ------------------------------------------------------------
+//
+// The release pipeline stores its logs where they cannot always be read back, so
+// every run writes what it did and everything the application printed to
+// `test-results/e2e-diagnostics.log`. A failing job turns that file into job
+// annotations, which is what a maintainer actually reads.
+
+const diagnosticsFile = path.join(root, 'test-results', 'e2e-diagnostics.log');
+const diagnostics: string[] = [];
+
+function note(message: string): void {
+  diagnostics.push(`[${new Date().toISOString()}] ${message}`);
+}
+
+function watch(app: ElectronApplication): void {
+  const child = app.process();
+  child.stdout?.on('data', (chunk: Buffer) => diagnostics.push(`[stdout] ${String(chunk).trimEnd()}`));
+  child.stderr?.on('data', (chunk: Buffer) => diagnostics.push(`[stderr] ${String(chunk).trimEnd()}`));
+}
+
+function flushDiagnostics(): void {
+  mkdirSync(path.dirname(diagnosticsFile), { recursive: true });
+  writeFileSync(diagnosticsFile, `${diagnostics.join('\n')}\n`, 'utf8');
+}
+
+async function launch(dataDir: string, extraArgs: string[] = []): Promise<ElectronApplication> {
+  const args = [mainEntry, ...ciSwitches(), ...extraArgs];
+  note(`launch: ${args.join(' ')}`);
+  const app = await electron.launch({
     executablePath: electronBinary() ?? undefined,
-    args: [mainEntry],
+    args,
     env: { ...process.env, DENTIVA_DATA_DIR: dataDir },
   });
+  watch(app);
+  return app;
 }
 
 async function signIn(window: Page, username: string, password: string): Promise<void> {
@@ -63,9 +101,15 @@ test.describe('packaged desktop application', () => {
     await app?.close().catch(() => undefined);
     app = null;
     rmSync(dataDir, { recursive: true, force: true });
+    flushDiagnostics();
+  });
+
+  test.afterAll(() => {
+    flushDiagnostics();
   });
 
   test('activates, walks the setup wizard, signs in and survives a restart', async () => {
+    note('step 1: launch and show the activation gate');
     app = await launch(dataDir);
     const window = await app.firstWindow();
     await window.waitForLoadState('domcontentloaded');
@@ -76,11 +120,13 @@ test.describe('packaged desktop application', () => {
     await window.getByRole('button', { name: /Activate this device/ }).click();
     await expect(window.getByText(/not valid/i)).toBeVisible();
 
+    note('step 2: the real activation code opens the setup wizard');
     // 2. The real code opens the setup wizard.
     await window.getByLabel(/Activation code/).fill(LICENSE_CODE);
     await window.getByRole('button', { name: /Activate this device/ }).click();
     await expect(window.getByText('Clinic profile')).toBeVisible();
 
+    note('step 3: clinic profile');
     // 3. Clinic profile.
     await window.getByLabel(/^Clinic name/).fill('Smile Dental Care');
     await window.getByLabel(/^Phone/).fill('01711111111');
@@ -89,6 +135,7 @@ test.describe('packaged desktop application', () => {
     await expect(window.getByText(/Clinic profile saved/i)).toBeVisible();
     await window.getByRole('button', { name: /Continue/ }).click();
 
+    note('step 4: dentists');
     // 4. Dentists: one consultant with a qualification.
     await expect(window.getByText('Dentists', { exact: true }).first()).toBeVisible();
     await window
@@ -103,12 +150,14 @@ test.describe('packaged desktop application', () => {
     await expect(window.getByText(/Dentists saved/i)).toBeVisible();
     await window.getByRole('button', { name: /Continue/ }).click();
 
+    note('step 5: preferences');
     // 5. Preferences keep their validated defaults.
     await expect(window.getByText('Save preferences')).toBeVisible();
     await window.getByRole('button', { name: /Save preferences/ }).click();
     await expect(window.getByText(/Preferences saved/i)).toBeVisible();
     await window.getByRole('button', { name: /Continue/ }).click();
 
+    note('step 6: administrator account');
     // 6. The administrator account.
     await window.getByLabel(/^Username/).fill('owner');
     await window.getByLabel(/^Full name/).fill('Clinic Owner');
@@ -118,11 +167,13 @@ test.describe('packaged desktop application', () => {
     await expect(window.getByText(/Administrator created/i)).toBeVisible();
     await window.getByRole('button', { name: /Continue/ }).click();
 
+    note('step 7: review and finish');
     // 7. Review, then finish.
     await expect(window.getByText('Smile Dental Care').first()).toBeVisible();
     await window.getByRole('button', { name: /Continue/ }).click();
     await window.getByRole('button', { name: /Complete setup and open Dentiva Pro/ }).click();
 
+    note('step 8: sign in');
     // 8. The clinic is configured: sign in with the account just created.
     await expect(window.getByText(/Sign in/i).first()).toBeVisible();
     await signIn(window, 'owner', OWNER_PASSWORD);
@@ -131,6 +182,7 @@ test.describe('packaged desktop application', () => {
     const database = path.join(dataDir, 'data', 'dentiva.sqlite');
     expect(existsSync(database)).toBe(true);
 
+    note('step 9: restart over the same data folder');
     // 9. Restarting the machine does not ask for the code or the wizard again.
     await app.close();
     app = await launch(dataDir);
@@ -143,11 +195,13 @@ test.describe('packaged desktop application', () => {
   });
 
   test('--self-check reports a healthy installation and exits 0', async () => {
+    note('self-check: launch with --self-check');
     const checked = await electron.launch({
       executablePath: electronBinary() ?? undefined,
-      args: [mainEntry, '--self-check'],
+      args: [mainEntry, ...ciSwitches(), '--self-check'],
       env: { ...process.env, DENTIVA_DATA_DIR: dataDir },
     });
+    watch(checked);
     const child = checked.process();
     let output = '';
     child.stdout?.on('data', (chunk: Buffer) => {
@@ -155,6 +209,7 @@ test.describe('packaged desktop application', () => {
     });
     const exitCode = await new Promise<number | null>((resolve) => child.on('exit', (code) => resolve(code)));
     await checked.close().catch(() => undefined);
+    note(`self-check exit ${String(exitCode)}: ${output.trim()}`);
 
     expect(output).toContain('"ok": true');
     expect(output).toContain('"databaseOk": true');

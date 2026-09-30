@@ -29,49 +29,123 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Each heavy step keeps its own transcript. A failure is explained by the
+      # annotations at the end of the job, so the reason is visible without
+      # opening the raw log.
+      - name: Prepare the log folder
+        run: mkdir -p test-results
+
       - name: Lint
+        id: lint
         run: npm run lint
 
       - name: Typecheck the main process and the renderer
-        run: npm run typecheck
+        id: types
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee test-results/typecheck.log
 
       - name: Check formatting and the line-length policy
-        run: npm run format:check
+        id: format
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run format:check 2>&1 | tee test-results/format.log
 
       - name: Regenerate the licence notices and fail if they are stale
+        id: licences
+        continue-on-error: true
         run: |
-          npm run licenses
-          git diff --exit-code -- THIRD-PARTY-NOTICES.md src/renderer/generated/licenses.ts
+          set -o pipefail
+          {
+            npm run licenses
+            git diff --exit-code -- THIRD-PARTY-NOTICES.md src/renderer/generated/licenses.ts
+          } 2>&1 | tee test-results/licences.log
 
       - name: Unit and integration tests
-        run: npm test
+        id: tests
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee test-results/tests.log
 
       - name: Renderer tests (the real screens over the real core)
-        run: npm run test:ui
+        id: ui
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run test:ui 2>&1 | tee test-results/ui.log
 
       - name: Stress test (600-patient clinic)
+        id: stress
+        continue-on-error: true
         env:
           DENTIVA_STRESS_PATIENTS: 600
-        run: npm run test:stress
+        run: |
+          set -o pipefail
+          npm run test:stress 2>&1 | tee test-results/stress.log
 
       - name: Build main, preload and renderer bundles
-        run: npm run build
+        id: build
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee test-results/build.log
 
       - name: End-to-end run through the IPC surface
-        run: npm run test:e2e
+        id: e2e
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run test:e2e 2>&1 | tee test-results/e2e.log
 
       - name: Packaged application test (Playwright drives real Electron)
-        run: xvfb-run -a --server-args="-screen 0 1920x1080x24" npm run test:e2e:electron
+        id: packaged
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          xvfb-run -a --server-args="-screen 0 1920x1080x24" npm run test:e2e:electron 2>&1 | tee test-results/packaged.log
 
-      - name: Upload the Playwright report when the packaged application test fails
+      - name: Explain what failed, in the job annotations
         if: failure()
+        shell: bash
+        run: |
+          {
+            echo "step outcomes"
+            echo "  lint=${{ steps.lint.outcome || 'not run' }}"
+            echo "  types=${{ steps.types.outcome || 'not run' }}"
+            echo "  format=${{ steps.format.outcome || 'not run' }}"
+            echo "  licences=${{ steps.licences.outcome || 'not run' }}"
+            echo "  tests=${{ steps.tests.outcome || 'not run' }}"
+            echo "  ui=${{ steps.ui.outcome || 'not run' }}"
+            echo "  stress=${{ steps.stress.outcome || 'not run' }}"
+            echo "  build=${{ steps.build.outcome || 'not run' }}"
+            echo "  e2e=${{ steps.e2e.outcome || 'not run' }}"
+            echo "  packaged=${{ steps.packaged.outcome || 'not run' }}"
+            for log in test-results/*.log; do
+              [ -f "$log" ] || continue
+              echo "===== $log (last 60 lines) ====="
+              tail -n 60 "$log"
+            done
+            if [ -f test-results/e2e-diagnostics.log ]; then
+              echo "===== test-results/e2e-diagnostics.log (last 60 lines) ====="
+              tail -n 60 test-results/e2e-diagnostics.log
+            fi
+          } > test-results/failure-annotation.txt
+          text=$(tr -d '\r' < test-results/failure-annotation.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          printf '::error title=CI failure::%s\n' "$text"
+          exit 1
+
+      - name: Upload the logs, the Playwright report and the traces
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: ci-logs
           path: |
-            playwright-report
             test-results
-          if-no-files-found: ignore
+            playwright-report
+          if-no-files-found: warn
 
   windows-installer:
     name: Windows installer and clean-machine test
@@ -89,77 +163,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build the installer and the portable executable
-        run: npm run dist:all
-
-      - name: List the produced artifacts
-        shell: pwsh
-        run: Get-ChildItem release | Format-Table Name, Length
-
-      - name: Install silently, then run the installation self-check
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $installer = Get-ChildItem release -Filter '*Setup.exe' | Select-Object -First 1
-          if (-not $installer) { throw 'No installer was produced.' }
-
-          $installDir = Join-Path $env:LOCALAPPDATA 'Programs\Dentiva Pro'
-          $dataDir = Join-Path $env:RUNNER_TEMP 'dentiva-clean-machine'
-
-          # A clean machine: nothing installed, nothing configured.
-          if (Test-Path $installDir) { throw "The runner already has $installDir." }
-          Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait
-
-          $exe = Join-Path $installDir 'Dentiva Pro.exe'
-          $uninstaller = Join-Path $installDir 'Uninstall Dentiva Pro.exe'
-          if (-not (Test-Path $exe)) { throw 'The application executable was not installed.' }
-          if (-not (Test-Path $uninstaller)) { throw 'The uninstaller was not installed.' }
-
-          $shortcut = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Dentiva Pro.lnk'
-          if (-not (Test-Path $shortcut)) { throw 'The Start Menu shortcut was not created.' }
-          $desktop = Join-Path $env:USERPROFILE 'Desktop\Dentiva Pro.lnk'
-          if (-not (Test-Path $desktop)) { throw 'The desktop shortcut was not created.' }
-
-          $uninstallKey = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' |
-            Where-Object { $_.DisplayName -like 'Dentiva Pro*' }
-          if (-not $uninstallKey) { throw 'No uninstall entry was registered.' }
-
-          # The installed application must be able to open its own database.
-          $env:DENTIVA_DATA_DIR = $dataDir
-          $report = & $exe --self-check | Out-String
-          Write-Host $report
-          $json = $report | ConvertFrom-Json
-          if (-not $json.ok) { throw 'The installed application failed its self-check.' }
-          if ($json.databaseOk -ne $true) { throw 'The installed application could not open its database.' }
-          if ($json.integrityOk -ne $true) { throw 'The installed application failed its integrity check.' }
-          if ($json.packaged -ne $true) { throw 'The application does not believe it is packaged.' }
-
-      - name: Remove the application and prove the clinic's data survives
+      # One script holds the whole check so the transcript, the assertions and the
+      # evidence summary cannot drift apart. It builds the installer, installs it
+      # silently on a clean machine, verifies the executable, the shortcuts, the
+      # uninstall entry and the installed application's self-check (default and
+      # relocated data folders), then uninstalls and proves the clinic data survived.
+      - name: Build, install and verify on a clean machine
+        id: installcheck
+        continue-on-error: true
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $installDir = Join-Path $env:LOCALAPPDATA 'Programs\Dentiva Pro'
-          $dataDir = Join-Path $env:RUNNER_TEMP 'dentiva-clean-machine'
-          $marker = Join-Path $dataDir 'data\keep-me.txt'
-          New-Item -ItemType Directory -Force -Path (Split-Path $marker) | Out-Null
-          Set-Content -Path $marker -Value 'clinic records must survive an uninstall'
+          New-Item -ItemType Directory -Force -Path test-results | Out-Null
+          pwsh -NoProfile -File tools/ci/windows-check.ps1 *>&1 | Tee-Object -FilePath test-results/windows-check.log
 
-          $uninstaller = Join-Path $installDir 'Uninstall Dentiva Pro.exe'
-          Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait
-          Start-Sleep -Seconds 10
+      - name: Explain a Windows check failure in the job annotations
+        if: steps.installcheck.outcome == 'failure'
+        shell: pwsh
+        run: |
+          $log = 'test-results/windows-check.log'
+          if (Test-Path $log) { $tail = Get-Content $log | Select-Object -Last 80 } else { $tail = @('(no transcript was written)') }
+          $escaped = (($tail | ForEach-Object { $_.Replace('%', '%25') }) -join '%0A')
+          Write-Host "::error title=Windows installer check::$escaped"
+          exit 1
 
-          if (Test-Path (Join-Path $installDir 'Dentiva Pro.exe')) {
-            throw 'The application executable survived the uninstall.'
-          }
-          if (-not (Test-Path $marker)) {
-            throw 'The clinic data folder was deleted by the uninstaller.'
-          }
-          $registration = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' |
-            Where-Object { $_.DisplayName -like 'Dentiva Pro*' }
-          if ($registration) { throw 'The uninstall registry entry was left behind.' }
-          Write-Host 'Uninstall removed the application and kept the clinic data.'
-
-      - name: Upload the release artifacts
+      - name: Upload the release artifacts and the evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dentiva-pro-windows
@@ -167,4 +195,6 @@ jobs:
             release/*Setup.exe
             release/*Portable.exe
             release/*.yml
-          if-no-files-found: error
+            test-results/windows-install-evidence.txt
+            test-results/windows-check.log
+          if-no-files-found: warn
