@@ -8,12 +8,7 @@
  */
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { argon2id, argon2Verify } from 'hash-wasm';
-import {
-  COMMON_PASSWORDS,
-  DEFAULT_PASSWORD_POLICY,
-  passwordStrength,
-  validatePassword,
-} from '@shared/password-policy';
+import { COMMON_PASSWORDS, DEFAULT_PASSWORD_POLICY, passwordStrength, validatePassword } from '@shared/password-policy';
 import type { PasswordPolicy, PasswordStrength, PasswordValidationResult } from '@shared/password-policy';
 
 export const ARGON2_PARAMETERS = {
@@ -25,7 +20,6 @@ export const ARGON2_PARAMETERS = {
 
 export { COMMON_PASSWORDS, DEFAULT_PASSWORD_POLICY, passwordStrength, validatePassword };
 export type { PasswordPolicy, PasswordStrength, PasswordValidationResult };
-
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16);

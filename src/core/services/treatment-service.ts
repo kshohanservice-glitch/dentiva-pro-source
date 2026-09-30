@@ -8,10 +8,17 @@
 import type { SqliteDatabase } from '../db/connection';
 import type { CoreContext } from '../context';
 import { currentUserId, requirePermission } from '../context';
-import type { Paged, Treatment, TreatmentPlan, TreatmentPlanInput, TreatmentPlanItem, TreatmentPlanItemInput, TreatmentRecord } from '@shared/types';
+import type {
+  Paged,
+  Treatment,
+  TreatmentPlan,
+  TreatmentPlanInput,
+  TreatmentPlanItem,
+  TreatmentPlanItemInput,
+  TreatmentRecord,
+} from '@shared/types';
 import { AppError } from '@shared/errors';
 import { asNumber, asString, buildWhere, pageCount, paginate, parseJsonArray, toJsonArray } from '../db/sql';
-import {} from '@shared/dates';
 
 export class TreatmentService {
   constructor(
@@ -73,7 +80,8 @@ export class TreatmentService {
 
   deleteRecord(id: number, reason: string): void {
     requirePermission(this.context(), 'visit.edit');
-    if (reason.trim().length < 3) throw AppError.validation('Please give a reason for removing this treatment.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Please give a reason for removing this treatment.', { reason: 'Reason is required.' });
     const record = this.db.prepare(`SELECT * FROM treatment_records WHERE id = ? AND deleted_at IS NULL`).get(id) as
       | { invoice_item_id: number | null; description: string; total_paisa: number }
       | undefined;
@@ -116,7 +124,14 @@ export class TreatmentService {
           WHERE ${clauses.join(' AND ')}
           ORDER BY usage_count DESC, t.name LIMIT ?`,
       )
-      .all(...params, limit) as Array<{ id: number; name: string; code: string; category: string; price_paisa: number; usage_count: number }>;
+      .all(...params, limit) as Array<{
+      id: number;
+      name: string;
+      code: string;
+      category: string;
+      price_paisa: number;
+      usage_count: number;
+    }>;
     return rows.map((row) => ({
       value: row.id,
       label: row.name,
@@ -152,9 +167,7 @@ export class TreatmentService {
       (this.db.prepare(`SELECT COUNT(*) AS total FROM treatment_plans tp${where}`).get(...params) as { total: number }).total,
     );
     const rows = this.db
-      .prepare(
-        `SELECT tp.id FROM treatment_plans tp${where} ORDER BY tp.created_at DESC LIMIT ? OFFSET ?`,
-      )
+      .prepare(`SELECT tp.id FROM treatment_plans tp${where} ORDER BY tp.created_at DESC LIMIT ? OFFSET ?`)
       .all(...params, limit, offset) as Array<{ id: number }>;
     return {
       items: rows.map((row) => this.getPlan(row.id)),
@@ -253,7 +266,13 @@ export class TreatmentService {
       .prepare(`UPDATE treatment_plans SET title = ?, status = ?, notes = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`)
       .run(input.title.trim(), input.status, input.notes.trim(), this.context().instant(), id);
     if (result.changes === 0) throw AppError.notFound('Treatment plan');
-    this.context().audit.record({ action: 'update', entityType: 'treatment_plan', entityId: id, entityLabel: input.title, detail: 'Treatment plan updated' });
+    this.context().audit.record({
+      action: 'update',
+      entityType: 'treatment_plan',
+      entityId: id,
+      entityLabel: input.title,
+      detail: 'Treatment plan updated',
+    });
   }
 
   deletePlan(id: number, reason?: string): void {
@@ -275,7 +294,8 @@ export class TreatmentService {
     requirePermission(this.context(), 'treatment.view');
     const plan = this.db.prepare(`SELECT id FROM treatment_plans WHERE id = ? AND deleted_at IS NULL`).get(planId);
     if (!plan) throw AppError.notFound('Treatment plan');
-    if (input.description.trim() === '') throw AppError.validation('Describe the planned treatment.', { description: 'Description is required.' });
+    if (input.description.trim() === '')
+      throw AppError.validation('Describe the planned treatment.', { description: 'Description is required.' });
     if (!Number.isFinite(input.estimatedPaisa) || input.estimatedPaisa < 0) {
       throw AppError.validation('Estimated amount cannot be negative.', { estimatedPaisa: 'Enter a positive amount.' });
     }
@@ -393,7 +413,9 @@ export class TreatmentService {
       params.push(category);
     }
     const where = buildWhere(clauses);
-    const total = asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM treatment_catalog t${where}`).get(...params) as { total: number }).total);
+    const total = asNumber(
+      (this.db.prepare(`SELECT COUNT(*) AS total FROM treatment_catalog t${where}`).get(...params) as { total: number }).total,
+    );
     const rows = this.db
       .prepare(
         `SELECT t.*, (SELECT COUNT(*) FROM treatment_records tr WHERE tr.treatment_id = t.id AND tr.deleted_at IS NULL) AS usage_count

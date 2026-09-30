@@ -15,7 +15,7 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { SqliteDatabase } from '../db/connection';
 import type { CoreContext } from '../context';
-import { currentUserName, hasPermission, requirePermission } from '../context';
+import { hasPermission, requirePermission } from '../context';
 import { AppError } from '@shared/errors';
 import { addDays, compareIsoDate, formatDate, isIsoDate, startOfMonth, startOfWeek, todayIso } from '@shared/dates';
 import type { IsoDate } from '@shared/dates';
@@ -200,31 +200,6 @@ export const REPORT_CATALOGUE: readonly ReportSeed[] = [
   },
 ];
 
-const DATE_COLUMNS: Record<ReportKey, string> = {
-  patients_registered: 'substr(p.created_at, 1, 10)',
-  patient_register_detail: 'substr(p.created_at, 1, 10)',
-  appointments: 'a.date',
-  no_shows: 'a.date',
-  visits: 'v.visit_date',
-  treatments: 'substr(t.performed_at, 1, 10)',
-  prescriptions: 'pr.date',
-  referrals: 'r.date',
-  revenue: 'i.date',
-  payments: 'pay.paid_date',
-  outstanding: 'i.date',
-  expenses: 'tr.date',
-  income: 'tr.date',
-  profit: 'tr.date',
-  daybook: 'tr.date',
-  inventory_stock: 'substr(i.created_at, 1, 10)',
-  inventory_low_stock: 'substr(i.created_at, 1, 10)',
-  inventory_expiry: 'COALESCE(i.expiry_date, i.created_at)',
-  inventory_movements: 'm.moved_date',
-  dentist_activity: 'a.date',
-  staff_activity: 'substr(l.created_at, 1, 10)',
-  audit_summary: 'substr(l.created_at, 1, 10)',
-};
-
 export class ReportService {
   constructor(
     private readonly db: SqliteDatabase,
@@ -321,11 +296,16 @@ export class ReportService {
     }
     if (Object.keys(result.totals).length > 0) {
       lines.push('');
-      lines.push(['Totals', ...result.columns.slice(1).map((column) => {
-        const total = result.totals[column.key];
-        if (total === undefined) return '';
-        return column.type === 'money' ? (total / 100).toFixed(2) : String(total);
-      })].join(','));
+      lines.push(
+        [
+          'Totals',
+          ...result.columns.slice(1).map((column) => {
+            const total = result.totals[column.key];
+            if (total === undefined) return '';
+            return column.type === 'money' ? (total / 100).toFixed(2) : String(total);
+          }),
+        ].join(','),
+      );
     }
     await ensureDir(outputDirectory);
     const stamp = this.context().instant().replace(/[:.]/g, '-');
@@ -336,13 +316,18 @@ export class ReportService {
       action: 'export',
       entityType: 'report',
       entityLabel: result.title,
-      detail: `${result.title} exported to CSV (${result.rowCount} row(s), ${formatDate(result.range.from)} – ${formatDate(result.range.to)})`,
+      detail:
+        `${result.title} exported to CSV (${result.rowCount}` +
+        ` row(s), ${formatDate(result.range.from)} – ${formatDate(result.range.to)})`,
       severity: 'warning',
     });
     return { path, rowCount: result.rowCount };
   }
 
-  async export(request: ReportRequest, format: 'csv' | 'pdf' | 'print'): Promise<{ path: string | null; printed: boolean; rowCount: number }> {
+  async export(
+    request: ReportRequest,
+    format: 'csv' | 'pdf' | 'print',
+  ): Promise<{ path: string | null; printed: boolean; rowCount: number }> {
     if (format === 'csv') {
       const csv = await this.exportCsv(request, this.context().paths.exportsDir);
       return { path: csv.path, printed: false, rowCount: csv.rowCount };
@@ -417,7 +402,10 @@ export class ReportService {
     }
   }
 
-  private patientsRegistered(dates: { from: IsoDate; to: IsoDate }, options: { groupBy: NonNullable<ReportRequest['groupBy']> }): ReturnType<ReportService['build']> {
+  private patientsRegistered(
+    dates: { from: IsoDate; to: IsoDate },
+    options: { groupBy: NonNullable<ReportRequest['groupBy']> },
+  ): ReturnType<ReportService['build']> {
     const rows = this.db
       .prepare(
         `SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS registrations,
@@ -457,7 +445,11 @@ export class ReportService {
         { key: 'runningTotal', label: 'Running total', align: 'right', type: 'number' },
       ],
       rows: output,
-      totals: { registrations: total, male: output.reduce((sum, row) => sum + row.male, 0), female: output.reduce((sum, row) => sum + row.female, 0) },
+      totals: {
+        registrations: total,
+        male: output.reduce((sum, row) => sum + row.male, 0),
+        female: output.reduce((sum, row) => sum + row.female, 0),
+      },
       summary: [
         { label: 'New patients', value: String(total), tone: 'success' as const },
         { label: 'Average per day', value: averagePerDay(total, dates.from, dates.to) },
@@ -575,7 +567,9 @@ export class ReportService {
             ${request.filters?.dentistId ? 'AND a.dentist_id = ?' : ''}
           ORDER BY a.date DESC, a.start_time`,
       )
-      .all(...(request.filters?.dentistId ? [dates.from, dates.to, request.filters.dentistId] : [dates.from, dates.to])) as Array<Record<string, unknown>>;
+      .all(...(request.filters?.dentistId ? [dates.from, dates.to, request.filters.dentistId] : [dates.from, dates.to])) as Array<
+      Record<string, unknown>
+    >;
 
     const output = rows.map((row) => ({
       date: asString(row['date']),
@@ -625,7 +619,12 @@ export class ReportService {
           ORDER BY v.visit_date, v.visit_time`,
       )
       .all(
-        ...[dates.from, dates.to, ...(request.filters?.dentistId ? [request.filters.dentistId] : []), ...(request.filters?.patientId ? [request.filters.patientId] : [])],
+        ...[
+          dates.from,
+          dates.to,
+          ...(request.filters?.dentistId ? [request.filters.dentistId] : []),
+          ...(request.filters?.patientId ? [request.filters.patientId] : []),
+        ],
       ) as Array<Record<string, unknown>>;
 
     const output = rows.map((row) => ({
@@ -661,7 +660,11 @@ export class ReportService {
     };
   }
 
-  private treatmentReport(dates: { from: IsoDate; to: IsoDate }, request: ReportRequest, options: { financial: boolean }): ReturnType<ReportService['build']> {
+  private treatmentReport(
+    dates: { from: IsoDate; to: IsoDate },
+    request: ReportRequest,
+    options: { financial: boolean },
+  ): ReturnType<ReportService['build']> {
     const rows = this.db
       .prepare(
         `SELECT substr(t.performed_at, 1, 10) AS date, p.code AS patient_code, trim(p.first_name || ' ' || p.last_name) AS patient_name,
@@ -676,7 +679,12 @@ export class ReportService {
           ORDER BY date, p.code`,
       )
       .all(
-        ...[dates.from, dates.to, ...(request.filters?.dentistId ? [request.filters.dentistId] : []), ...(request.filters?.patientId ? [request.filters.patientId] : [])],
+        ...[
+          dates.from,
+          dates.to,
+          ...(request.filters?.dentistId ? [request.filters.dentistId] : []),
+          ...(request.filters?.patientId ? [request.filters.patientId] : []),
+        ],
       ) as Array<Record<string, unknown>>;
 
     const output = rows.map((row) => {
@@ -740,7 +748,12 @@ export class ReportService {
           ORDER BY pr.date DESC, pr.number DESC`,
       )
       .all(
-        ...[dates.from, dates.to, ...(request.filters?.dentistId ? [request.filters.dentistId] : []), ...(request.filters?.patientId ? [request.filters.patientId] : [])],
+        ...[
+          dates.from,
+          dates.to,
+          ...(request.filters?.dentistId ? [request.filters.dentistId] : []),
+          ...(request.filters?.patientId ? [request.filters.patientId] : []),
+        ],
       ) as Array<Record<string, unknown>>;
 
     const output = rows.map((row) => ({
@@ -767,7 +780,11 @@ export class ReportService {
       totals: { items: output.reduce((sum, row) => sum + row.items, 0) },
       summary: [
         { label: 'Prescriptions', value: String(output.length) },
-        { label: 'Voided', value: String(output.filter((row) => row.status === 'void').length), tone: output.some((row) => row.status === 'void') ? 'warning' : 'default' },
+        {
+          label: 'Voided',
+          value: String(output.filter((row) => row.status === 'void').length),
+          tone: output.some((row) => row.status === 'void') ? 'warning' : 'default',
+        },
       ],
       chart: null,
     };
@@ -784,7 +801,9 @@ export class ReportService {
             ${request.filters?.patientId ? 'AND r.patient_id = ?' : ''}
           ORDER BY r.date DESC`,
       )
-      .all(...(request.filters?.patientId ? [dates.from, dates.to, request.filters.patientId] : [dates.from, dates.to])) as Array<Record<string, unknown>>;
+      .all(...(request.filters?.patientId ? [dates.from, dates.to, request.filters.patientId] : [dates.from, dates.to])) as Array<
+      Record<string, unknown>
+    >;
 
     const output = rows.map((row) => ({
       date: asString(row['date']),
@@ -820,7 +839,10 @@ export class ReportService {
     };
   }
 
-  private revenueReport(dates: { from: IsoDate; to: IsoDate }, options: { groupBy: NonNullable<ReportRequest['groupBy']> }): ReturnType<ReportService['build']> {
+  private revenueReport(
+    dates: { from: IsoDate; to: IsoDate },
+    options: { groupBy: NonNullable<ReportRequest['groupBy']> },
+  ): ReturnType<ReportService['build']> {
     const rows = this.db
       .prepare(
         `SELECT i.date AS day, COUNT(*) AS invoices, SUM(i.subtotal_paisa) AS gross, SUM(i.discount_paisa) AS discount,
@@ -839,18 +861,14 @@ export class ReportService {
       net: asNumber(row['net']),
       collected: asNumber(row['collected']),
     }));
-    const buckets = foldSeries(
-      series,
-      options.groupBy,
-      (bucket) => ({
-        date: bucket.date,
-        invoices: bucket.values.reduce((sum, value) => sum + value.invoices, 0),
-        gross: bucket.values.reduce((sum, value) => sum + value.gross, 0),
-        discount: bucket.values.reduce((sum, value) => sum + value.discount, 0),
-        net: bucket.values.reduce((sum, value) => sum + value.net, 0),
-        collected: bucket.values.reduce((sum, value) => sum + value.collected, 0),
-      }),
-    );
+    const buckets = foldSeries(series, options.groupBy, (bucket) => ({
+      date: bucket.date,
+      invoices: bucket.values.reduce((sum, value) => sum + value.invoices, 0),
+      gross: bucket.values.reduce((sum, value) => sum + value.gross, 0),
+      discount: bucket.values.reduce((sum, value) => sum + value.discount, 0),
+      net: bucket.values.reduce((sum, value) => sum + value.net, 0),
+      collected: bucket.values.reduce((sum, value) => sum + value.collected, 0),
+    }));
 
     const output = buckets.map((bucket) => ({ ...bucket, outstanding: bucket.net - bucket.collected }));
     const totals = {
@@ -877,7 +895,11 @@ export class ReportService {
       summary: [
         { label: 'Net billed', value: formatMoney(totals.net) },
         { label: 'Collected', value: formatMoney(totals.collected), tone: 'success' as const },
-        { label: 'Outstanding', value: formatMoney(totals.outstanding), tone: totals.outstanding > 0 ? ('warning' as const) : ('default' as const) },
+        {
+          label: 'Outstanding',
+          value: formatMoney(totals.outstanding),
+          tone: totals.outstanding > 0 ? ('warning' as const) : ('default' as const),
+        },
         { label: 'Discounts given', value: formatMoney(totals.discount) },
       ],
       chart: output.map((row) => ({ label: formatDate(row.date, 'DD MMM'), value: row.net })),
@@ -954,7 +976,9 @@ export class ReportService {
             ${request.filters?.patientId ? 'AND i.patient_id = ?' : ''}
           ORDER BY i.date, i.number`,
       )
-      .all(...(request.filters?.patientId ? [dates.from, dates.to, request.filters.patientId] : [dates.from, dates.to])) as Array<Record<string, unknown>>;
+      .all(...(request.filters?.patientId ? [dates.from, dates.to, request.filters.patientId] : [dates.from, dates.to])) as Array<
+      Record<string, unknown>
+    >;
 
     const today = todayIso(new Date(), this.context().timeZone());
     const output = rows.map((row) => ({
@@ -988,13 +1012,17 @@ export class ReportService {
       summary: [
         { label: 'Outstanding', value: formatMoney(balance), tone: balance > 0 ? ('warning' as const) : ('default' as const) },
         { label: 'Over 30 days', value: String(overdue.length), tone: overdue.length > 0 ? ('danger' as const) : ('default' as const) },
-        { label: 'Oldest', value: output.length > 0 ? formatDate(output[0]!.date) : '—' },
+        { label: 'Oldest', value: output.length > 0 ? formatDate(output[0]?.date ?? '') : '—' },
       ],
       chart: null,
     };
   }
 
-  private accountingReport(direction: 'income' | 'expense', dates: { from: IsoDate; to: IsoDate }, request: ReportRequest): ReturnType<ReportService['build']> {
+  private accountingReport(
+    direction: 'income' | 'expense',
+    dates: { from: IsoDate; to: IsoDate },
+    request: ReportRequest,
+  ): ReturnType<ReportService['build']> {
     const rows = this.db
       .prepare(
         `SELECT tr.date, COALESCE(c.name, 'Uncategorised') AS category, COALESCE(m.name, '') AS method,
@@ -1009,7 +1037,13 @@ export class ReportService {
           ORDER BY tr.date, tr.id`,
       )
       .all(
-        ...[direction, dates.from, dates.to, ...(request.filters?.categoryId ? [request.filters.categoryId] : []), ...(request.filters?.paymentMethodId ? [request.filters.paymentMethodId] : [])],
+        ...[
+          direction,
+          dates.from,
+          dates.to,
+          ...(request.filters?.categoryId ? [request.filters.categoryId] : []),
+          ...(request.filters?.paymentMethodId ? [request.filters.paymentMethodId] : []),
+        ],
       ) as Array<Record<string, unknown>>;
 
     const output = rows.map((row) => ({
@@ -1037,7 +1071,11 @@ export class ReportService {
       rows: output,
       totals: { amount: total },
       summary: [
-        { label: direction === 'income' ? 'Total income' : 'Total expenses', value: formatMoney(total), tone: direction === 'income' ? ('success' as const) : ('warning' as const) },
+        {
+          label: direction === 'income' ? 'Total income' : 'Total expenses',
+          value: formatMoney(total),
+          tone: direction === 'income' ? ('success' as const) : ('warning' as const),
+        },
         { label: 'Entries', value: String(output.length) },
         ...[...byCategory.entries()].slice(0, 4).map(([category, amount]) => ({ label: category, value: formatMoney(amount) })),
       ],
@@ -1045,7 +1083,10 @@ export class ReportService {
     };
   }
 
-  private profitReport(dates: { from: IsoDate; to: IsoDate }, options: { groupBy: NonNullable<ReportRequest['groupBy']> }): ReturnType<ReportService['build']> {
+  private profitReport(
+    dates: { from: IsoDate; to: IsoDate },
+    options: { groupBy: NonNullable<ReportRequest['groupBy']> },
+  ): ReturnType<ReportService['build']> {
     const rows = this.db
       .prepare(
         `SELECT tr.date AS day, tr.direction, SUM(tr.amount_paisa) AS amount
@@ -1063,15 +1104,11 @@ export class ReportService {
       byDay.set(row.day, entry);
     }
     const series = [...byDay.entries()].map(([day, value]) => ({ date: day, income: value.income, expense: value.expense }));
-    const bucketed = foldSeries(
-      series,
-      options.groupBy,
-      (bucket) => ({
-        date: bucket.date,
-        income: bucket.values.reduce((sum, value) => sum + value.income, 0),
-        expense: bucket.values.reduce((sum, value) => sum + value.expense, 0),
-      }),
-    );
+    const bucketed = foldSeries(series, options.groupBy, (bucket) => ({
+      date: bucket.date,
+      income: bucket.values.reduce((sum, value) => sum + value.income, 0),
+      expense: bucket.values.reduce((sum, value) => sum + value.expense, 0),
+    }));
     const output = bucketed.map((bucket) => ({ ...bucket, net: bucket.income - bucket.expense }));
     const totals = {
       income: output.reduce((sum, row) => sum + row.income, 0),
@@ -1113,7 +1150,9 @@ export class ReportService {
             ${request.filters?.direction ? 'AND tr.direction = ?' : ''}
           ORDER BY tr.date, tr.id`,
       )
-      .all(...(request.filters?.direction ? [dates.from, dates.to, request.filters.direction] : [dates.from, dates.to])) as Array<Record<string, unknown>>;
+      .all(...(request.filters?.direction ? [dates.from, dates.to, request.filters.direction] : [dates.from, dates.to])) as Array<
+      Record<string, unknown>
+    >;
 
     let running = 0;
     const output = rows.map((row) => {
@@ -1155,7 +1194,11 @@ export class ReportService {
     };
   }
 
-  private stockReport(dates: { from: IsoDate; to: IsoDate }, request: ReportRequest, options: { financial: boolean }): ReturnType<ReportService['build']> {
+  private stockReport(
+    dates: { from: IsoDate; to: IsoDate },
+    request: ReportRequest,
+    options: { financial: boolean },
+  ): ReturnType<ReportService['build']> {
     const rows = this.db
       .prepare(
         `SELECT i.code, i.name, COALESCE(c.name, '') AS category, COALESCE(s.name, '') AS supplier, i.unit,
@@ -1169,7 +1212,11 @@ export class ReportService {
             ${request.filters?.supplierId ? 'AND i.supplier_id = ?' : ''}
           ORDER BY i.name`,
       )
-      .all(...(request.filters?.categoryId ? [request.filters.categoryId] : []).concat(request.filters?.supplierId ? [request.filters.supplierId] : [])) as Array<Record<string, unknown>>;
+      .all(
+        ...(request.filters?.categoryId ? [request.filters.categoryId] : []).concat(
+          request.filters?.supplierId ? [request.filters.supplierId] : [],
+        ),
+      ) as Array<Record<string, unknown>>;
 
     const output = rows.map((row) => {
       const stock = asNumber(row['current_stock_milli']) / 1000;
@@ -1238,7 +1285,11 @@ export class ReportService {
             ${request.filters?.supplierId ? 'AND i.supplier_id = ?' : ''}
           ORDER BY (i.minimum_stock_milli - i.current_stock_milli) DESC, i.name`,
       )
-      .all(...(request.filters?.categoryId ? [request.filters.categoryId] : []).concat(request.filters?.supplierId ? [request.filters.supplierId] : [])) as Array<Record<string, unknown>>;
+      .all(
+        ...(request.filters?.categoryId ? [request.filters.categoryId] : []).concat(
+          request.filters?.supplierId ? [request.filters.supplierId] : [],
+        ),
+      ) as Array<Record<string, unknown>>;
 
     const output = rows.map((row) => {
       const stock = asNumber(row['current_stock_milli']) / 1000;
@@ -1338,7 +1389,9 @@ export class ReportService {
             ${request.filters?.itemId ? 'AND m.item_id = ?' : ''}
           ORDER BY m.moved_date, m.id`,
       )
-      .all(...(request.filters?.itemId ? [dates.from, dates.to, request.filters.itemId] : [dates.from, dates.to])) as Array<Record<string, unknown>>;
+      .all(...(request.filters?.itemId ? [dates.from, dates.to, request.filters.itemId] : [dates.from, dates.to])) as Array<
+      Record<string, unknown>
+    >;
 
     const output = rows.map((row) => ({
       date: asString(row['moved_date']),
@@ -1376,22 +1429,34 @@ export class ReportService {
     };
   }
 
-  private dentistActivityReport(dates: { from: IsoDate; to: IsoDate }, options: { financial: boolean }): ReturnType<ReportService['build']> {
+  private dentistActivityReport(
+    dates: { from: IsoDate; to: IsoDate },
+    options: { financial: boolean },
+  ): ReturnType<ReportService['build']> {
     const rows = this.db
       .prepare(
         `SELECT d.id, d.name,
-                (SELECT COUNT(*) FROM appointments a WHERE a.dentist_id = d.id AND a.deleted_at IS NULL AND a.date BETWEEN ? AND ?) AS appointments,
-                (SELECT COUNT(*) FROM appointments a WHERE a.dentist_id = d.id AND a.deleted_at IS NULL AND a.date BETWEEN ? AND ? AND a.status = 'completed') AS completed,
-                (SELECT COUNT(*) FROM appointments a WHERE a.dentist_id = d.id AND a.deleted_at IS NULL AND a.date BETWEEN ? AND ? AND a.status = 'no_show') AS no_shows,
-                (SELECT COUNT(*) FROM visits v WHERE v.dentist_id = d.id AND v.deleted_at IS NULL AND v.visit_date BETWEEN ? AND ?) AS visits,
-                (SELECT COUNT(*) FROM prescriptions pr WHERE pr.dentist_id = d.id AND pr.deleted_at IS NULL AND pr.date BETWEEN ? AND ?) AS prescriptions,
-                (SELECT COUNT(*) FROM treatment_records t WHERE t.dentist_id = d.id AND t.deleted_at IS NULL AND substr(t.performed_at, 1, 10) BETWEEN ? AND ?) AS treatments,
-                (SELECT COALESCE(SUM(i.total_paisa), 0) FROM invoices i WHERE i.dentist_id = d.id AND i.deleted_at IS NULL AND i.is_void = 0 AND i.date BETWEEN ? AND ?) AS revenue
+                (SELECT COUNT(*) FROM appointments a WHERE a.dentist_id =` +
+          ` d.id AND a.deleted_at IS NULL AND a.date BETWEEN @from AND @to) AS appointments,
+                (SELECT COUNT(*) FROM appointments a WHERE a.dentist_id = d.id AND` +
+          ` a.deleted_at IS NULL AND a.date BETWEEN @from AND @to AND a.status = 'completed') AS completed,
+                (SELECT COUNT(*) FROM appointments a WHERE a.dentist_id = d.id AND` +
+          ` a.deleted_at IS NULL AND a.date BETWEEN @from AND @to AND a.status = 'no_show') AS no_shows,
+                (SELECT COUNT(*) FROM visits v WHERE v.dentist_id = d.id` +
+          ` AND v.deleted_at IS NULL AND v.visit_date BETWEEN @from AND @to) AS visits,
+                (SELECT COUNT(*) FROM prescriptions pr WHERE pr.dentist_id =` +
+          ` d.id AND pr.deleted_at IS NULL AND pr.date BETWEEN @from AND @to) AS prescriptions,
+                (SELECT COUNT(*) FROM treatment_records t WHERE t.dentist_id = d.id AND` +
+          ` t.deleted_at IS NULL AND substr(t.performed_at, 1, 10) BETWEEN @from AND @to) AS treatments,
+                (SELECT COALESCE(SUM(i.total_paisa), 0) FROM invoices i WHERE i.dentist_id` +
+          ` = d.id AND i.deleted_at IS NULL AND i.is_void = 0 AND i.date BETWEEN @from AND @to) AS revenue
            FROM dentists d
           WHERE d.deleted_at IS NULL
           ORDER BY d.name`,
       )
-      .all(...Array.from({ length: 8 }, () => [dates.from, dates.to]).flat()) as Array<Record<string, unknown>>;
+      // Seven subqueries, each filtered by the same named range: appointments,
+      // completed, no-shows, visits, prescriptions, treatments and revenue.
+      .all({ from: dates.from, to: dates.to }) as Array<Record<string, unknown>>;
 
     const output = rows.map((row) => {
       const base: Record<string, string | number | null> = {
@@ -1435,7 +1500,11 @@ export class ReportService {
       summary: [
         { label: 'Appointments', value: String(totals['appointments']) },
         { label: 'Completed', value: String(totals['completed']), tone: 'success' as const },
-        { label: 'No-shows', value: String(totals['noShows']), tone: totals['noShows']! > 0 ? ('warning' as const) : ('default' as const) },
+        {
+          label: 'No-shows',
+          value: String(totals['noShows']),
+          tone: asNumber(totals['noShows']) > 0 ? ('warning' as const) : ('default' as const),
+        },
         ...(options.financial ? [{ label: 'Invoiced', value: formatMoney(totals['revenue'] ?? 0) }] : []),
       ],
       chart: output.map((row) => ({ label: asString(row['dentist']), value: asNumber(row['treatments']) })),

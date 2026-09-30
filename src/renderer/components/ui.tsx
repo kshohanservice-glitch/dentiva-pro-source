@@ -107,7 +107,12 @@ export function Field({
     <label className={`field ${className}`}>
       <span className="field__label">
         {label}
-        {required ? <span aria-hidden className="text-danger"> *</span> : null}
+        {required ? (
+          <span aria-hidden className="text-danger">
+            {' '}
+            *
+          </span>
+        ) : null}
       </span>
       {children}
       {error ? <span className="field__error">{error}</span> : hint ? <span className="field__hint">{hint}</span> : null}
@@ -122,13 +127,7 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export function Input({ invalid = false, numeric = false, className = '', ...rest }: InputProps): JSX.Element {
-  return (
-    <input
-      className={`input ${numeric ? 'input--numeric' : ''} ${className}`}
-      aria-invalid={invalid || undefined}
-      {...rest}
-    />
-  );
+  return <input className={`input ${numeric ? 'input--numeric' : ''} ${className}`} aria-invalid={invalid || undefined} {...rest} />;
 }
 
 export function TextArea({ className = '', rows = 3, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>): JSX.Element {
@@ -167,13 +166,7 @@ export function Checkbox({
   const id = useId();
   return (
     <label className="checkbox" htmlFor={id}>
-      <input
-        id={id}
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
-      />
+      <input id={id} type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} />
       <span>{label}</span>
     </label>
   );
@@ -192,13 +185,7 @@ export function Switch({
 }): JSX.Element {
   return (
     <label className="switch">
-      <input
-        type="checkbox"
-        role="switch"
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
-      />
+      <input type="checkbox" role="switch" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} />
       <span className="switch__track" aria-hidden>
         <span className="switch__thumb" />
       </span>
@@ -410,17 +397,7 @@ export function Stat({
   return <div className={classes}>{body}</div>;
 }
 
-export function Empty({
-  title,
-  text,
-  action,
-  icon,
-}: {
-  title: string;
-  text?: string;
-  action?: ReactNode;
-  icon?: ReactNode;
-}): JSX.Element {
+export function Empty({ title, text, action, icon }: { title: string; text?: string; action?: ReactNode; icon?: ReactNode }): JSX.Element {
   return (
     <div className="empty">
       <div className="empty__icon">{icon ?? <Info size={26} aria-hidden />}</div>
@@ -452,7 +429,17 @@ export function LoadingBlock({ rows = 4 }: { rows?: number }): JSX.Element {
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }): JSX.Element {
   return (
-    <Banner tone="danger" title="Something went wrong." actions={onRetry ? <Button size="sm" onClick={onRetry}>Try again</Button> : undefined}>
+    <Banner
+      tone="danger"
+      title="Something went wrong."
+      actions={
+        onRetry ? (
+          <Button size="sm" onClick={onRetry}>
+            Try again
+          </Button>
+        ) : undefined
+      }
+    >
       {message}
     </Banner>
   );
@@ -517,9 +504,7 @@ export function Modal({
   const dialog = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const target = dialog.current?.querySelector<HTMLElement>(
-      'input:not([type="hidden"]), select, textarea, button',
-    );
+    const target = dialog.current?.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea, button');
     target?.focus();
   }, [open]);
 
@@ -772,7 +757,13 @@ export function DefinitionList({ items }: { items: ReadonlyArray<{ label: string
 export function Timeline({
   items,
 }: {
-  items: ReadonlyArray<{ key: string; title: ReactNode; detail?: ReactNode; date?: ReactNode; tone?: 'default' | 'accent' | 'danger' | 'success' }>;
+  items: ReadonlyArray<{
+    key: string;
+    title: ReactNode;
+    detail?: ReactNode;
+    date?: ReactNode;
+    tone?: 'default' | 'accent' | 'danger' | 'success';
+  }>;
 }): JSX.Element {
   return (
     <div className="timeline">

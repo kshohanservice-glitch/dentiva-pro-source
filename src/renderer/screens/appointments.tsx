@@ -83,7 +83,7 @@ function AppointmentDialog({
   const existing = useApi('appointments.get', appointmentId ? { id: appointmentId } : null);
   const patients = useApi('patients.quickSearch', defaultPatientId ? { query: String(defaultPatientId), limit: 5 } : null);
   const settings = useApi('settings.get', open ? undefined : null);
-  const slot = (settings.data?.appointmentSlotMinutes ?? DEFAULT_APPOINTMENT_MINUTES) as number;
+  const slot = settings.data?.appointmentSlotMinutes ?? DEFAULT_APPOINTMENT_MINUTES;
 
   useEffect(() => {
     if (!open) return;
@@ -128,7 +128,12 @@ function AppointmentDialog({
   if (!open) return null;
 
   const availability = (
-    <AvailabilityHint dentistId={form.dentistId} date={form.date} excludeId={appointmentId} onPick={(start) => patch({ startTime: start, endTime: addMinutesToTime(start, slot) })} />
+    <AvailabilityHint
+      dentistId={form.dentistId}
+      date={form.date}
+      excludeId={appointmentId}
+      onPick={(start) => patch({ startTime: start, endTime: addMinutesToTime(start, slot) })}
+    />
   );
 
   return (
@@ -157,9 +162,7 @@ function AppointmentDialog({
               className="input"
               type="time"
               value={form.startTime}
-              onChange={(event) =>
-                patch({ startTime: event.target.value, endTime: addMinutesToTime(event.target.value, slot) })
-              }
+              onChange={(event) => patch({ startTime: event.target.value, endTime: addMinutesToTime(event.target.value, slot) })}
             />
           </Field>
           <Field label="End time" required hint={`${slot}-minute slots`}>
@@ -168,7 +171,12 @@ function AppointmentDialog({
         </div>
         {availability}
         <DentistSelect value={form.dentistId} onChange={(value) => patch({ dentistId: value })} />
-        <TextField label="Reason" value={form.reason} onChange={(value) => patch({ reason: value })} placeholder="Scaling, root canal review…" />
+        <TextField
+          label="Reason"
+          value={form.reason}
+          onChange={(value) => patch({ reason: value })}
+          placeholder="Scaling, root canal review…"
+        />
         <div className="grid-2">
           <Field label="Status">
             <Select
@@ -204,9 +212,7 @@ function AvailabilityHint({
   return (
     <div className="card">
       <div className="card__body">
-        <div className="field__label">
-          {items.length === 0 ? 'The whole day is free' : `Booked on ${fmtDate(date)}`}
-        </div>
+        <div className="field__label">{items.length === 0 ? 'The whole day is free' : `Booked on ${fmtDate(date)}`}</div>
         {items.length > 0 ? (
           <div className="chip-row">
             {items.slice(0, 12).map((slot) => (
@@ -256,11 +262,17 @@ export function AppointmentsScreen(): JSX.Element {
   const list = useApi(
     'appointments.list',
     view === 'list'
-      ? { view: 'list', pageSize: 100, dentistId, status: statusFilter ? [statusFilter as AppointmentStatus] : undefined, preset: preset || undefined }
+      ? {
+          view: 'list',
+          pageSize: 100,
+          dentistId,
+          status: statusFilter ? [statusFilter as AppointmentStatus] : undefined,
+          preset: preset || undefined,
+        }
       : { view, date: anchor, dentistId, pageSize: 200 },
     [view, anchor, dentistId, statusFilter, preset],
   );
-  const appointments = list.data?.items ?? [];
+  const appointments = useMemo(() => list.data?.items ?? [], [list.data]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Appointment[]>();
@@ -342,7 +354,7 @@ export function AppointmentsScreen(): JSX.Element {
     );
     if (result) {
       toast('success', 'Visit created', 'Continue in the visits screen.');
-      navigate(resolveScreenPath('visits'));
+      void navigate(resolveScreenPath('visits'));
     }
   };
 
@@ -352,7 +364,14 @@ export function AppointmentsScreen(): JSX.Element {
       description={`${stats.total} appointment(s) · ${stats.completed} completed · ${stats.cancelled} cancelled · ${stats.noShow} no-show`}
       actions={
         <>
-          <Button icon={<Printer size={15} />} onClick={() => void run(() => bridge.invoke('print.render', { kind: 'report', id: 0, output: 'pdf' }), { failure: 'The day list could not be printed.' })}>
+          <Button
+            icon={<Printer size={15} />}
+            onClick={() =>
+              void run(() => bridge.invoke('print.render', { kind: 'report', id: 0, output: 'pdf' }), {
+                failure: 'The day list could not be printed.',
+              })
+            }
+          >
             Day list PDF
           </Button>
           <Button
@@ -391,9 +410,7 @@ export function AppointmentsScreen(): JSX.Element {
               <Button size="sm" onClick={() => shift(1)} aria-label="Next">
                 <ChevronRight size={15} />
               </Button>
-              <span className="small muted">
-                {view === 'day' ? fmtDate(anchor) : `${fmtDate(range.from!)} – ${fmtDate(range.to!)}`}
-              </span>
+              <span className="small muted">{view === 'day' ? fmtDate(anchor) : `${fmtDate(range.from)} – ${fmtDate(range.to)}`}</span>
             </div>
           ) : (
             <Select
@@ -421,7 +438,11 @@ export function AppointmentsScreen(): JSX.Element {
       <div className="stat-grid">
         <Stat label="Scheduled" value={String(appointments.filter((a) => a.status === 'scheduled').length)} />
         <Stat label="Confirmed" value={String(appointments.filter((a) => a.status === 'confirmed').length)} />
-        <Stat label="In clinic" value={String(appointments.filter((a) => ['arrived', 'in_queue', 'in_treatment'].includes(a.status)).length)} tone="accent" />
+        <Stat
+          label="In clinic"
+          value={String(appointments.filter((a) => ['arrived', 'in_queue', 'in_treatment'].includes(a.status)).length)}
+          tone="accent"
+        />
         <Stat label="Completed" value={String(stats.completed)} tone="success" />
       </div>
 
@@ -435,7 +456,13 @@ export function AppointmentsScreen(): JSX.Element {
           text="Choose another day, or book a new appointment."
           icon={<CalendarDays size={24} />}
           action={
-            <Button variant="primary" onClick={() => { setEditing(null); setDialogOpen(true); }}>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setEditing(null);
+                setDialogOpen(true);
+              }}
+            >
               Book appointment
             </Button>
           }
@@ -495,7 +522,14 @@ export function AppointmentsScreen(): JSX.Element {
                       ) : CLOSED_APPOINTMENT_STATUSES.includes(appointment.status) ? (
                         <Badge>Closed</Badge>
                       ) : null}
-                      <Button size="sm" variant="ghost" onClick={() => { setEditing(appointment.id); setDialogOpen(true); }}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditing(appointment.id);
+                          setDialogOpen(true);
+                        }}
+                      >
                         Edit
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => void remove(appointment)}>
@@ -517,7 +551,10 @@ export function AppointmentsScreen(): JSX.Element {
         appointmentId={editing}
         defaultDate={view === 'day' ? anchor : today}
         defaultPatientId={Number.isFinite(patientParam) && patientParam > 0 ? patientParam : null}
-        onClose={() => { setDialogOpen(false); setEditing(null); }}
+        onClose={() => {
+          setDialogOpen(false);
+          setEditing(null);
+        }}
         onSaved={() => list.reload()}
       />
     </Page>

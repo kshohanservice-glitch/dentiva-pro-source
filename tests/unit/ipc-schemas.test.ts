@@ -13,7 +13,7 @@ describe('IPC schemas', () => {
   });
 
   it('accepts the payload for a fully populated patient', () => {
-    const result = SCHEMAS['patients.create']!.safeParse({
+    const result = SCHEMAS['patients.create'].safeParse({
       input: {
         firstName: 'Rahim',
         lastName: 'Uddin',
@@ -43,7 +43,7 @@ describe('IPC schemas', () => {
   });
 
   it('rejects bad values with a field-level message', () => {
-    const result = SCHEMAS['patients.create']!.safeParse({ input: { firstName: '', gender: 'robot', tagIds: [-1] } });
+    const result = SCHEMAS['patients.create'].safeParse({ input: { firstName: '', gender: 'robot', tagIds: [-1] } });
     expect(result.success).toBe(false);
     if (!result.success) {
       const paths = result.error.issues.map((issue) => issue.path.join('.'));
@@ -62,42 +62,58 @@ describe('IPC schemas', () => {
         date: '2026-09-30',
         notes: '',
         items: [
-          { treatmentId: null, code: 'X', description: 'Filling', toothCodes: ['16'], quantity: 1, unitPricePaisa: 120_000, discountType: 'none', discountValue: 0, sortOrder: 1 },
+          {
+            treatmentId: null,
+            code: 'X',
+            description: 'Filling',
+            toothCodes: ['16'],
+            quantity: 1,
+            unitPricePaisa: 120_000,
+            discountType: 'none',
+            discountValue: 0,
+            sortOrder: 1,
+          },
         ],
       },
     };
-    expect(SCHEMAS['invoices.create']!.safeParse(base).success).toBe(true);
-    expect(SCHEMAS['invoices.create']!.safeParse({ input: { ...base.input, date: '30-09-2026' } }).success).toBe(false);
-    expect(SCHEMAS['invoices.create']!.safeParse({ input: { ...base.input, items: [] } }).success).toBe(true);
-    expect(SCHEMAS['invoices.create']!.safeParse({ input: { ...base.input, items: [{ ...base.input.items[0], unitPricePaisa: -1 }] } }).success).toBe(false);
-    expect(SCHEMAS['invoices.create']!.safeParse({ input: { ...base.input, items: [{ ...base.input.items[0], discountType: 'free' }] } }).success).toBe(false);
+    expect(SCHEMAS['invoices.create'].safeParse(base).success).toBe(true);
+    expect(SCHEMAS['invoices.create'].safeParse({ input: { ...base.input, date: '30-09-2026' } }).success).toBe(false);
+    expect(SCHEMAS['invoices.create'].safeParse({ input: { ...base.input, items: [] } }).success).toBe(true);
+    expect(
+      SCHEMAS['invoices.create'].safeParse({ input: { ...base.input, items: [{ ...base.input.items[0], unitPricePaisa: -1 }] } }).success,
+    ).toBe(false);
+    expect(
+      SCHEMAS['invoices.create'].safeParse({ input: { ...base.input, items: [{ ...base.input.items[0], discountType: 'free' }] } }).success,
+    ).toBe(false);
   });
 
   it('keeps destructive confirmations mandatory where they matter', () => {
-    expect(SCHEMAS['patients.delete']!.safeParse({ id: 1, reason: 'Duplicate record' }).success).toBe(true);
-    expect(SCHEMAS['patients.delete']!.safeParse({ id: 1 }).success).toBe(false);
-    expect(SCHEMAS['system.deleteBusiness']!.safeParse({ password: 'x', confirmText: 'DELETE', backupFirst: true }).success).toBe(true);
-    expect(SCHEMAS['system.deleteBusiness']!.safeParse({ password: 'x', confirmText: '', backupFirst: true }).success).toBe(false);
-    expect(SCHEMAS['backup.restore']!.safeParse({ filePath: '/tmp/a.dentivabak', confirmText: 'RESTORE', restoreAttachments: true }).success).toBe(true);
-    expect(SCHEMAS['backup.restore']!.safeParse({ filePath: '/tmp/a.dentivabak', restoreAttachments: true }).success).toBe(false);
+    expect(SCHEMAS['patients.delete'].safeParse({ id: 1, reason: 'Duplicate record' }).success).toBe(true);
+    expect(SCHEMAS['patients.delete'].safeParse({ id: 1 }).success).toBe(false);
+    expect(SCHEMAS['system.deleteBusiness'].safeParse({ password: 'x', confirmText: 'DELETE', backupFirst: true }).success).toBe(true);
+    expect(SCHEMAS['system.deleteBusiness'].safeParse({ password: 'x', confirmText: '', backupFirst: true }).success).toBe(false);
+    expect(
+      SCHEMAS['backup.restore'].safeParse({ filePath: '/tmp/a.dentivabak', confirmText: 'RESTORE', restoreAttachments: true }).success,
+    ).toBe(true);
+    expect(SCHEMAS['backup.restore'].safeParse({ filePath: '/tmp/a.dentivabak', restoreAttachments: true }).success).toBe(false);
   });
 
   it('strips unknown keys instead of forwarding them', () => {
-    const result = SCHEMAS['auth.login']!.safeParse({ username: 'owner', password: 'secret', isOwner: true });
+    const result = SCHEMAS['auth.login'].safeParse({ username: 'owner', password: 'secret', isOwner: true });
     expect(result.success).toBe(true);
     if (result.success) expect(Object.keys(result.data as object)).toEqual(['username', 'password']);
   });
 
   it('rejects enum values that are not in the shared constants', () => {
-    expect(SCHEMAS['appointments.setStatus']!.safeParse({ id: 1, status: 'cancelled' }).success).toBe(true);
-    expect(SCHEMAS['appointments.setStatus']!.safeParse({ id: 1, status: 'confirmed_by_phone' }).success).toBe(false);
-    expect(SCHEMAS['settings.update']!.safeParse({ patch: { autoLockMinutes: 7 } }).success).toBe(false);
-    expect(SCHEMAS['settings.update']!.safeParse({ patch: { autoLockMinutes: 15, theme: 'dark' } }).success).toBe(true);
+    expect(SCHEMAS['appointments.setStatus'].safeParse({ id: 1, status: 'cancelled' }).success).toBe(true);
+    expect(SCHEMAS['appointments.setStatus'].safeParse({ id: 1, status: 'confirmed_by_phone' }).success).toBe(false);
+    expect(SCHEMAS['settings.update'].safeParse({ patch: { autoLockMinutes: 7 } }).success).toBe(false);
+    expect(SCHEMAS['settings.update'].safeParse({ patch: { autoLockMinutes: 15, theme: 'dark' } }).success).toBe(true);
   });
 
   it('accepts the undefined payloads for read-only methods', () => {
     for (const method of ['app.bootstrap', 'dashboard.get', 'notifications.unreadCount', 'reports.catalogue'] as const) {
-      expect(SCHEMAS[method]!.safeParse(undefined).success, method).toBe(true);
+      expect(SCHEMAS[method].safeParse(undefined).success, method).toBe(true);
     }
   });
 });

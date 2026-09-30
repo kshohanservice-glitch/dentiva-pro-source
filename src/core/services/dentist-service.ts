@@ -12,7 +12,7 @@ import { requirePermission } from '../context';
 import type { Dentist, DentistCredential, DentistInput } from '@shared/types';
 import { AppError } from '@shared/errors';
 import { resolveDateRange } from '@shared/dates';
-import { asNumber, asString, fromBoolInt } from '../db/sql';
+import { asNumber, fromBoolInt } from '../db/sql';
 import type { AttachmentService } from './attachment-service';
 
 interface DentistRow {
@@ -41,11 +41,21 @@ export class DentistService {
 
   list(includeInactive = false): Dentist[] {
     requirePermission(this.context(), 'staff.view');
+    return this.listInternal(includeInactive);
+  }
+
+  /**
+   * Trusted read used by the setup wizard, which runs before the administrator
+   * account exists and therefore has no session to check.
+   */
+  listInternal(includeInactive = false): Dentist[] {
     const clauses = includeInactive ? 'WHERE d.deleted_at IS NULL' : 'WHERE d.deleted_at IS NULL AND d.is_active = 1';
     const rows = this.db
       .prepare(
-        `SELECT d.*, (SELECT COUNT(*) FROM appointments a WHERE a.dentist_id = d.id AND a.deleted_at IS NULL AND a.date = @today) AS today_count,
-                (SELECT COUNT(*) FROM visits v WHERE v.dentist_id = d.id AND v.deleted_at IS NULL AND substr(v.visit_date, 1, 7) = @month) AS month_count
+        `SELECT d.*, (SELECT COUNT(*) FROM appointments a WHERE a.dentist_id =` +
+          ` d.id AND a.deleted_at IS NULL AND a.date = @today) AS today_count,
+                (SELECT COUNT(*) FROM visits v WHERE v.dentist_id = d.id AND` +
+          ` v.deleted_at IS NULL AND substr(v.visit_date, 1, 7) = @month) AS month_count
            FROM dentists d ${clauses}
           ORDER BY d.is_default DESC, d.is_active DESC, d.name`,
       )
@@ -61,10 +71,13 @@ export class DentistService {
     const row = this.db
       .prepare(
         `SELECT d.*, (SELECT COUNT(*) FROM appointments a WHERE a.dentist_id = d.id AND a.deleted_at IS NULL AND a.date = ?) AS today_count,
-                (SELECT COUNT(*) FROM visits v WHERE v.dentist_id = d.id AND v.deleted_at IS NULL AND substr(v.visit_date, 1, 7) = ?) AS month_count
+                (SELECT COUNT(*) FROM visits v WHERE v.dentist_id = d.id AND` +
+          ` v.deleted_at IS NULL AND substr(v.visit_date, 1, 7) = ?) AS month_count
            FROM dentists d WHERE d.id = ? AND d.deleted_at IS NULL`,
       )
-      .get(this.context().today(), this.context().today().slice(0, 7), id) as (DentistRow & { today_count: number; month_count: number }) | undefined;
+      .get(this.context().today(), this.context().today().slice(0, 7), id) as
+      | (DentistRow & { today_count: number; month_count: number })
+      | undefined;
     if (!row) throw AppError.notFound('Dentist');
     return this.map(row);
   }
@@ -236,17 +249,17 @@ export class DentistService {
     })();
 
     if (photoPath === null && id) {
-      const previous = await this.previousPath(id, 'photo_path');
+      const previous = this.previousPath(id, 'photo_path');
       if (previous && previous !== photoPath) await this.attachments.removeProfileImage(previous);
     }
     if (signaturePath === null && id) {
-      const previous = await this.previousPath(id, 'signature_path');
+      const previous = this.previousPath(id, 'signature_path');
       if (previous && previous !== signaturePath) await this.attachments.removeProfileImage(previous);
     }
     return { id: dentistId };
   }
 
-  private async previousPath(id: number, column: 'photo_path' | 'signature_path'): Promise<string | null> {
+  private previousPath(id: number, column: 'photo_path' | 'signature_path'): string | null {
     const row = this.db.prepare(`SELECT ${column} AS path FROM dentists WHERE id = ?`).get(id) as { path: string | null } | undefined;
     return row?.path ?? null;
   }
@@ -278,14 +291,15 @@ export class DentistService {
 
   delete(id: number, reason: string, confirmText?: string): void {
     requirePermission(this.context(), 'dentist.manage');
-    const row = this.db
-      .prepare(`SELECT name, is_default FROM dentists WHERE id = ? AND deleted_at IS NULL`)
-      .get(id) as { name: string; is_default: number } | undefined;
+    const row = this.db.prepare(`SELECT name, is_default FROM dentists WHERE id = ? AND deleted_at IS NULL`).get(id) as
+      | { name: string; is_default: number }
+      | undefined;
     if (!row) throw AppError.notFound('Dentist');
     if (confirmText?.trim() !== row.name) {
       throw AppError.validation(`Type the name (${row.name}) to confirm deletion.`, { confirmText: `Type ${row.name} to confirm.` });
     }
-    if (reason.trim().length < 3) throw AppError.validation('Please give a reason for removing this dentist.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Please give a reason for removing this dentist.', { reason: 'Reason is required.' });
     const used = asNumber(
       (
         this.db
@@ -343,12 +357,18 @@ export class DentistService {
     const rows = this.db
       .prepare(
         `SELECT d.id AS dentist_id, d.name AS dentist_name,
-                (SELECT COUNT(*) FROM appointments a WHERE a.dentist_id = d.id AND a.deleted_at IS NULL AND a.date BETWEEN @from AND @to) AS appointments,
-                (SELECT COUNT(*) FROM appointments a WHERE a.dentist_id = d.id AND a.deleted_at IS NULL AND a.status = 'completed' AND a.date BETWEEN @from AND @to) AS completed,
-                (SELECT COUNT(*) FROM appointments a WHERE a.dentist_id = d.id AND a.deleted_at IS NULL AND a.status = 'no_show' AND a.date BETWEEN @from AND @to) AS no_shows,
-                (SELECT COUNT(*) FROM visits v WHERE v.dentist_id = d.id AND v.deleted_at IS NULL AND v.visit_date BETWEEN @from AND @to) AS visits,
-                (SELECT COUNT(*) FROM prescriptions p WHERE p.dentist_id = d.id AND p.deleted_at IS NULL AND p.date BETWEEN @from AND @to) AS prescriptions,
-                (SELECT COUNT(*) FROM treatment_records t WHERE t.dentist_id = d.id AND t.deleted_at IS NULL AND substr(t.performed_at, 1, 10) BETWEEN @from AND @to) AS treatments,
+                (SELECT COUNT(*) FROM appointments a WHERE a.dentist_id = d.id` +
+          ` AND a.deleted_at IS NULL AND a.date BETWEEN @from AND @to) AS appointments,
+                (SELECT COUNT(*) FROM appointments a WHERE a.dentist_id = d.id AND a.deleted_at` +
+          ` IS NULL AND a.status = 'completed' AND a.date BETWEEN @from AND @to) AS completed,
+                (SELECT COUNT(*) FROM appointments a WHERE a.dentist_id = d.id AND` +
+          ` a.deleted_at IS NULL AND a.status = 'no_show' AND a.date BETWEEN @from AND @to) AS no_shows,
+                (SELECT COUNT(*) FROM visits v WHERE v.dentist_id = d.id AND` +
+          ` v.deleted_at IS NULL AND v.visit_date BETWEEN @from AND @to) AS visits,
+                (SELECT COUNT(*) FROM prescriptions p WHERE p.dentist_id = d.id` +
+          ` AND p.deleted_at IS NULL AND p.date BETWEEN @from AND @to) AS prescriptions,
+                (SELECT COUNT(*) FROM treatment_records t WHERE t.dentist_id = d.id AND` +
+          ` t.deleted_at IS NULL AND substr(t.performed_at, 1, 10) BETWEEN @from AND @to) AS treatments,
                 (SELECT COALESCE(SUM(ii.line_total_paisa), 0) FROM invoice_items ii
                    JOIN invoices i ON i.id = ii.invoice_id
                   WHERE i.dentist_id = d.id AND i.deleted_at IS NULL AND i.is_void = 0 AND i.date BETWEEN @from AND @to) AS revenue
@@ -382,7 +402,9 @@ export class DentistService {
     const user = this.context().session.currentUser();
     if (!user) return false;
     if (user.isOwner) return true;
-    return user.permissions.some((permission) => permission === '*' || permission.startsWith('report.financial') || permission.startsWith('dashboard.financial'));
+    return user.permissions.some(
+      (permission) => permission === '*' || permission.startsWith('report.financial') || permission.startsWith('dashboard.financial'),
+    );
   }
 
   /** Pickers / dropdowns. */
@@ -400,9 +422,9 @@ export class DentistService {
       | { id: number }
       | undefined;
     if (row) return this.get(row.id);
-    const first = this.db
-      .prepare(`SELECT id FROM dentists WHERE is_active = 1 AND deleted_at IS NULL ORDER BY name LIMIT 1`)
-      .get() as { id: number } | undefined;
+    const first = this.db.prepare(`SELECT id FROM dentists WHERE is_active = 1 AND deleted_at IS NULL ORDER BY name LIMIT 1`).get() as
+      | { id: number }
+      | undefined;
     return first ? this.get(first.id) : null;
   }
 
@@ -419,7 +441,8 @@ export class DentistService {
   private validate(input: DentistInput, existingId: number | null): void {
     const fieldErrors: Record<string, string> = {};
     if (input.name.trim().length < 2) fieldErrors['name'] = 'Enter the dentist’s name.';
-    if (input.email.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) fieldErrors['email'] = 'Enter a valid email address.';
+    if (input.email.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim()))
+      fieldErrors['email'] = 'Enter a valid email address.';
     if (input.phone.trim() !== '' && !/^[0-9+\-\s()]{6,20}$/.test(input.phone.trim())) fieldErrors['phone'] = 'Enter a valid phone number.';
     const allowedTypes: readonly string[] = ['designation', 'qualification', 'certification'];
     input.credentials.forEach((credential, index) => {
@@ -449,5 +472,4 @@ export class DentistService {
     const row = this.db.prepare(`SELECT COUNT(*) AS total FROM dentists WHERE deleted_at IS NULL`).get() as { total: number };
     return asNumber(row.total);
   }
-
 }

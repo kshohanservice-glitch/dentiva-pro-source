@@ -55,7 +55,7 @@ describe('patients', () => {
     expect(first.code).toBe('P-000001');
     expect(second.code).toBe('P-000002');
 
-    const page = test.services.patients.list({page: 1, pageSize: 25});
+    const page = test.services.patients.list({ page: 1, pageSize: 25 });
     expect(page.total).toBe(2);
     expect(page.items[0]?.code).toBe('P-000002');
 
@@ -172,9 +172,7 @@ describe('visits and the dental chart', () => {
           notes: '',
         },
       ],
-      dentalFindings: [
-        { toothFdi: '16', finding: 'caries', surfaces: ['occlusal', 'distal'], mobilityGrade: 0, note: 'Deep cavity' },
-      ],
+      dentalFindings: [{ toothFdi: '16', finding: 'caries', surfaces: ['occlusal', 'distal'], mobilityGrade: 0, note: 'Deep cavity' }],
       prescriptionId: null,
     });
 

@@ -4,8 +4,8 @@
  */
 import { useState } from 'react';
 import { MEDICATION_FORMS, REFERRAL_SPECIALTIES } from '@shared/constants';
-import { fmtMoney } from '@renderer/lib/format';
-import { Badge, Page, Stat, Tabs } from '@renderer/components/ui';
+import { fmtMoney, num, text } from '@renderer/lib/format';
+import { Badge, Stat, Tabs } from '@renderer/components/ui';
 import { ResourceManager } from '@renderer/components/resource-manager';
 import { useApi } from '@renderer/state/store';
 
@@ -25,9 +25,7 @@ export function TreatmentsScreen(): JSX.Element {
       <header className="page__header">
         <div>
           <h1 className="page__heading">Treatments &amp; clinical lists</h1>
-          <p className="page__description">
-            Prices entered here appear on invoices; medicines and clinical options speed up prescribing.
-          </p>
+          <p className="page__description">Prices entered here appear on invoices; medicines and clinical options speed up prescribing.</p>
         </div>
       </header>
 
@@ -44,12 +42,12 @@ export function TreatmentsScreen(): JSX.Element {
             description="Codes are printed on invoices; keep them short and stable."
             emptyText="No treatments yet — add the procedures your clinic performs."
             columns={[
-              { key: 'code', label: 'Code', render: (row) => <span className="mono small">{String(row['code'] ?? '')}</span> },
+              { key: 'code', label: 'Code', render: (row) => <span className="mono small">{text(row['code'])}</span> },
               { key: 'name', label: 'Treatment' },
               { key: 'category', label: 'Category' },
               { key: 'pricePaisa', label: 'Price', align: 'right', render: (row) => fmtMoney(Number(row['pricePaisa'] ?? 0)) },
               { key: 'durationMinutes', label: 'Minutes', align: 'right' },
-              { key: 'usageCount', label: 'Used', align: 'right', render: (row) => String(row['usageCount'] ?? 0) },
+              { key: 'usageCount', label: 'Used', align: 'right', render: (row) => String(num(row['usageCount'])) },
               {
                 key: 'isActive',
                 label: 'State',
@@ -82,10 +80,10 @@ export function TreatmentsScreen(): JSX.Element {
             {
               key: 'defaultDoseMorning',
               label: 'Default dose (M-N-N)',
-              render: (row) => `${row['defaultDoseMorning'] ?? 0} - ${row['defaultDoseNoon'] ?? 0} - ${row['defaultDoseNight'] ?? 0}`,
+              render: (row) => `${num(row['defaultDoseMorning'])} - ${num(row['defaultDoseNoon'])} - ${num(row['defaultDoseNight'])}`,
             },
-            { key: 'defaultFoodTiming', label: 'Food', render: (row) => String(row['defaultFoodTiming'] ?? '').replace(/_/g, ' ') },
-            { key: 'usageCount', label: 'Used', align: 'right', render: (row) => String(row['usageCount'] ?? 0) },
+            { key: 'defaultFoodTiming', label: 'Food', render: (row) => text(row['defaultFoodTiming']).replace(/_/g, ' ') },
+            { key: 'usageCount', label: 'Used', align: 'right', render: (row) => String(num(row['usageCount'])) },
             {
               key: 'isActive',
               label: 'State',
@@ -133,10 +131,10 @@ export function TreatmentsScreen(): JSX.Element {
           includeInactive
           emptyText="No clinical options yet."
           columns={[
-            { key: 'category', label: 'Section', render: (row) => String(row['category'] ?? '').toUpperCase() },
+            { key: 'category', label: 'Section', render: (row) => text(row['category']).toUpperCase() },
             { key: 'label', label: 'Text' },
             { key: 'sortOrder', label: 'Order', align: 'right' },
-            { key: 'usageCount', label: 'Used', align: 'right', render: (row) => String(row['usageCount'] ?? 0) },
+            { key: 'usageCount', label: 'Used', align: 'right', render: (row) => String(num(row['usageCount'])) },
             {
               key: 'isActive',
               label: 'State',

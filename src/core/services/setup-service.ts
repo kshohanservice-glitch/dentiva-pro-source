@@ -113,7 +113,14 @@ export class SetupService {
 
   // --- Wizard steps -------------------------------------------------------
 
-  async saveClinic(input: { name: string; address: string; phone: string; email: string; website: string; logoSourcePath?: string | null }): Promise<void> {
+  async saveClinic(input: {
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+    website: string;
+    logoSourcePath?: string | null;
+  }): Promise<void> {
     this.assertSetupOpen();
     this.assertActivated();
     const name = input.name.trim();
@@ -251,7 +258,7 @@ export class SetupService {
       .get() as { username: string } | undefined;
     return {
       clinic: clinic.name.trim() === '' ? null : clinic,
-      dentists: this.dentists.list(false),
+      dentists: this.dentists.listInternal(false),
       preferences: this.settings.getSettings(),
       administrator: administratorRow ? asString(administratorRow.username) : null,
     };

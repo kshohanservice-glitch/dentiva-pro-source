@@ -10,16 +10,22 @@ import type { PatientInput, PatientSummary, PatientTag } from '@shared/types';
 import { useAction, useApi, useApp } from '@renderer/state/store';
 import { bridge } from '@renderer/lib/bridge';
 import { fmtDate, fmtMoney } from '@renderer/lib/format';
-import { Badge, Button, Chip, Empty, Field, Input, Modal, Page, SearchInput, Select, StatusBadge, Switch, TextArea } from '@renderer/components/ui';
 import {
-  DataTable,
-  DateField,
-  PagedFooter,
-  SelectField,
-  TextField,
-  useListState,
-  rangePresetOptions,
-} from '@renderer/components/forms';
+  Badge,
+  Button,
+  Chip,
+  Empty,
+  Field,
+  Input,
+  Modal,
+  Page,
+  SearchInput,
+  Select,
+  StatusBadge,
+  Switch,
+  TextArea,
+} from '@renderer/components/ui';
+import { DataTable, DateField, PagedFooter, SelectField, TextField, useListState, rangePresetOptions } from '@renderer/components/forms';
 
 const EMPTY_PATIENT: PatientInput = {
   firstName: '',
@@ -170,7 +176,12 @@ export function PatientForm({
         </div>
 
         <div className="grid-3">
-          <DateField label="Date of birth" value={form.dob ?? ''} onChange={(value) => patch({ dob: value || null })} hint="Leave empty to record an age instead" />
+          <DateField
+            label="Date of birth"
+            value={form.dob ?? ''}
+            onChange={(value) => patch({ dob: value || null })}
+            hint="Leave empty to record an age instead"
+          />
           <Field label="Age in years" hint="Used when the date of birth is unknown">
             <Input
               className="input--numeric"
@@ -197,7 +208,12 @@ export function PatientForm({
             onChange={(value) => patch({ phone: value })}
             placeholder="01XXXXXXXXX"
           />
-          <TextField label="Alternate number" type="tel" value={form.alternatePhone} onChange={(value) => patch({ alternatePhone: value })} />
+          <TextField
+            label="Alternate number"
+            type="tel"
+            value={form.alternatePhone}
+            onChange={(value) => patch({ alternatePhone: value })}
+          />
           <TextField label="Email" type="email" value={form.email} onChange={(value) => patch({ email: value })} />
         </div>
 
@@ -212,7 +228,12 @@ export function PatientForm({
             value={form.emergencyContactName}
             onChange={(value) => patch({ emergencyContactName: value })}
           />
-          <TextField label="Emergency phone" type="tel" value={form.emergencyPhone} onChange={(value) => patch({ emergencyPhone: value })} />
+          <TextField
+            label="Emergency phone"
+            type="tel"
+            value={form.emergencyPhone}
+            onChange={(value) => patch({ emergencyPhone: value })}
+          />
           <SelectField
             label="Preferred contact"
             value={form.preferredContact}
@@ -429,7 +450,7 @@ export function PatientsScreen(): JSX.Element {
               lists.patch({});
             }}
           />
-          {(statusFilter || genderFilter || tagFilter || lists.state.search || lists.state.preset || outstandingOnly) ? (
+          {statusFilter || genderFilter || tagFilter || lists.state.search || lists.state.preset || outstandingOnly ? (
             <Button
               size="sm"
               variant="ghost"
@@ -464,7 +485,7 @@ export function PatientsScreen(): JSX.Element {
           onRetry={patients.reload}
           onRowClick={(index) => {
             const patient = patients.data?.items[index];
-            if (patient) navigate(resolveScreenPath('patient', patient.id));
+            if (patient) void navigate(resolveScreenPath('patient', patient.id));
           }}
           rowKey={(index) => String(patients.data?.items[index]?.id ?? index)}
           empty={
@@ -490,7 +511,7 @@ export function PatientsScreen(): JSX.Element {
         onSaved={(id) => {
           setCreating(false);
           patients.reload();
-          navigate(resolveScreenPath('patient', id));
+          void navigate(resolveScreenPath('patient', id));
         }}
       />
       <PatientForm

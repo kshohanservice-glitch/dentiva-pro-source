@@ -21,7 +21,7 @@ import type {
 } from '@shared/types';
 import type { BloodGroup, Gender, PatientStatus, PreferredContact } from '@shared/constants';
 import { AppError } from '@shared/errors';
-import { ageText, nowInstant, resolveDateRange, todayIso } from '@shared/dates';
+import { ageText, resolveDateRange, todayIso } from '@shared/dates';
 import { asNumber, buildWhere, ftsQuery, likeTerm, pageCount, paginate, parseJsonArray } from '../db/sql';
 import { nextPatientCode } from '../util/ids';
 
@@ -59,19 +59,28 @@ interface PatientRow {
   last_appointment_date?: string | null;
 }
 
-const LIST_SELECT = `
+const LIST_SELECT =
+  `
   SELECT p.id, p.code, p.first_name, p.last_name, p.gender, p.dob, p.age_years, p.blood_group, p.phone,
          p.alternate_phone, p.status, p.referred_by, p.created_at, p.updated_at, p.deleted_at,
          (SELECT COUNT(*) FROM visits v WHERE v.patient_id = p.id AND v.deleted_at IS NULL) AS visit_count,
          (SELECT MAX(v.visit_date) FROM visits v WHERE v.patient_id = p.id AND v.deleted_at IS NULL) AS last_visit_date,
          (SELECT MAX(a.date) FROM appointments a WHERE a.patient_id = p.id AND a.deleted_at IS NULL) AS last_appointment_date,
-         (SELECT COUNT(*) FROM treatment_plans tp WHERE tp.patient_id = p.id AND tp.deleted_at IS NULL AND tp.status = 'active') AS open_plans,
+         (SELECT COUNT(*) FROM treatment_plans tp WHERE tp.patient_id =` +
+  ` p.id AND tp.deleted_at IS NULL AND tp.status = 'active') AS open_plans,
          COALESCE((
            SELECT SUM(i.total_paisa - i.paid_paisa) FROM invoices i
             WHERE i.patient_id = p.id AND i.deleted_at IS NULL AND i.is_void = 0 AND i.total_paisa > i.paid_paisa
          ), 0) AS outstanding_paisa
     FROM patients p
 `;
+
+/** Text for a value read out of an untyped database row (never “object Object”). */
+function textValue(value: unknown, fallback = ''): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+  return fallback;
+}
 
 function fullName(first: string, last: string): string {
   return `${first} ${last}`.trim();
@@ -140,9 +149,7 @@ export class PatientService {
       params.push(...query.bloodGroup);
     }
     if (query.tagIds && query.tagIds.length > 0) {
-      clauses.push(
-        `p.id IN (SELECT patient_id FROM patient_tag_links WHERE tag_id IN (${query.tagIds.map(() => '?').join(', ')}))`,
-      );
+      clauses.push(`p.id IN (SELECT patient_id FROM patient_tag_links WHERE tag_id IN (${query.tagIds.map(() => '?').join(', ')}))`);
       params.push(...query.tagIds);
     }
     if (query.hasMedicalAlert) {
@@ -150,7 +157,8 @@ export class PatientService {
     }
     if (query.hasOutstanding) {
       clauses.push(
-        `EXISTS (SELECT 1 FROM invoices i WHERE i.patient_id = p.id AND i.deleted_at IS NULL AND i.is_void = 0 AND i.total_paisa > i.paid_paisa)`,
+        `EXISTS (SELECT 1 FROM invoices i WHERE i.patient_id = p.id AND` +
+          ` i.deleted_at IS NULL AND i.is_void = 0 AND i.total_paisa > i.paid_paisa)`,
       );
     }
 
@@ -170,9 +178,7 @@ export class PatientService {
     }
 
     const where = buildWhere(clauses);
-    const total = asNumber(
-      (this.db.prepare(`SELECT COUNT(*) AS total FROM patients p${where}`).get(...params) as { total: number }).total,
-    );
+    const total = asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM patients p${where}`).get(...params) as { total: number }).total);
 
     const sortMap: Record<string, string> = {
       name: 'lower(p.first_name)',
@@ -263,8 +269,19 @@ export class PatientService {
     if (!detail) throw AppError.notFound('Patient');
     const tags = this.tagsByPatient([id]).get(id) ?? [];
     const contacts = this.db
-      .prepare(`SELECT id, patient_id, type, name, relation, value, is_primary FROM patient_contacts WHERE patient_id = ? ORDER BY is_primary DESC, id`)
-      .all(id) as Array<{ id: number; patient_id: number; type: string; name: string; relation: string; value: string; is_primary: number }>;
+      .prepare(
+        `SELECT id, patient_id, type, name, relation, value, is_primary FROM` +
+          ` patient_contacts WHERE patient_id = ? ORDER BY is_primary DESC, id`,
+      )
+      .all(id) as Array<{
+      id: number;
+      patient_id: number;
+      type: string;
+      name: string;
+      relation: string;
+      value: string;
+      is_primary: number;
+    }>;
     const medicalVisible = this.canSeeMedical();
     const summary = this.toSummary(row, tags);
     return {
@@ -378,7 +395,7 @@ export class PatientService {
     if (!before) throw AppError.notFound('Patient');
     const now = this.context().instant();
     const medicalVisible = this.canSeeMedical();
-    const keep = (key: string, value: string): string => (medicalVisible ? value : String(before[key] ?? ''));
+    const keep = (key: string, value: string): string => (medicalVisible ? value : textValue(before[key]));
     const run = this.db.transaction(() => {
       this.db
         .prepare(
@@ -423,10 +440,10 @@ export class PatientService {
         action: 'update',
         entityType: 'patient',
         entityId: id,
-        entityLabel: String(before['code'] ?? ''),
+        entityLabel: textValue(before['code']),
         detail: 'Patient details updated',
         before: {
-          name: fullName(String(before['first_name'] ?? ''), String(before['last_name'] ?? '')),
+          name: fullName(textValue(before['first_name']), textValue(before['last_name'])),
           phone: before['phone'],
           status: before['status'],
           bloodGroup: before['blood_group'],
@@ -513,7 +530,9 @@ export class PatientService {
     if (!patient) throw AppError.notFound('Removed patient');
     const ctx = this.context();
     const run = this.db.transaction(() => {
-      this.db.prepare(`UPDATE patients SET deleted_at = NULL, deleted_reason = NULL, updated_at = ? WHERE id = ?`).run(this.context().instant(), id);
+      this.db
+        .prepare(`UPDATE patients SET deleted_at = NULL,` + ` deleted_reason = NULL, updated_at = ? WHERE id = ?`)
+        .run(this.context().instant(), id);
       this.syncFts(id);
       ctx.audit.record({
         action: 'restore',
@@ -538,8 +557,7 @@ export class PatientService {
     if (!patient) throw AppError.notFound('Patient');
     const events: TimelineEvent[] = [];
     const wants = (type: TimelineEventType): boolean => !options.types || options.types.length === 0 || options.types.includes(type);
-    const inRange = (date: string): boolean =>
-      (!options.from || date >= options.from) && (!options.to || date <= options.to);
+    const inRange = (date: string): boolean => (!options.from || date >= options.from) && (!options.to || date <= options.to);
 
     events.push({
       id: `registration-${patient.id}`,
@@ -637,7 +655,14 @@ export class PatientService {
              FROM prescriptions pr LEFT JOIN dentists d ON d.id = pr.dentist_id
             WHERE pr.patient_id = ? AND pr.deleted_at IS NULL ORDER BY pr.date DESC LIMIT 500`,
         )
-        .all(patientId) as Array<{ id: number; number: string; date: string; created_at: string; dentist_name: string | null; item_count: number }>;
+        .all(patientId) as Array<{
+        id: number;
+        number: string;
+        date: string;
+        created_at: string;
+        dentist_name: string | null;
+        item_count: number;
+      }>;
       for (const prescription of prescriptions) {
         if (!inRange(prescription.date)) continue;
         events.push({
@@ -664,7 +689,14 @@ export class PatientService {
              FROM appointments a LEFT JOIN dentists d ON d.id = a.dentist_id
             WHERE a.patient_id = ? AND a.deleted_at IS NULL ORDER BY a.date DESC LIMIT 500`,
         )
-        .all(patientId) as Array<{ id: number; date: string; start_time: string; status: string; reason: string; dentist_name: string | null }>;
+        .all(patientId) as Array<{
+        id: number;
+        date: string;
+        start_time: string;
+        status: string;
+        reason: string;
+        dentist_name: string | null;
+      }>;
       for (const appointment of appointments) {
         if (!inRange(appointment.date)) continue;
         events.push({
@@ -690,7 +722,15 @@ export class PatientService {
           `SELECT id, number, date, total_paisa, paid_paisa, status, created_at
              FROM invoices WHERE patient_id = ? AND deleted_at IS NULL ORDER BY date DESC LIMIT 500`,
         )
-        .all(patientId) as Array<{ id: number; number: string; date: string; total_paisa: number; paid_paisa: number; status: string; created_at: string }>;
+        .all(patientId) as Array<{
+        id: number;
+        number: string;
+        date: string;
+        total_paisa: number;
+        paid_paisa: number;
+        status: string;
+        created_at: string;
+      }>;
       for (const invoice of invoices) {
         if (!inRange(invoice.date)) continue;
         events.push({
@@ -713,13 +753,22 @@ export class PatientService {
     if (wants('payment') && this.canSeeFinancials()) {
       const payments = this.db
         .prepare(
-          `SELECT pay.id, pay.amount_paisa, pay.paid_at, pay.paid_date, pay.receipt_number, m.name AS method_name, i.number AS invoice_number
+          `SELECT pay.id, pay.amount_paisa, pay.paid_at, pay.paid_date,` +
+            ` pay.receipt_number, m.name AS method_name, i.number AS invoice_number
              FROM payments pay
              LEFT JOIN payment_methods m ON m.id = pay.method_id
              LEFT JOIN invoices i ON i.id = pay.invoice_id
             WHERE pay.patient_id = ? AND pay.is_void = 0 ORDER BY pay.paid_at DESC LIMIT 500`,
         )
-        .all(patientId) as Array<{ id: number; amount_paisa: number; paid_at: string; paid_date: string; receipt_number: string; method_name: string | null; invoice_number: string | null }>;
+        .all(patientId) as Array<{
+        id: number;
+        amount_paisa: number;
+        paid_at: string;
+        paid_date: string;
+        receipt_number: string;
+        method_name: string | null;
+        invoice_number: string | null;
+      }>;
       for (const payment of payments) {
         if (!inRange(payment.paid_date)) continue;
         events.push({
@@ -858,7 +907,13 @@ export class PatientService {
           WHERE pay.patient_id = ? AND pay.is_void = 0
           ORDER BY pay.paid_at DESC LIMIT 20`,
       )
-      .all(patientId) as Array<{ id: number; amount_paisa: number; paid_at: string; method_name: string | null; invoice_number: string | null }>;
+      .all(patientId) as Array<{
+      id: number;
+      amount_paisa: number;
+      paid_at: string;
+      method_name: string | null;
+      invoice_number: string | null;
+    }>;
     const lastPayment = this.db
       .prepare(`SELECT MAX(paid_at) AS last_paid FROM payments WHERE patient_id = ? AND is_void = 0`)
       .get(patientId) as { last_paid: string | null };
@@ -889,7 +944,9 @@ export class PatientService {
 
   // --- Duplicates, search, statistics -------------------------------------
 
-  checkDuplicate(input: { name?: string; phone?: string; excludeId?: number }): { matches: Array<{ id: number; code: string; name: string; phone: string; registeredAt: string }> } {
+  checkDuplicate(input: { name?: string; phone?: string; excludeId?: number }): {
+    matches: Array<{ id: number; code: string; name: string; phone: string; registeredAt: string }>;
+  } {
     requirePermission(this.context(), 'patient.view');
     const clauses: string[] = ['deleted_at IS NULL'];
     const params: unknown[] = [];
@@ -963,9 +1020,7 @@ export class PatientService {
       .all(...ids) as PatientRow[];
     const order = new Map(ids.map((id, index) => [id, index]));
     const tagMap = this.tagsByPatient(ids);
-    return rows
-      .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
-      .map((row) => this.toSummary(row, tagMap.get(row.id) ?? []));
+    return rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)).map((row) => this.toSummary(row, tagMap.get(row.id) ?? []));
   }
 
   statistics(options: { preset?: string; from?: string; to?: string } = {}): {
@@ -980,7 +1035,9 @@ export class PatientService {
     const range = resolveDateRange((options.preset ?? 'last_30_days') as Parameters<typeof resolveDateRange>[0], {
       custom: { from: options.from, to: options.to },
     });
-    const total = asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM patients WHERE deleted_at IS NULL`).get() as { total: number }).total);
+    const total = asNumber(
+      (this.db.prepare(`SELECT COUNT(*) AS total FROM patients WHERE deleted_at IS NULL`).get() as { total: number }).total,
+    );
     const active = asNumber(
       (this.db.prepare(`SELECT COUNT(*) AS total FROM patients WHERE deleted_at IS NULL AND status = 'active'`).get() as { total: number })
         .total,
@@ -993,14 +1050,16 @@ export class PatientService {
       ).total,
     );
     const byGender = (
-      this.db
-        .prepare(`SELECT gender AS label, COUNT(*) AS value FROM patients WHERE deleted_at IS NULL GROUP BY gender`)
-        .all() as Array<{ label: string; value: number }>
+      this.db.prepare(`SELECT gender AS label, COUNT(*) AS value FROM patients WHERE deleted_at IS NULL GROUP BY gender`).all() as Array<{
+        label: string;
+        value: number;
+      }>
     ).map((row) => ({ label: row.label, value: asNumber(row.value) }));
     const byStatus = (
-      this.db
-        .prepare(`SELECT status AS label, COUNT(*) AS value FROM patients WHERE deleted_at IS NULL GROUP BY status`)
-        .all() as Array<{ label: string; value: number }>
+      this.db.prepare(`SELECT status AS label, COUNT(*) AS value FROM patients WHERE deleted_at IS NULL GROUP BY status`).all() as Array<{
+        label: string;
+        value: number;
+      }>
     ).map((row) => ({ label: row.label, value: asNumber(row.value) }));
     const registrations = (
       this.db
@@ -1043,9 +1102,9 @@ export class PatientService {
       this.context().audit.record({ action: 'update', entityType: 'patient_tag', entityId: input.id, detail: `Tag renamed to ${name}` });
       return { id: input.id };
     }
-    const existing = this.db
-      .prepare(`SELECT id FROM patient_tags WHERE lower(name) = lower(?) AND deleted_at IS NULL`)
-      .get(name) as { id: number } | undefined;
+    const existing = this.db.prepare(`SELECT id FROM patient_tags WHERE lower(name) = lower(?) AND deleted_at IS NULL`).get(name) as
+      | { id: number }
+      | undefined;
     if (existing) throw AppError.conflict(`A tag named “${name}” already exists.`);
     const result = this.db
       .prepare(`INSERT INTO patient_tags (name, colour, created_at, updated_at) VALUES (?, ?, ?, ?)`)
@@ -1120,7 +1179,16 @@ export class PatientService {
     const row = this.db
       .prepare(`SELECT id, code, first_name, last_name, phone, alternate_phone, address, deleted_at FROM patients WHERE id = ?`)
       .get(patientId) as
-      | { id: number; code: string; first_name: string; last_name: string; phone: string; alternate_phone: string; address: string; deleted_at: string | null }
+      | {
+          id: number;
+          code: string;
+          first_name: string;
+          last_name: string;
+          phone: string;
+          alternate_phone: string;
+          address: string;
+          deleted_at: string | null;
+        }
       | undefined;
     this.db.prepare(`DELETE FROM patients_fts WHERE rowid = ?`).run(patientId);
     if (!row || row.deleted_at) return;
@@ -1141,9 +1209,9 @@ export class PatientService {
 
   /** Used by other services to enrich rows without a circular dependency. */
   patientLabel(patientId: number): { code: string; name: string; phone: string } {
-    const row = this.db
-      .prepare(`SELECT code, first_name, last_name, phone FROM patients WHERE id = ?`)
-      .get(patientId) as { code: string; first_name: string; last_name: string; phone: string } | undefined;
+    const row = this.db.prepare(`SELECT code, first_name, last_name, phone FROM patients WHERE id = ?`).get(patientId) as
+      | { code: string; first_name: string; last_name: string; phone: string }
+      | undefined;
     if (!row) throw AppError.notFound('Patient');
     return { code: row.code, name: fullName(row.first_name, row.last_name), phone: row.phone };
   }

@@ -10,7 +10,6 @@ import type { SqliteDatabase } from '../db/connection';
 import type { CoreContext } from '../context';
 import { hasPermission, requirePermission } from '../context';
 import type { DashboardCard, DashboardData } from '@shared/types';
-import type { Paisa } from '@shared/money';
 import { asNumber } from '../db/sql';
 import { formatMoney } from '@shared/money';
 import { addDays } from '@shared/dates';
@@ -64,12 +63,11 @@ export class DashboardService {
       ).total,
     );
 
-    const followUpsDue =
-      hasPermission(ctx, 'visit.view')
-        ? (
-            this.db
-              .prepare(
-                `SELECT v.patient_id, p.code, trim(p.first_name || ' ' || p.last_name) AS patient_name, v.follow_up_date, p.phone
+    const followUpsDue = hasPermission(ctx, 'visit.view')
+      ? (
+          this.db
+            .prepare(
+              `SELECT v.patient_id, p.code, trim(p.first_name || ' ' || p.last_name) AS patient_name, v.follow_up_date, p.phone
                    FROM visits v JOIN patients p ON p.id = v.patient_id
                   WHERE v.deleted_at IS NULL AND p.deleted_at IS NULL
                     AND v.follow_up_date IS NOT NULL AND v.follow_up_date <= ?
@@ -77,30 +75,26 @@ export class DashboardService {
                       SELECT 1 FROM visits later
                        WHERE later.patient_id = v.patient_id AND later.deleted_at IS NULL AND later.visit_date > v.visit_date)
                   ORDER BY v.follow_up_date LIMIT 20`,
-              )
-              .all(addDays(today, 7)) as Array<{
-              patient_id: number;
-              code: string;
-              patient_name: string;
-              follow_up_date: string;
-              phone: string;
-            }>
-          ).map((row) => ({
-            patientId: row.patient_id,
-            patientCode: row.code,
-            patientName: row.patient_name,
-            followUpDate: row.follow_up_date,
-            phone: row.phone,
-          }))
-        : [];
-
-    const inventoryAlerts = hasPermission(ctx, 'inventory.view')
-      ? this.inventory.alerts(8)
-      : null;
-
-    const recentPrescriptions = hasPermission(ctx, 'prescription.view')
-      ? this.prescriptions.list({ page: 1, pageSize: 5 }).items
+            )
+            .all(addDays(today, 7)) as Array<{
+            patient_id: number;
+            code: string;
+            patient_name: string;
+            follow_up_date: string;
+            phone: string;
+          }>
+        ).map((row) => ({
+          patientId: row.patient_id,
+          patientCode: row.code,
+          patientName: row.patient_name,
+          followUpDate: row.follow_up_date,
+          phone: row.phone,
+        }))
       : [];
+
+    const inventoryAlerts = hasPermission(ctx, 'inventory.view') ? this.inventory.alerts(8) : null;
+
+    const recentPrescriptions = hasPermission(ctx, 'prescription.view') ? this.prescriptions.list({ page: 1, pageSize: 5 }).items : [];
 
     const recentInvoices = hasPermission(ctx, 'invoice.view') ? this.invoices.list({ page: 1, pageSize: 5 }).items : [];
 
@@ -119,9 +113,7 @@ export class DashboardService {
           count: asNumber(
             (
               this.db
-                .prepare(
-                  `SELECT COUNT(*) AS total FROM invoices WHERE deleted_at IS NULL AND is_void = 0 AND total_paisa > paid_paisa`,
-                )
+                .prepare(`SELECT COUNT(*) AS total FROM invoices WHERE deleted_at IS NULL AND is_void = 0 AND total_paisa > paid_paisa`)
                 .get() as { total: number }
             ).total,
           ),
@@ -183,7 +175,9 @@ export class DashboardService {
         key: 'inventory',
         label: 'Stock alerts',
         value: String(inventoryAlerts.lowStock.length + inventoryAlerts.expiringSoon.length),
-        hint: `${inventoryAlerts.lowStock.length} low · ${inventoryAlerts.expiringSoon.length} expiring · ${inventoryAlerts.expired.length} expired`,
+        hint:
+          `${inventoryAlerts.lowStock.length} low · ${inventoryAlerts.expiringSoon.length}` +
+          ` expiring · ${inventoryAlerts.expired.length} expired`,
         tone: inventoryAlerts.expired.length > 0 ? 'danger' : inventoryAlerts.lowStock.length > 0 ? 'warning' : 'success',
         screen: 'inventory',
         requiresFinancialPermission: false,
@@ -219,7 +213,7 @@ export class DashboardService {
                  GROUP BY date ORDER BY date`,
             )
             .all(addDays(today, -13)) as Array<{ date: string; total: number }>
-        ).map((row) => ({ date: row.date, amountPaisa: asNumber(row.total) as Paisa }))
+        ).map((row) => ({ date: row.date, amountPaisa: asNumber(row.total) }))
       : [];
 
     const dentitionSummary = {

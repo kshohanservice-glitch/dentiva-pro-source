@@ -12,19 +12,18 @@
  */
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { readdir, rename, rm, stat, writeFile, mkdir } from 'node:fs/promises';
+import { copyFile, readFile, readdir, rename, rm, stat, writeFile, mkdir } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import type { SqliteDatabase } from '../db/connection';
 import { checkIntegrity, schemaVersion } from '../db/connection';
-import { runMigrations } from '../db/connection';
 import { openDatabase } from '../db/connection';
 import type { CoreContext, CorePaths } from '../context';
 import { currentUserId, requirePermission } from '../context';
-import type { BackupCandidate, BackupMetadata, BackupRecord, BackupStatus, RestorePreview, RestoreResult } from '@shared/types';
+import type { BackupCandidate, BackupRecord, BackupStatus, RestorePreview, RestoreResult } from '@shared/types';
 import { AppError } from '@shared/errors';
 import { APP_BUILD_NUMBER, APP_VERSION } from '@shared/app-info';
-import { addDays, nowInstant } from '@shared/dates';
-import { asNumber, asString, fromBoolInt } from '../db/sql';
+import { addDays } from '@shared/dates';
+import { asNumber, asString } from '../db/sql';
 import { copyIntoStore, ensureDir, formatBytes, pathExists, removeFileIfExists } from '../util/files';
 import { extractZipEntry, hashZipEntry, listZipEntries, readZipEntry, writeZipArchive, type ZipEntryInfo } from '../util/zipstore';
 import type { SettingsService } from './settings-service';
@@ -65,6 +64,177 @@ export interface PendingRestore {
   readonly includesAttachments: boolean;
   readonly sourceFile: string;
   readonly createdAt: string;
+}
+
+/** Where the marker for a staged restore lives. */
+export function pendingRestoreMarkerPath(paths: CorePaths): string {
+  return join(paths.configDir, PENDING_RESTORE_FILE);
+}
+
+/** Read the staged-restore marker, or null when there is nothing pending. */
+export async function readPendingRestore(paths: CorePaths): Promise<PendingRestore | null> {
+  try {
+    const raw = await readFile(pendingRestoreMarkerPath(paths), 'utf8');
+    const parsed = JSON.parse(raw) as Partial<PendingRestore>;
+    if (
+      typeof parsed.stagedDatabase !== 'string' ||
+      typeof parsed.stagedAttachmentsDir !== 'string' ||
+      typeof parsed.sourceFile !== 'string'
+    ) {
+      return null;
+    }
+    return {
+      stagedDatabase: parsed.stagedDatabase,
+      stagedAttachmentsDir: parsed.stagedAttachmentsDir,
+      includesAttachments: parsed.includesAttachments === true,
+      sourceFile: parsed.sourceFile,
+      createdAt: typeof parsed.createdAt === 'string' ? parsed.createdAt : '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+export interface PendingRestoreOutcome {
+  readonly applied: boolean;
+  /** The backup file the staged data came from. */
+  readonly sourceFile: string;
+  /** Files copied back into the data folder (attachments, profile images…). */
+  readonly attachmentsRestored: number;
+  /** Where the database that was replaced was moved, for recovery. */
+  readonly replacedDatabasePath: string | null;
+  /** Set when the staged data could not be applied. */
+  readonly problem: string | null;
+}
+
+/**
+ * Finish a restore that was staged before the last shutdown.
+ *
+ * The database cannot be replaced while SQLite has it open, so the restore is
+ * staged by the running application and applied here — before anything opens
+ * the database. The replaced database is kept beside the data folder until the
+ * new one has been opened and checked, so a failure never destroys data.
+ */
+export async function applyPendingRestore(
+  paths: CorePaths,
+  options: { now?: () => Date; logger?: { info(message: string): void; error(message: string): void } } = {},
+): Promise<PendingRestoreOutcome | null> {
+  const markerPath = pendingRestoreMarkerPath(paths);
+  if (!existsSync(markerPath)) return null;
+  const pending = await readPendingRestore(paths);
+
+  const finish = async (outcome: PendingRestoreOutcome): Promise<PendingRestoreOutcome> => {
+    await removeFileIfExists(markerPath);
+    if (pending) {
+      // Never leave staged copies of clinic data lying in the temp folder.
+      await rm(dirname(pending.stagedDatabase), { recursive: true, force: true }).catch(() => undefined);
+    }
+    return outcome;
+  };
+
+  if (!pending) {
+    return finish({
+      applied: false,
+      sourceFile: '',
+      attachmentsRestored: 0,
+      replacedDatabasePath: null,
+      problem: 'The restore marker' + ' was unreadable.',
+    });
+  }
+  if (!existsSync(pending.stagedDatabase)) {
+    return finish({
+      applied: false,
+      sourceFile: pending.sourceFile,
+      attachmentsRestored: 0,
+      replacedDatabasePath: null,
+      problem: 'The staged database is missing, so the restore was cancelled. Restore the backup again.',
+    });
+  }
+  const header = (await readFile(pending.stagedDatabase)).subarray(0, 16).toString('utf8');
+  if (!header.startsWith('SQLite format 3')) {
+    return finish({
+      applied: false,
+      sourceFile: pending.sourceFile,
+      attachmentsRestored: 0,
+      replacedDatabasePath: null,
+      problem: 'The staged database is not a valid SQLite file, so the restore was cancelled.',
+    });
+  }
+
+  const stamp = (options.now ?? (() => new Date()))().toISOString().replace(/[:.]/g, '-');
+  const stash = join(paths.dataDir, `dentiva-replaced-${stamp}.sqlite`);
+  let replacedDatabasePath: string | null = null;
+
+  // 1. Move the live database (and its journals) out of the way.
+  if (existsSync(paths.databasePath)) {
+    await rename(paths.databasePath, stash);
+    replacedDatabasePath = stash;
+  }
+  for (const suffix of ['-wal', '-shm', '-journal']) {
+    await removeFileIfExists(`${paths.databasePath}${suffix}`);
+  }
+
+  try {
+    await ensureDir(dirname(paths.databasePath));
+    await copyFile(pending.stagedDatabase, paths.databasePath);
+
+    // 2. Attachments and profile images, when the archive carried them.
+    let attachmentsRestored = 0;
+    if (pending.includesAttachments && existsSync(pending.stagedAttachmentsDir)) {
+      attachmentsRestored = await copyStagedFiles(pending.stagedAttachmentsDir, paths.root);
+    }
+
+    options.logger?.info(
+      `Restore applied from ${basename(pending.sourceFile)} (${attachmentsRestored}` +
+        ` file(s), previous database kept at ${replacedDatabasePath ?? 'none'})`,
+    );
+    return finish({
+      applied: true,
+      sourceFile: pending.sourceFile,
+      attachmentsRestored,
+      replacedDatabasePath,
+      problem: null,
+    });
+  } catch (error) {
+    // 3. Roll back to the database that was in use before this attempt.
+    const message = error instanceof Error ? error.message : String(error);
+    options.logger?.error(`Restore failed while applying the staged database: ${message}`);
+    if (replacedDatabasePath && existsSync(replacedDatabasePath)) {
+      await copyFile(replacedDatabasePath, paths.databasePath).catch(() => undefined);
+    }
+    return finish({
+      applied: false,
+      sourceFile: pending.sourceFile,
+      attachmentsRestored: 0,
+      replacedDatabasePath: null,
+      problem: `The staged database could not be applied: ${message}`,
+    });
+  }
+}
+
+/** Copy every file staged under `sourceRoot` into the data folder, safely. */
+async function copyStagedFiles(sourceRoot: string, targetRoot: string): Promise<number> {
+  let copied = 0;
+  const walk = async (relative: string): Promise<void> => {
+    const from = join(sourceRoot, relative);
+    for (const entry of await readdir(from, { withFileTypes: true })) {
+      const nextRelative = relative === '' ? entry.name : `${relative}/${entry.name}`;
+      if (entry.isDirectory()) {
+        await walk(nextRelative);
+        continue;
+      }
+      // Never let a crafted archive write outside the data folder.
+      const normalised = nextRelative.replace(/\\/g, '/');
+      if (normalised.startsWith('/') || normalised.includes('../') || /^[a-zA-Z]:/.test(normalised)) continue;
+      const target = join(targetRoot, ...normalised.split('/'));
+      if (!target.startsWith(targetRoot)) continue;
+      await ensureDir(dirname(target));
+      await copyFile(join(sourceRoot, ...normalised.split('/')), target);
+      copied += 1;
+    }
+  };
+  await walk('');
+  return copied;
 }
 
 export class BackupService {
@@ -124,8 +294,19 @@ export class BackupService {
     const folder = this.folder();
     await ensureDir(folder);
     const stamp = this.stamp();
-    const fileName = `dentiva-backup-${stamp}${BACKUP_EXTENSION}`;
-    const filePath = join(folder, fileName);
+    // Two backups can be asked for inside the same second (a manual backup and
+    // the automatic safety copy before a restore, for example). The name must
+    // stay unique, otherwise the second one would overwrite the first and a
+    // restore could bring back the wrong snapshot.
+    const stem = `dentiva-backup-${stamp}`;
+    let fileName = `${stem}${BACKUP_EXTENSION}`;
+    let filePath = join(folder, fileName);
+    let counter = 2;
+    while (existsSync(filePath)) {
+      fileName = `${stem}-${counter}${BACKUP_EXTENSION}`;
+      filePath = join(folder, fileName);
+      counter += 1;
+    }
     this.progress('starting', 2, `Preparing backup ${fileName}`);
 
     const workingDir = join(ctx.paths.tempDir, `backup-${stamp}`);
@@ -243,9 +424,9 @@ export class BackupService {
   private async collectAttachments(workingDir: string): Promise<Array<{ name: string; sourcePath: string }>> {
     const ctx = this.context();
     const entries: Array<{ name: string; sourcePath: string }> = [];
-    const rows = this.db
-      .prepare(`SELECT relative_path FROM attachments WHERE deleted_at IS NULL ORDER BY id`)
-      .all() as Array<{ relative_path: string }>;
+    const rows = this.db.prepare(`SELECT relative_path FROM attachments WHERE deleted_at IS NULL ORDER BY id`).all() as Array<{
+      relative_path: string;
+    }>;
     for (const row of rows) {
       const relative = row.relative_path.replace(/\\/g, '/');
       if (relative.startsWith('../') || relative.includes('/../')) continue;
@@ -285,14 +466,24 @@ export class BackupService {
       const manifest = JSON.parse((await readZipEntry(filePath, manifestEntry)).toString('utf8')) as Manifest;
       const checksum = await hashZipEntry(filePath, databaseEntry);
       if (manifest.databaseChecksum && checksum !== manifest.databaseChecksum) {
-        return { ok: false, problem: 'The database inside the archive does not match its checksum.', manifest, entryNames: entries.map((e) => e.name) };
+        return {
+          ok: false,
+          problem: 'The database inside the archive' + ' does not match its checksum.',
+          manifest,
+          entryNames: entries.map((e) => e.name),
+        };
       }
       if (manifest.databaseBytes && databaseEntry.uncompressedSize !== manifest.databaseBytes) {
         return { ok: false, problem: 'The database inside the archive is truncated.', manifest, entryNames: entries.map((e) => e.name) };
       }
       const missing = (manifest.files ?? []).filter((name) => !entries.some((entry) => entry.name === name));
       if (missing.length > 0) {
-        return { ok: false, problem: `The archive is missing ${missing.length} file(s).`, manifest, entryNames: entries.map((e) => e.name) };
+        return {
+          ok: false,
+          problem: `The archive is` + ` missing ${missing.length} file(s).`,
+          manifest,
+          entryNames: entries.map((e) => e.name),
+        };
       }
       // Open the embedded database read-only and check it.
       const tempPath = join(this.context().paths.tempDir, `verify-${Date.now()}.sqlite`);
@@ -302,7 +493,12 @@ export class BackupService {
       probe.close();
       await removeFileIfExists(tempPath);
       if (!integrity.ok) {
-        return { ok: false, problem: `The database inside the archive is not intact (${integrity.messages[0] ?? 'unknown problem'}).`, manifest, entryNames: entries.map((e) => e.name) };
+        return {
+          ok: false,
+          problem: `The database inside the archive is not intact` + ` (${integrity.messages[0] ?? 'unknown problem'}).`,
+          manifest,
+          entryNames: entries.map((e) => e.name),
+        };
       }
       return { ok: true, problem: '', manifest, entryNames: entries.map((entry) => entry.name) };
     } catch (error) {
@@ -316,8 +512,16 @@ export class BackupService {
     const result = await this.verifyFilePath(record.filePath);
     const ctx = this.context();
     if (result.ok) {
-      this.db.prepare(`UPDATE backup_records SET verified_at = ?, status = 'completed', failure_message = '' WHERE id = ?`).run(ctx.instant(), id);
-      ctx.audit.record({ action: 'backup_verify', entityType: 'backup', entityId: id, entityLabel: record.fileName, detail: 'Backup verified successfully' });
+      this.db
+        .prepare(`UPDATE backup_records SET verified_at = ?, status` + ` = 'completed', failure_message = '' WHERE id = ?`)
+        .run(ctx.instant(), id);
+      ctx.audit.record({
+        action: 'backup_verify',
+        entityType: 'backup',
+        entityId: id,
+        entityLabel: record.fileName,
+        detail: 'Backup' + ' verified' + ' successfully',
+      });
       return this.getRecord(id);
     }
     this.markFailed(id, result.problem);
@@ -453,7 +657,9 @@ export class BackupService {
     requirePermission(this.context(), 'backup.manage');
     const record = this.getRecord(id);
     if (confirmText?.trim() !== record.fileName) {
-      throw AppError.validation(`Type the file name (${record.fileName}) to confirm.`, { confirmText: `Type ${record.fileName} to confirm.` });
+      throw AppError.validation(`Type the file name` + ` (${record.fileName}) to confirm.`, {
+        confirmText: `Type ${record.fileName} to confirm.`,
+      });
     }
     const ctx = this.context();
     this.db.transaction(() => {
@@ -503,7 +709,8 @@ export class BackupService {
       const current = schemaVersion(this.db);
       if (manifest.schemaVersion > current) {
         warnings.push(
-          `This backup was made by a newer version of Dentiva Pro (data format ${manifest.schemaVersion}; this installation uses ${current}). Update the application before restoring it.`,
+          `This backup was made by a newer version of Dentiva Pro (data format ${manifest.schemaVersion};` +
+            ` this installation uses ${current}). Update the application before restoring it.`,
         );
       } else if (manifest.schemaVersion < current) {
         warnings.push('This backup was made by an older version. Its data will be upgraded automatically after restoring.');
@@ -538,7 +745,10 @@ export class BackupService {
     const ctx = this.context();
     this.progress('starting', 2, 'Preparing restore');
 
-    const preRestore = await this.create({ kind: 'pre_restore', note: `Automatic safety copy before restoring ${basename(input.filePath)}` });
+    const preRestore = await this.create({
+      kind: 'pre_restore',
+      note: `Automatic safety copy before` + ` restoring ${basename(input.filePath)}`,
+    });
     this.progress('verifying', 35, 'Validating the backup file');
     const verification = await this.verifyFilePath(input.filePath);
     if (!verification.ok) throw AppError.integrity(`This backup cannot be restored: ${verification.problem}`);
@@ -581,10 +791,15 @@ export class BackupService {
       action: 'restore_start',
       entityType: 'backup',
       entityLabel: basename(input.filePath),
-      detail: `Restore staged: safety copy ${preRestore.fileName}, ${attachmentsRestored} attachment file(s) ready. The application will restart to finish.`,
+      detail:
+        `Restore staged: safety copy ${preRestore.fileName}, ${attachmentsRestored}` +
+        ` attachment file(s) ready. The application will restart to finish.`,
       severity: 'critical',
     });
     this.progress('done', 100, 'Restore prepared — the application will restart');
+    ctx.notify?.('restore.relaunching', {
+      message: 'The backup has been validated. Dentiva Pro will close and reopen to finish restoring your data.',
+    });
     return {
       restored: true,
       databaseRestored: false,
@@ -685,9 +900,7 @@ export class BackupService {
   }
 
   private markFailed(id: number, problem: string): void {
-    this.db
-      .prepare(`UPDATE backup_records SET status = 'failed', failure_message = ? WHERE id = ?`)
-      .run(problem.slice(0, 500), id);
+    this.db.prepare(`UPDATE backup_records SET status = 'failed', failure_message = ? WHERE id = ?`).run(problem.slice(0, 500), id);
   }
 
   private pruneOldAutomaticBackups(keep = 30): void {
@@ -704,7 +917,8 @@ export class BackupService {
   lastFailure(): { message: string; at: string } | null {
     const row = this.db
       .prepare(
-        `SELECT failure_message, created_at FROM backup_records WHERE status = 'failed' AND failure_message <> '' ORDER BY created_at DESC LIMIT 1`,
+        `SELECT failure_message, created_at FROM backup_records WHERE status =` +
+          ` 'failed' AND failure_message <> '' ORDER BY created_at DESC LIMIT 1`,
       )
       .get() as { failure_message: string; created_at: string } | undefined;
     return row ? { message: row.failure_message, at: row.created_at } : null;

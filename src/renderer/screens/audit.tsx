@@ -24,7 +24,6 @@ import {
   LoadingBlock,
   Page,
   SearchInput,
-  Segmented,
   Select,
   Stat,
   StatusBadge,
@@ -99,8 +98,8 @@ export function AuditScreen(): JSX.Element {
       }
     >
       <Banner tone="info" title="Read-only trail">
-        The audit log cannot be edited or deleted from the interface. Entries are kept indefinitely so a record can
-        always be explained — deactivate users instead of deleting them.
+        The audit log cannot be edited or deleted from the interface. Entries are kept indefinitely so a record can always be explained —
+        deactivate users instead of deleting them.
       </Banner>
 
       <div className="stat-grid">
@@ -273,8 +272,8 @@ function AuditDetail({ entry }: { entry: AuditEntryDetail }): JSX.Element {
         <JsonBlock title="After" value={entry.after} />
       </div>
       <Banner tone="info" title="Why this is kept">
-        Audit entries let the clinic explain a change months later — for example what an invoice said before it was
-        edited, or which account exported patient data.
+        Audit entries let the clinic explain a change months later — for example what an invoice said before it was edited, or which account
+        exported patient data.
       </Banner>
     </div>
   );

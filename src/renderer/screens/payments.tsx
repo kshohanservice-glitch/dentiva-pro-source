@@ -32,15 +32,7 @@ import {
 } from '@renderer/components/ui';
 import { DataTable, MoneyField, TextField, rangePresetOptions } from '@renderer/components/forms';
 
-function RecordPaymentDialog({
-  open,
-  onClose,
-  onSaved,
-}: {
-  open: boolean;
-  onClose(): void;
-  onSaved(): void;
-}): JSX.Element | null {
+function RecordPaymentDialog({ open, onClose, onSaved }: { open: boolean; onClose(): void; onSaved(): void }): JSX.Element | null {
   const { run, busy } = useAction();
   const outstanding = useApi('invoices.list', open ? { page: 1, pageSize: 50, hasOutstanding: true } : null);
   const methods = useApi('resource.list', { resource: 'payment-methods', query: { pageSize: 100 }, includeInactive: false });
@@ -260,7 +252,14 @@ export function PaymentsScreen(): JSX.Element {
               setPage(1);
             }}
           />
-          <Switch label="Show voided" checked={includeVoid} onChange={(value) => { setIncludeVoid(value); setPage(1); }} />
+          <Switch
+            label="Show voided"
+            checked={includeVoid}
+            onChange={(value) => {
+              setIncludeVoid(value);
+              setPage(1);
+            }}
+          />
         </div>
       </div>
 
@@ -284,7 +283,7 @@ export function PaymentsScreen(): JSX.Element {
                 className="btn btn--link"
                 onClick={(event) => {
                   event.stopPropagation();
-                  navigate(resolveScreenPath('patient', payment.patientId));
+                  void navigate(resolveScreenPath('patient', payment.patientId));
                 }}
               >
                 {payment.patientName}
@@ -330,7 +329,14 @@ export function PaymentsScreen(): JSX.Element {
         ) : null}
       </Card>
 
-      <RecordPaymentDialog open={dialogOpen} onClose={() => setDialogOpen(false)} onSaved={() => { list.reload(); stats.reload(); }} />
+      <RecordPaymentDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSaved={() => {
+          list.reload();
+          stats.reload();
+        }}
+      />
 
       <Modal
         open={selected !== null}

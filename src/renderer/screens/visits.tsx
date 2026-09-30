@@ -11,15 +11,7 @@ import { ClipboardCheck, Plus, Trash2 } from 'lucide-react';
 import { resolveScreenPath } from '@shared/api';
 import { todayIso } from '@shared/dates';
 import type { ClinicalOptionCategory } from '@shared/constants';
-import type {
-  Dentist,
-  PatientSummary,
-  Treatment,
-  TreatmentRecordInput,
-  VisitDetail,
-  VisitInput,
-  VisitSummary,
-} from '@shared/types';
+import type { Dentist, PatientSummary, Treatment, TreatmentRecordInput, VisitInput, VisitSummary } from '@shared/types';
 import { useAction, useApi, useApp } from '@renderer/state/store';
 import { bridge } from '@renderer/lib/bridge';
 import { fmtDate, fmtMoney, fmtTime } from '@renderer/lib/format';
@@ -39,11 +31,10 @@ import {
   Page,
   SearchInput,
   Select,
-  StatusBadge,
   TextArea,
   Input,
 } from '@renderer/components/ui';
-import { DataTable, DentistSelect, PatientPicker, SelectField, TextField, rangePresetOptions, MoneyField } from '@renderer/components/forms';
+import { DataTable, DentistSelect, PatientPicker, TextField, rangePresetOptions, MoneyField } from '@renderer/components/forms';
 
 const EMPTY_VISIT = (patientId = 0): VisitInput => ({
   patientId,
@@ -110,9 +101,7 @@ function TreatmentLines({
 
   return (
     <div className="stack stack--sm">
-      {lines.length === 0 ? (
-        <div className="small muted">No treatment recorded for this visit yet.</div>
-      ) : null}
+      {lines.length === 0 ? <div className="small muted">No treatment recorded for this visit yet.</div> : null}
       {lines.map((line, index) => (
         <div key={index} className="grid-4" style={{ alignItems: 'end' }}>
           <Field label="Treatment">
@@ -198,9 +187,7 @@ function TreatmentLines({
         <Button size="sm" icon={<Plus size={14} />} onClick={addLine}>
           Add treatment
         </Button>
-        {options.length === 0 ? (
-          <span className="small muted">Add treatments in Settings → Treatments to pick them here.</span>
-        ) : null}
+        {options.length === 0 ? <span className="small muted">Add treatments in Settings → Treatments to pick them here.</span> : null}
       </div>
     </div>
   );
@@ -229,7 +216,6 @@ function VisitDialog({
       setPatient(match);
       setForm(EMPTY_VISIT(match.id));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultPatientId, prefill.data]);
 
   const patch = (value: Partial<VisitInput>) => setForm((current) => ({ ...current, ...value }));
@@ -237,7 +223,7 @@ function VisitDialog({
   const toggle = (key: 'ccOptions' | 'oeOptions' | 'reOptions' | 'adviceOptions', label: string) =>
     patch({
       [key]: form[key].includes(label) ? form[key].filter((item) => item !== label) : [...form[key], label],
-    } as Partial<VisitInput>);
+    });
 
   const save = async () => {
     const patientId = patient?.id ?? form.patientId;
@@ -245,10 +231,10 @@ function VisitDialog({
       toast('warning', 'Choose a patient first');
       return;
     }
-    const saved = await run(
-      () => bridge.invoke('visits.create', { input: { ...form, patientId } }),
-      { success: 'Visit recorded.', failure: 'The visit could not be saved.' },
-    );
+    const saved = await run(() => bridge.invoke('visits.create', { input: { ...form, patientId } }), {
+      success: 'Visit recorded.',
+      failure: 'The visit could not be saved.',
+    });
     if (saved) {
       onSaved(saved.id);
       onClose();
@@ -323,11 +309,7 @@ function VisitDialog({
 
         <div className="grid-3">
           <Field label="Follow-up date" hint="Appears on the dashboard when it is due">
-            <Input
-              type="date"
-              value={form.followUpDate ?? ''}
-              onChange={(event) => patch({ followUpDate: event.target.value || null })}
-            />
+            <Input type="date" value={form.followUpDate ?? ''} onChange={(event) => patch({ followUpDate: event.target.value || null })} />
           </Field>
           <TextField label="History" value={form.history} onChange={(value) => patch({ history: value })} />
           <Field label="Notes">
@@ -341,11 +323,15 @@ function VisitDialog({
 
 function VisitDetailDrawer({ visitId, onClose }: { visitId: number | null; onClose(): void }): JSX.Element | null {
   const visit = useApi('visits.get', visitId ? { id: visitId } : null);
-  const detail = visit.data as VisitDetail | null;
+  const detail = visit.data;
   if (!visitId) return null;
   return (
     <Drawer open title={detail ? `Visit · ${fmtDate(detail.visitDate)}` : 'Visit'} onClose={onClose}>
-      {visit.loading && !detail ? <LoadingBlock rows={6} /> : !detail ? <ErrorState message={visit.error ?? 'Not found'} /> : (
+      {visit.loading && !detail ? (
+        <LoadingBlock rows={6} />
+      ) : !detail ? (
+        <ErrorState message={visit.error ?? 'Not found'} />
+      ) : (
         <div className="stack">
           <DefinitionList
             items={[
@@ -413,11 +399,12 @@ export function VisitsScreen(): JSX.Element {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<number | null>(null);
 
-  const list = useApi(
-    'visits.list',
-    { page, pageSize: 25, search: search || undefined, preset: preset || undefined, dentistId },
-    [page, search, preset, dentistId],
-  );
+  const list = useApi('visits.list', { page, pageSize: 25, search: search || undefined, preset: preset || undefined, dentistId }, [
+    page,
+    search,
+    preset,
+    dentistId,
+  ]);
   const items = list.data?.items ?? [];
 
   return (
@@ -451,7 +438,13 @@ export function VisitsScreen(): JSX.Element {
               setPage(1);
             }}
           />
-          <DentistFilter value={dentistId} onChange={(value) => { setDentistId(value); setPage(1); }} />
+          <DentistFilter
+            value={dentistId}
+            onChange={(value) => {
+              setDentistId(value);
+              setPage(1);
+            }}
+          />
         </div>
       </div>
 
@@ -479,7 +472,7 @@ export function VisitsScreen(): JSX.Element {
                 className="btn btn--link"
                 onClick={(event) => {
                   event.stopPropagation();
-                  navigate(resolveScreenPath('patient', visit.patientId));
+                  void navigate(resolveScreenPath('patient', visit.patientId));
                 }}
               >
                 {visit.patientName}
@@ -533,8 +526,7 @@ export function VisitsScreen(): JSX.Element {
       </Card>
 
       <Banner tone="info" title="Visits are immutable.">
-        A saved visit is never silently rewritten — correcting a record means recording a new visit, so the history
-        stays auditable.
+        A saved visit is never silently rewritten — correcting a record means recording a new visit, so the history stays auditable.
       </Banner>
 
       <VisitDialog

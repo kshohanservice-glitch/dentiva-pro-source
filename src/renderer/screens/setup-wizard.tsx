@@ -8,23 +8,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, Plus, Trash2, Upload } from 'lucide-react';
 import { APP_NAME } from '@shared/app-info';
-import { AUTO_LOCK_OPTIONS, BACKUP_INTERVAL_OPTIONS, DENTIST_CREDENTIAL_TYPES, DATE_FORMATS, TIME_FORMATS, TIME_ZONES } from '@shared/constants';
+import {
+  AUTO_LOCK_OPTIONS,
+  BACKUP_INTERVAL_OPTIONS,
+  DENTIST_CREDENTIAL_TYPES,
+  DATE_FORMATS,
+  TIME_FORMATS,
+  TIME_ZONES,
+} from '@shared/constants';
 import type { DentistInput } from '@shared/types';
 import { useAction, useApi, useApp } from '@renderer/state/store';
 import { bridge, resolveSourcePath } from '@renderer/lib/bridge';
 import { validatePassword } from '@shared/password-policy';
-import {
-  Banner,
-  Button,
-  Card,
-  Field,
-  Input,
-  Page,
-  Segmented,
-  Select,
-  Spinner,
-  TextArea,
-} from '@renderer/components/ui';
+import { Banner, Button, Card, Field, Input, Page, Segmented, Select, Spinner, TextArea } from '@renderer/components/ui';
 import { TextField } from '@renderer/components/forms';
 
 const STEPS = [
@@ -36,8 +32,6 @@ const STEPS = [
   { key: 'review', title: 'Review', description: 'Check everything before finishing.' },
   { key: 'finish', title: 'Finish', description: 'Open the clinic system.' },
 ] as const;
-
-type StepKey = (typeof STEPS)[number]['key'];
 
 function blankDentist(primary = false): DentistInput {
   return {
@@ -57,7 +51,7 @@ function blankDentist(primary = false): DentistInput {
 
 export function SetupWizard(): JSX.Element {
   const { bootstrap, refresh, toast } = useApp();
-  const { run, busy } = useAction();
+  const { busy } = useAction();
   const status = useApi('setup.status', undefined);
   const [stepIndex, setStepIndex] = useState(0);
   const [touched, setTouched] = useState(false);
@@ -111,7 +105,9 @@ export function SetupWizard(): JSX.Element {
               <span className="gate__step-index">{complete ? <Check size={14} /> : index + 1}</span>
               <span>
                 <strong>{entry.title}</strong>
-                <span className="small muted" style={{ display: 'block' }}>{entry.description}</span>
+                <span className="small muted" style={{ display: 'block' }}>
+                  {entry.description}
+                </span>
               </span>
             </button>
           );
@@ -119,10 +115,38 @@ export function SetupWizard(): JSX.Element {
       </div>
 
       {step.key === 'welcome' ? <WelcomeStep /> : null}
-      {step.key === 'clinic' ? <ClinicStep onDone={() => { status.reload(); go(stepIndex + 1); }} /> : null}
-      {step.key === 'dentists' ? <DentistsStep onDone={() => { status.reload(); go(stepIndex + 1); }} /> : null}
-      {step.key === 'preferences' ? <PreferencesStep onDone={() => { status.reload(); go(stepIndex + 1); }} /> : null}
-      {step.key === 'administrator' ? <AdministratorStep onDone={() => { status.reload(); go(stepIndex + 1); }} /> : null}
+      {step.key === 'clinic' ? (
+        <ClinicStep
+          onDone={() => {
+            status.reload();
+            go(stepIndex + 1);
+          }}
+        />
+      ) : null}
+      {step.key === 'dentists' ? (
+        <DentistsStep
+          onDone={() => {
+            status.reload();
+            go(stepIndex + 1);
+          }}
+        />
+      ) : null}
+      {step.key === 'preferences' ? (
+        <PreferencesStep
+          onDone={() => {
+            status.reload();
+            go(stepIndex + 1);
+          }}
+        />
+      ) : null}
+      {step.key === 'administrator' ? (
+        <AdministratorStep
+          onDone={() => {
+            status.reload();
+            go(stepIndex + 1);
+          }}
+        />
+      ) : null}
       {step.key === 'review' ? <ReviewStep /> : null}
       {step.key === 'finish' ? <FinishStep /> : null}
 
@@ -151,7 +175,10 @@ export function SetupWizard(): JSX.Element {
   );
 }
 
-function isComplete(key: string, status: { clinicComplete: boolean; dentistsComplete: boolean; preferencesComplete: boolean; administratorComplete: boolean }): boolean {
+function isComplete(
+  key: string,
+  status: { clinicComplete: boolean; dentistsComplete: boolean; preferencesComplete: boolean; administratorComplete: boolean },
+): boolean {
   switch (key) {
     case 'clinic':
       return status.clinicComplete;
@@ -172,8 +199,8 @@ function WelcomeStep(): JSX.Element {
     <Card title="Welcome to Dentiva Pro">
       <div className="stack">
         <p>
-          This wizard configures the clinic once. Everything runs on this computer — there is no cloud account,
-          no internet call and no external service. Your patient records stay inside the data folder below.
+          This wizard configures the clinic once. Everything runs on this computer — there is no cloud account, no internet call and no
+          external service. Your patient records stay inside the data folder below.
         </p>
         <div className="grid-2">
           <div className="definition">
@@ -188,10 +215,7 @@ function WelcomeStep(): JSX.Element {
           </div>
           <div className="definition">
             <dt>You will set</dt>
-            <dd>
-              1 · Clinic identity &nbsp; 2 · Dentists &nbsp; 3 · Formats, auto-lock and backups &nbsp; 4 · The
-              administrator password
-            </dd>
+            <dd>1 · Clinic identity &nbsp; 2 · Dentists &nbsp; 3 · Formats, auto-lock and backups &nbsp; 4 · The administrator password</dd>
             <dt>You can change it later</dt>
             <dd>Everything except the activation code is editable in Settings.</dd>
             <dt>Advice</dt>
@@ -257,10 +281,10 @@ function ClinicStep({ onDone }: { onDone(): void }): JSX.Element {
             loading={busy}
             disabled={form.name.trim().length < 2}
             onClick={async () => {
-              const saved = await run(
-                () => bridge.invoke('setup.saveClinic', { ...form, logoSourcePath: logoPath }),
-                { success: 'Clinic profile saved.', failure: 'The clinic profile could not be saved.' },
-              );
+              const saved = await run(() => bridge.invoke('setup.saveClinic', { ...form, logoSourcePath: logoPath }), {
+                success: 'Clinic profile saved.',
+                failure: 'The clinic profile could not be saved.',
+              });
               if (saved !== undefined) onDone();
             }}
           >
@@ -284,7 +308,11 @@ function DentistsStep({ onDone }: { onDone(): void }): JSX.Element {
       title="Dentists"
       subtitle="Designations, qualifications and certifications print under the signature on prescriptions."
       actions={
-        <Button size="sm" icon={<Plus size={14} />} onClick={() => setDentists((current) => [...current, blankDentist(current.length === 0)])}>
+        <Button
+          size="sm"
+          icon={<Plus size={14} />}
+          onClick={() => setDentists((current) => [...current, blankDentist(current.length === 0)])}
+        >
           Add dentist
         </Button>
       }
@@ -295,8 +323,17 @@ function DentistsStep({ onDone }: { onDone(): void }): JSX.Element {
             <div className="stack">
               <div className="grid-3">
                 <TextField label="Full name" required value={dentist.name} onChange={(value) => patchDentist(index, { name: value })} />
-                <TextField label="BDS / registration number" value={dentist.registrationNumber} onChange={(value) => patchDentist(index, { registrationNumber: value })} />
-                <TextField label="Visiting hours" hint="e.g. Sat–Thu, 5 pm – 9 pm" value={dentist.visitingHours} onChange={(value) => patchDentist(index, { visitingHours: value })} />
+                <TextField
+                  label="BDS / registration number"
+                  value={dentist.registrationNumber}
+                  onChange={(value) => patchDentist(index, { registrationNumber: value })}
+                />
+                <TextField
+                  label="Visiting hours"
+                  hint="e.g. Sat–Thu, 5 pm – 9 pm"
+                  value={dentist.visitingHours}
+                  onChange={(value) => patchDentist(index, { visitingHours: value })}
+                />
               </div>
               <div className="grid-3">
                 <TextField label="Phone" value={dentist.phone} onChange={(value) => patchDentist(index, { phone: value })} />
@@ -326,7 +363,15 @@ function DentistsStep({ onDone }: { onDone(): void }): JSX.Element {
                       patchDentist(index, {
                         credentials: [
                           ...dentist.credentials,
-                          { id: null, type: 'certification', title: '', institution: '', year: null, sortOrder: dentist.credentials.length * 10 + 10, showOnPrescription: true },
+                          {
+                            id: null,
+                            type: 'certification',
+                            title: '',
+                            institution: '',
+                            year: null,
+                            sortOrder: dentist.credentials.length * 10 + 10,
+                            showOnPrescription: true,
+                          },
                         ],
                       })
                     }
@@ -493,7 +538,10 @@ function PreferencesStep({ onDone }: { onDone(): void }): JSX.Element {
           <Select
             value={form.defaultPrinterName}
             placeholder="System default printer"
-            options={(printers.data ?? []).map((printer) => ({ value: printer.name, label: `${printer.name}${printer.isDefault ? ' (default)' : ''}` }))}
+            options={(printers.data ?? []).map((printer) => ({
+              value: printer.name,
+              label: `${printer.name}${printer.isDefault ? ' (default)' : ''}`,
+            }))}
             onChange={(event) => patch({ defaultPrinterName: event.target.value })}
           />
         </Field>
@@ -570,8 +618,8 @@ function AdministratorStep({ onDone }: { onDone(): void }): JSX.Element {
           </Banner>
         ) : null}
         <Banner tone="info" title="Write this password down somewhere safe">
-          There is no password reset by email — Dentiva Pro is fully offline. If you lose it, an administrator can
-          reset it from another account.
+          There is no password reset by email — Dentiva Pro is fully offline. If you lose it, an administrator can reset it from another
+          account.
         </Banner>
         <div className="row row--end">
           <Button
@@ -580,7 +628,8 @@ function AdministratorStep({ onDone }: { onDone(): void }): JSX.Element {
             disabled={!ready}
             onClick={async () => {
               const saved = await run(
-                () => bridge.invoke('setup.createAdministrator', { username: form.username, fullName: form.fullName, password: form.password }),
+                () =>
+                  bridge.invoke('setup.createAdministrator', { username: form.username, fullName: form.fullName, password: form.password }),
                 { success: 'Administrator created.', failure: 'The administrator could not be created.' },
               );
               if (saved !== undefined) onDone();
@@ -625,8 +674,7 @@ function ReviewStep(): JSX.Element {
             <dd>{data?.administrator ?? '— not set —'}</dd>
             <dt>Date / time</dt>
             <dd>
-              {data?.preferences?.dateFormat ?? '—'} · {data?.preferences?.timeFormat ?? '—'} ·{' '}
-              {data?.preferences?.timeZone ?? '—'}
+              {data?.preferences?.dateFormat ?? '—'} · {data?.preferences?.timeFormat ?? '—'} · {data?.preferences?.timeZone ?? '—'}
             </dd>
             <dt>Auto-lock / backup</dt>
             <dd>
@@ -652,14 +700,21 @@ function FinishStep(): JSX.Element {
     <Card title="Finish setup">
       <div className="stack">
         <p>
-          Step five completes the wizard and opens the clinic system. The owner account you created signs in first;
-          add staff accounts afterwards from Users &amp; roles.
+          Step five completes the wizard and opens the clinic system. The owner account you created signs in first; add staff accounts
+          afterwards from Users &amp; roles.
         </p>
         <div className="definition">
           <dt>Wizard progress</dt>
           <dd>
             {status.data
-              ? `${[status.data.clinicComplete, status.data.dentistsComplete, status.data.preferencesComplete, status.data.administratorComplete].filter(Boolean).length} of 4 data steps complete`
+              ? `${
+                  [
+                    status.data.clinicComplete,
+                    status.data.dentistsComplete,
+                    status.data.preferencesComplete,
+                    status.data.administratorComplete,
+                  ].filter(Boolean).length
+                } of 4 data steps complete`
               : '—'}
           </dd>
           <dt>Completed at</dt>

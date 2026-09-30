@@ -112,7 +112,8 @@ export function seedReferenceData(db: SqliteDatabase, deps: SeedDependencies, ct
   const clinicRow = db.prepare(`SELECT id FROM clinic WHERE id = 1`).get();
   if (!clinicRow) {
     db.prepare(
-      `INSERT INTO clinic (id, name, address, phone, email, website, clinic_message, visiting_hours, registration_number, created_at, updated_at)
+      `INSERT INTO clinic (id, name, address, phone, email, website, clinic_message,` +
+        ` visiting_hours, registration_number, created_at, updated_at)
        VALUES (1, '', '', '', '', '', '', '', '', ?, ?)`,
     ).run(now, now);
     createdClinic = true;

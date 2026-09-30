@@ -13,14 +13,7 @@ import { resolveScreenPath } from '@shared/api';
 import { FOOD_TIMINGS, MEDICATION_FORMS } from '@shared/constants';
 import { todayIso } from '@shared/dates';
 import type { ClinicalOptionCategory, FoodTiming, MedicationForm } from '@shared/constants';
-import type {
-  Medication,
-  PatientSummary,
-  PrescriptionDetail,
-  PrescriptionInput,
-  PrescriptionItemInput,
-  PrescriptionSummary,
-} from '@shared/types';
+import type { Medication, PatientSummary, PrescriptionInput, PrescriptionItemInput, PrescriptionSummary } from '@shared/types';
 import { useAction, useApi, useApp } from '@renderer/state/store';
 import { bridge } from '@renderer/lib/bridge';
 import { fmtDate, fmtInstant } from '@renderer/lib/format';
@@ -40,7 +33,6 @@ import {
   Page,
   SearchInput,
   Select,
-  StatusBadge,
   TextArea,
 } from '@renderer/components/ui';
 import { DataTable, DentistSelect, PatientPicker, TextField, rangePresetOptions } from '@renderer/components/forms';
@@ -134,11 +126,10 @@ function PrescriptionEditor({
       setPatient(match);
       setForm(emptyPrescription(match.id));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultPatientId, prefill.data, prescriptionId]);
 
   useEffect(() => {
-    const detail = existing.data as PrescriptionDetail | null;
+    const detail = existing.data;
     if (!detail) return;
     setForm({
       patientId: detail.patientId,
@@ -188,9 +179,7 @@ function PrescriptionEditor({
     const input: PrescriptionInput = {
       ...form,
       patientId,
-      items: form.items
-        .filter((item) => item.name.trim())
-        .map((item, index) => ({ ...item, sortOrder: index + 1 })),
+      items: form.items.filter((item) => item.name.trim()).map((item, index) => ({ ...item, sortOrder: index + 1 })),
     };
     if (input.items.length === 0) {
       toast('warning', 'Add at least one medication');
@@ -246,10 +235,32 @@ function PrescriptionEditor({
         </div>
 
         <div className="grid-2">
-          <OptionSection title="C/C — Chief complaint" category="cc" selected={form.cc} onToggle={(label) => patch({ cc: form.cc.includes(label) ? form.cc.filter((item) => item !== label) : [...form.cc, label] })} />
-          <OptionSection title="O/E — On examination" category="oe" selected={form.oe} onToggle={(label) => patch({ oe: form.oe.includes(label) ? form.oe.filter((item) => item !== label) : [...form.oe, label] })} />
-          <OptionSection title="R/E — Diagnosis" category="re" selected={form.re} onToggle={(label) => patch({ re: form.re.includes(label) ? form.re.filter((item) => item !== label) : [...form.re, label] })} />
-          <OptionSection title="Advice" category="advice" selected={form.advice} onToggle={(label) => patch({ advice: form.advice.includes(label) ? form.advice.filter((item) => item !== label) : [...form.advice, label] })} />
+          <OptionSection
+            title="C/C — Chief complaint"
+            category="cc"
+            selected={form.cc}
+            onToggle={(label) => patch({ cc: form.cc.includes(label) ? form.cc.filter((item) => item !== label) : [...form.cc, label] })}
+          />
+          <OptionSection
+            title="O/E — On examination"
+            category="oe"
+            selected={form.oe}
+            onToggle={(label) => patch({ oe: form.oe.includes(label) ? form.oe.filter((item) => item !== label) : [...form.oe, label] })}
+          />
+          <OptionSection
+            title="R/E — Diagnosis"
+            category="re"
+            selected={form.re}
+            onToggle={(label) => patch({ re: form.re.includes(label) ? form.re.filter((item) => item !== label) : [...form.re, label] })}
+          />
+          <OptionSection
+            title="Advice"
+            category="advice"
+            selected={form.advice}
+            onToggle={(label) =>
+              patch({ advice: form.advice.includes(label) ? form.advice.filter((item) => item !== label) : [...form.advice, label] })
+            }
+          />
         </div>
 
         <Card
@@ -379,10 +390,7 @@ function PrescriptionEditor({
                         patchItems(items);
                       }}
                     />
-                    <Button
-                      variant="ghost"
-                      onClick={() => patchItems(form.items.filter((_, position) => position !== index))}
-                    >
+                    <Button variant="ghost" onClick={() => patchItems(form.items.filter((_, position) => position !== index))}>
                       <X size={15} /> Remove
                     </Button>
                   </div>
@@ -412,15 +420,15 @@ function PrescriptionDrawer({
   const { confirm } = useApp();
   const { run } = useAction();
   const prescription = useApi('prescriptions.get', prescriptionId ? { id: prescriptionId } : null);
-  const detail = prescription.data as PrescriptionDetail | null;
+  const detail = prescription.data;
 
   if (!prescriptionId) return null;
 
   const print = async (output: 'pdf' | 'print') => {
-    const result = await run(
-      () => bridge.invoke('print.render', { kind: 'prescription', id: prescriptionId, output }),
-      { success: output === 'print' ? 'Sent to the printer.' : 'PDF generated.', failure: 'Printing failed.' },
-    );
+    const result = await run(() => bridge.invoke('print.render', { kind: 'prescription', id: prescriptionId, output }), {
+      success: output === 'print' ? 'Sent to the printer.' : 'PDF generated.',
+      failure: 'Printing failed.',
+    });
     if (result?.pdfPath) await run(() => bridge.invoke('app.openPath', { path: result.pdfPath! }));
     prescription.reload();
   };
@@ -528,11 +536,12 @@ export function PrescriptionsScreen(): JSX.Element {
   const [createOpen, setCreateOpen] = useState(Boolean(defaultPatientId));
   const [selected, setSelected] = useState<number | null>(null);
 
-  const list = useApi(
-    'prescriptions.list',
-    { page, pageSize: 25, search: search || undefined, preset: preset || undefined, includeVoid },
-    [page, search, preset, includeVoid],
-  );
+  const list = useApi('prescriptions.list', { page, pageSize: 25, search: search || undefined, preset: preset || undefined, includeVoid }, [
+    page,
+    search,
+    preset,
+    includeVoid,
+  ]);
   const items = list.data?.items ?? [];
 
   return (
@@ -592,7 +601,7 @@ export function PrescriptionsScreen(): JSX.Element {
                 className="btn btn--link"
                 onClick={(event) => {
                   event.stopPropagation();
-                  navigate(resolveScreenPath('patient', prescription.patientId));
+                  void navigate(resolveScreenPath('patient', prescription.patientId));
                 }}
               >
                 {prescription.patientName}

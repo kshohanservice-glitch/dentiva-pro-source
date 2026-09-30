@@ -66,7 +66,20 @@ export class PaymentService {
       LEFT JOIN payment_methods m ON m.id = pay.method_id
   `;
 
-  list(query: { page?: number; pageSize?: number; search?: string; preset?: string; from?: string; to?: string; patientId?: number; invoiceId?: number; methodId?: number | null; includeVoid?: boolean } = {}): Paged<PaymentSummary> {
+  list(
+    query: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
+      preset?: string;
+      from?: string;
+      to?: string;
+      patientId?: number;
+      invoiceId?: number;
+      methodId?: number | null;
+      includeVoid?: boolean;
+    } = {},
+  ): Paged<PaymentSummary> {
     requirePermission(this.context(), 'payment.view');
     const { limit, offset, page, pageSize } = paginate(query.page, query.pageSize);
     const clauses: string[] = [];
@@ -104,7 +117,10 @@ export class PaymentService {
     const total = asNumber(
       (
         this.db
-          .prepare(`SELECT COUNT(*) AS total FROM payments pay JOIN invoices i ON i.id = pay.invoice_id JOIN patients p ON p.id = pay.patient_id${where}`)
+          .prepare(
+            `SELECT COUNT(*) AS total FROM payments pay JOIN invoices i ON i.id` +
+              ` = pay.invoice_id JOIN patients p ON p.id = pay.patient_id${where}`,
+          )
           .get(...params) as { total: number }
       ).total,
     );
@@ -152,7 +168,8 @@ export class PaymentService {
         .prepare(
           `INSERT INTO payments (receipt_number, invoice_id, patient_id, amount_paisa, method_id, reference, note, paid_at, paid_date,
              received_by, is_void, created_at, updated_at)
-           VALUES (@receiptNumber, @invoiceId, @patientId, @amount, @methodId, @reference, @note, @paidAt, @paidDate, @receivedBy, 0, @createdAt, @updatedAt)`,
+           VALUES (@receiptNumber, @invoiceId, @patientId, @amount, @methodId,` +
+            ` @reference, @note, @paidAt, @paidDate, @receivedBy, 0, @createdAt, @updatedAt)`,
         )
         .run({
           receiptNumber,
@@ -279,7 +296,8 @@ export class PaymentService {
       | undefined;
     if (!existing) throw AppError.notFound('Payment');
     if (fromBoolInt(existing.is_void)) throw AppError.precondition('This payment has already been reversed.');
-    if (reason.trim().length < 3) throw AppError.validation('Explain why the payment is being reversed.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Explain why the payment is being reversed.', { reason: 'Reason is required.' });
     if (confirmText?.trim() !== existing.receipt_number) {
       throw AppError.validation(`Type the receipt number (${existing.receipt_number}) to confirm the reversal.`, {
         confirmText: `Type ${existing.receipt_number} to confirm.`,
@@ -322,7 +340,15 @@ export class PaymentService {
            FROM payments pay LEFT JOIN payment_methods m ON m.id = pay.method_id
           WHERE pay.is_void = 0 AND pay.paid_date BETWEEN ? AND ?`,
       )
-      .get(range.from, range.to) as { total: number; count: number; cash: number; bank: number; card: number; wallet: number; other: number };
+      .get(range.from, range.to) as {
+      total: number;
+      count: number;
+      cash: number;
+      bank: number;
+      card: number;
+      wallet: number;
+      other: number;
+    };
     const byMethod = (
       this.db
         .prepare(
@@ -332,7 +358,13 @@ export class PaymentService {
             WHERE pay.is_void = 0 AND pay.paid_date BETWEEN ? AND ?
             GROUP BY pay.method_id ORDER BY amount DESC`,
         )
-        .all(range.from, range.to) as Array<{ method_id: number | null; method_name: string; category: string; amount: number; count: number }>
+        .all(range.from, range.to) as Array<{
+        method_id: number | null;
+        method_name: string;
+        category: string;
+        amount: number;
+        count: number;
+      }>
     ).map((row) => ({
       methodId: asNumber(row.method_id),
       methodName: row.method_name,
@@ -351,7 +383,10 @@ export class PaymentService {
     const outstanding = asNumber(
       (
         this.db
-          .prepare(`SELECT COALESCE(SUM(total_paisa - paid_paisa),0) AS due FROM invoices WHERE deleted_at IS NULL AND is_void = 0 AND total_paisa > paid_paisa`)
+          .prepare(
+            `SELECT COALESCE(SUM(total_paisa - paid_paisa),0) AS due FROM invoices` +
+              ` WHERE deleted_at IS NULL AND is_void = 0 AND total_paisa > paid_paisa`,
+          )
           .get() as { due: number }
       ).due,
     );
@@ -400,7 +435,14 @@ export class PaymentService {
     }));
   }
 
-  private loadInvoice(invoiceId: number): { id: number; number: string; total_paisa: number; paid_paisa: number; patient_id: number; is_void: number } {
+  private loadInvoice(invoiceId: number): {
+    id: number;
+    number: string;
+    total_paisa: number;
+    paid_paisa: number;
+    patient_id: number;
+    is_void: number;
+  } {
     const invoice = this.db
       .prepare(`SELECT id, number, total_paisa, paid_paisa, patient_id, is_void FROM invoices WHERE id = ? AND deleted_at IS NULL`)
       .get(invoiceId) as
@@ -412,13 +454,19 @@ export class PaymentService {
 
   private assertMethodUsable(methodId: number | null, reference: string): void {
     if (methodId === null) return;
-    const method = this.db.prepare(`SELECT id, name, is_active, requires_reference FROM payment_methods WHERE id = ? AND deleted_at IS NULL`).get(methodId) as
-      | { id: number; name: string; is_active: number; requires_reference: number }
-      | undefined;
+    const method = this.db
+      .prepare(`SELECT id, name, is_active, requires_reference FROM payment_methods` + ` WHERE id = ? AND deleted_at IS NULL`)
+      .get(methodId) as { id: number; name: string; is_active: number; requires_reference: number } | undefined;
     if (!method) throw AppError.validation('Select a valid payment method.', { methodId: 'Unknown payment method.' });
-    if (!fromBoolInt(method.is_active)) throw AppError.validation(`${method.name} is no longer available. Choose another method.`, { methodId: 'Method is inactive.' });
+    if (!fromBoolInt(method.is_active)) {
+      throw AppError.validation(`${method.name} is no longer available. Choose another method.`, {
+        methodId: 'Method is inactive.',
+      });
+    }
     if (fromBoolInt(method.requires_reference) && reference.trim().length < 3) {
-      throw AppError.validation(`${method.name} payments need a reference number.`, { reference: 'Reference is required for this method.' });
+      throw AppError.validation(`${method.name} payments need a reference number.`, {
+        reference: 'Reference is required for this method.',
+      });
     }
   }
 
@@ -427,7 +475,8 @@ export class PaymentService {
       throw AppError.validation('Enter a valid amount.', { amountPaisa: 'Enter a valid amount.' });
     }
     const amount = Math.round(amountPaisa);
-    if (amount <= 0) throw AppError.validation('Payment amount must be greater than zero.', { amountPaisa: 'Amount must be greater than zero.' });
+    if (amount <= 0)
+      throw AppError.validation('Payment amount must be greater than zero.', { amountPaisa: 'Amount must be greater than zero.' });
     if (amount > 1e15) throw AppError.validation('Payment amount is unrealistically large.', { amountPaisa: 'Amount is too large.' });
     return amount;
   }

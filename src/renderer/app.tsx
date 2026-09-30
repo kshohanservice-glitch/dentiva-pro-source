@@ -47,7 +47,9 @@ function Splash(): JSX.Element {
           <span className="spinner" aria-hidden />
           <div>
             <h1 style={{ margin: 0, fontSize: 20 }}>{APP_NAME}</h1>
-            <p className="muted" style={{ margin: 0 }}>Opening the clinic database…</p>
+            <p className="muted" style={{ margin: 0 }}>
+              Opening the clinic database…
+            </p>
           </div>
         </div>
       </div>

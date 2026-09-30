@@ -51,7 +51,15 @@ export function createTestPaths(root: string): CorePaths {
     tempDir: join(root, 'temp'),
     exportsDir: join(root, 'exports'),
   };
-  for (const directory of [paths.dataDir, paths.attachmentsDir, paths.backupsDir, paths.logsDir, paths.configDir, paths.tempDir, paths.exportsDir]) {
+  for (const directory of [
+    paths.dataDir,
+    paths.attachmentsDir,
+    paths.backupsDir,
+    paths.logsDir,
+    paths.configDir,
+    paths.tempDir,
+    paths.exportsDir,
+  ]) {
     mkdirSync(directory, { recursive: true });
   }
   return paths;
@@ -71,12 +79,31 @@ export function createTestApp(options: { seed?: boolean; logToFile?: boolean; ke
     lastHtml: '',
     jobs: [],
     listPrinters: async () => [
-      { name: 'Dentiva-Test-Printer', displayName: 'Dentiva Test Printer', description: 'Fake printer', status: 0, isDefault: true, options: {} },
-      { name: 'Microsoft Print to PDF', displayName: 'Microsoft Print to PDF', description: 'PDF writer', status: 0, isDefault: false, options: {} },
+      {
+        name: 'Dentiva-Test-Printer',
+        displayName: 'Dentiva Test Printer',
+        description: 'Fake printer',
+        status: 0,
+        isDefault: true,
+        options: {},
+      },
+      {
+        name: 'Microsoft Print to PDF',
+        displayName: 'Microsoft Print to PDF',
+        description: 'PDF writer',
+        status: 0,
+        isDefault: false,
+        options: {},
+      },
     ],
     toPdf: async (html, printOptions) => {
       printHost.lastHtml = html;
-      printHost.jobs.push({ kind: 'pdf', jobName: printOptions.jobName, printerName: printOptions.printerName, copies: printOptions.copies });
+      printHost.jobs.push({
+        kind: 'pdf',
+        jobName: printOptions.jobName,
+        printerName: printOptions.printerName,
+        copies: printOptions.copies,
+      });
       renderedFiles += 1;
       const path = join(paths.tempDir, `render-${renderedFiles}.pdf`);
       writeFileSync(path, '%PDF-1.4 fake render for tests');
@@ -84,7 +111,12 @@ export function createTestApp(options: { seed?: boolean; logToFile?: boolean; ke
     },
     send: async (html, printOptions) => {
       printHost.lastHtml = html;
-      printHost.jobs.push({ kind: 'print', jobName: printOptions.jobName, printerName: printOptions.printerName, copies: printOptions.copies });
+      printHost.jobs.push({
+        kind: 'print',
+        jobName: printOptions.jobName,
+        printerName: printOptions.printerName,
+        copies: printOptions.copies,
+      });
       return { pageCount: 1, bytes: 32 };
     },
     reveal: async () => undefined,
@@ -140,7 +172,12 @@ export function createTestApp(options: { seed?: boolean; logToFile?: boolean; ke
            ON CONFLICT (id) DO UPDATE SET activated_at = excluded.activated_at, code_hash = excluded.code_hash,
              machine_hash = excluded.machine_hash, signature = excluded.signature, attempts = 0, last_error = NULL`,
         )
-        .run(activatedAt, activationDigestForTests(), machineHash, activationSignature(activationDigestForTests(), machineHash, activatedAt));
+        .run(
+          activatedAt,
+          activationDigestForTests(),
+          machineHash,
+          activationSignature(activationDigestForTests(), machineHash, activatedAt),
+        );
       container.services.settings.saveSetupStep('activation', true, 1);
       return userId;
     },

@@ -6,6 +6,7 @@
  * themselves — the UI hiding a button is never the only guard), and (4) wrapped
  * in the envelope the preload bridge unwraps.
  */
+import type { z } from 'zod';
 import type { ApiMethodName, BridgeInvokeResult } from '@shared/api';
 import { API_METHOD_NAMES } from '@shared/api';
 import { AppError, describeUnknown, serializeError } from '@shared/errors';
@@ -37,7 +38,7 @@ export function createRouter({ container, ports }: RouterOptions): IpcRouter {
       if (!known.has(method) || !Object.prototype.hasOwnProperty.call(handlers, method)) {
         return { ok: false, error: { code: 'VALIDATION', message: `Unknown method “${method}”.` } };
       }
-      const schema = SCHEMAS[method as ApiMethodName];
+      const schema = SCHEMAS[method as ApiMethodName] as z.ZodTypeAny;
       const parsed = schema.safeParse(payload ?? undefined);
       if (!parsed.success) {
         return {
@@ -46,7 +47,8 @@ export function createRouter({ container, ports }: RouterOptions): IpcRouter {
         };
       }
       try {
-        const data = await handlers[method as ApiMethodName](parsed.data, context);
+        const handler = handlers[method as ApiMethodName] as (payload: unknown, ctx: HandlerContext) => unknown;
+        const data = await handler(parsed.data, context);
         return { ok: true, data };
       } catch (error) {
         if (error instanceof AppError) return { ok: false, error: serializeError(error) };

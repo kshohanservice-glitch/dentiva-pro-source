@@ -134,9 +134,11 @@ export class InvoiceService {
     }
     const where = buildWhere(clauses);
     const total = asNumber(
-      (this.db.prepare(`SELECT COUNT(*) AS total FROM invoices i JOIN patients p ON p.id = i.patient_id${where}`).get(...params) as {
-        total: number;
-      }).total,
+      (
+        this.db.prepare(`SELECT COUNT(*) AS total FROM invoices i JOIN patients p ON p.id = i.patient_id${where}`).get(...params) as {
+          total: number;
+        }
+      ).total,
     );
     const rows = this.db
       .prepare(`${SELECT}${where} ORDER BY i.date DESC, i.id DESC LIMIT ? OFFSET ?`)
@@ -163,9 +165,9 @@ export class InvoiceService {
   }
 
   private items(invoiceId: number): InvoiceItem[] {
-    const rows = this.db
-      .prepare(`SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order, id`)
-      .all(invoiceId) as Array<Record<string, unknown>>;
+    const rows = this.db.prepare(`SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order, id`).all(invoiceId) as Array<
+      Record<string, unknown>
+    >;
     return rows.map((row) => ({
       id: asNumber(row['id']),
       invoiceId: asNumber(row['invoice_id']),
@@ -291,7 +293,12 @@ export class InvoiceService {
     const ctx = this.context();
     this.db.transaction(() => {
       // Detach previous treatment links so they can be re-linked consistently.
-      this.db.prepare(`UPDATE treatment_records SET invoice_item_id = NULL WHERE invoice_item_id IN (SELECT id FROM invoice_items WHERE invoice_id = ?)`).run(id);
+      this.db
+        .prepare(
+          `UPDATE treatment_records SET invoice_item_id = NULL WHERE` +
+            ` invoice_item_id IN (SELECT id FROM invoice_items WHERE invoice_id = ?)`,
+        )
+        .run(id);
       this.db
         .prepare(
           `UPDATE invoices SET visit_id = @visitId, dentist_id = @dentistId, date = @date, subtotal_paisa = @subtotal,
@@ -330,23 +337,28 @@ export class InvoiceService {
 
   void(id: number, reason: string): void {
     requirePermission(this.context(), 'invoice.delete');
-    if (reason.trim().length < 3) throw AppError.validation('Please give a reason for voiding this invoice.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Please give a reason for' + ' voiding this invoice.', { reason: 'Reason is required.' });
     const invoice = this.db.prepare(`SELECT number, paid_paisa FROM invoices WHERE id = ? AND deleted_at IS NULL`).get(id) as
       | { number: string; paid_paisa: number }
       | undefined;
     if (!invoice) throw AppError.notFound('Invoice');
     if (asNumber(invoice.paid_paisa) > 0) {
-      throw AppError.precondition(
-        'This invoice has payments recorded. Void the payments first so the financial history stays auditable.',
-      );
+      throw AppError.precondition('This invoice has payments recorded. Void the payments first so the financial history stays auditable.');
     }
     const ctx = this.context();
     this.db.transaction(() => {
       this.db
-        .prepare(`UPDATE invoices SET is_void = 1, status = 'void', void_reason = ?, voided_at = ?, voided_by = ?, updated_at = ? WHERE id = ?`)
+        .prepare(
+          `UPDATE invoices SET is_void = 1, status = 'void', void_reason =` +
+            ` ?, voided_at = ?, voided_by = ?, updated_at = ? WHERE id = ?`,
+        )
         .run(reason.trim(), ctx.instant(), currentUserId(ctx), ctx.instant(), id);
       this.db
-        .prepare(`UPDATE treatment_records SET invoice_item_id = NULL WHERE invoice_item_id IN (SELECT id FROM invoice_items WHERE invoice_id = ?)`)
+        .prepare(
+          `UPDATE treatment_records SET invoice_item_id = NULL WHERE` +
+            ` invoice_item_id IN (SELECT id FROM invoice_items WHERE invoice_id = ?)`,
+        )
         .run(id);
       ctx.audit.record({
         action: 'update',
@@ -376,7 +388,8 @@ export class InvoiceService {
         confirmText: `Type ${invoice.number} to confirm.`,
       });
     }
-    if (reason.trim().length < 3) throw AppError.validation('Please give a reason for deleting this invoice.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Please give a reason for' + ' deleting this invoice.', { reason: 'Reason is required.' });
     const ctx = this.context();
     this.db.transaction(() => {
       this.db.prepare(`UPDATE invoices SET deleted_at = ?, deleted_reason = ? WHERE id = ?`).run(ctx.instant(), reason.trim(), id);
@@ -422,7 +435,9 @@ export class InvoiceService {
     else if (total > 0 && paid >= total) status = 'paid';
     else if (paid > 0) status = 'partially_paid';
     else status = 'unpaid';
-    this.db.prepare(`UPDATE invoices SET paid_paisa = ?, status = ?, updated_at = ? WHERE id = ?`).run(paid, status, this.context().instant(), invoiceId);
+    this.db
+      .prepare(`UPDATE invoices SET paid_paisa = ?,` + ` status = ?, updated_at = ? WHERE id = ?`)
+      .run(paid, status, this.context().instant(), invoiceId);
     return { paid, status };
   }
 
@@ -451,9 +466,7 @@ export class InvoiceService {
     const total = asNumber(
       (
         this.db
-          .prepare(
-            `SELECT COUNT(DISTINCT i.patient_id) AS total FROM invoices i JOIN patients p ON p.id = i.patient_id${where}`,
-          )
+          .prepare(`SELECT COUNT(DISTINCT i.patient_id) AS total FROM invoices i JOIN patients p ON p.id = i.patient_id${where}`)
           .get(...params) as { total: number }
       ).total,
     );
@@ -543,7 +556,8 @@ export class InvoiceService {
       this.db
         .prepare(
           `SELECT i.date AS date, SUM(i.total_paisa) AS invoiced,
-                  COALESCE((SELECT SUM(pay.amount_paisa) FROM payments pay WHERE pay.paid_date = i.date AND pay.is_void = 0), 0) AS collected
+                  COALESCE((SELECT SUM(pay.amount_paisa) FROM payments` +
+            ` pay WHERE pay.paid_date = i.date AND pay.is_void = 0), 0) AS collected
              FROM invoices i WHERE i.deleted_at IS NULL AND i.is_void = 0 AND i.date BETWEEN ? AND ?
             GROUP BY i.date ORDER BY i.date`,
         )
@@ -552,7 +566,8 @@ export class InvoiceService {
     const topTreatments = (
       this.db
         .prepare(
-          `SELECT COALESCE(NULLIF(trim(ii.description), ''), ii.code) AS label, SUM(ii.quantity) AS value, SUM(ii.line_total_paisa) AS amount
+          `SELECT COALESCE(NULLIF(trim(ii.description), ''), ii.code) AS label,` +
+            ` SUM(ii.quantity) AS value, SUM(ii.line_total_paisa) AS amount
              FROM invoice_items ii JOIN invoices i ON i.id = ii.invoice_id
             WHERE i.deleted_at IS NULL AND i.is_void = 0 AND i.date BETWEEN ? AND ?
             GROUP BY lower(label) ORDER BY amount DESC LIMIT 10`,
@@ -671,7 +686,9 @@ export class InvoiceService {
     const clinicRow = this.db.prepare(`SELECT name, address, phone, email, logo_path FROM clinic WHERE id = 1`).get() as
       | { name: string; address: string; phone: string; email: string; logo_path: string | null }
       | undefined;
-    const settingsRow = this.db.prepare(`SELECT value FROM app_settings WHERE key = 'invoiceFooterNote'`).get() as { value: string } | undefined;
+    const settingsRow = this.db.prepare(`SELECT value FROM app_settings WHERE key = 'invoiceFooterNote'`).get() as
+      | { value: string }
+      | undefined;
     let footerNote = '';
     if (settingsRow) {
       try {

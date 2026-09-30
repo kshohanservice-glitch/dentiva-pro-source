@@ -56,9 +56,9 @@ export function openDatabase(options: OpenDatabaseOptions): SqliteDatabase {
 }
 
 function currentVersion(db: SqliteDatabase): number {
-  const exists = db
-    .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'`)
-    .get() as { name?: string } | undefined;
+  const exists = db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'`).get() as
+    | { name?: string }
+    | undefined;
   if (!exists?.name) return 0;
   const row = db.prepare(`SELECT COUNT(*) AS count FROM schema_migrations`).get() as { count: number };
   return row.count;
@@ -81,9 +81,7 @@ export function runMigrations(db: SqliteDatabase, onLog?: (message: string) => v
   const applied: string[] = [];
   const startVersion = currentVersion(db);
   const alreadyApplied = new Set<string>(
-    startVersion === 0
-      ? []
-      : (db.prepare(`SELECT id FROM schema_migrations`).all() as Array<{ id: string }>).map((row) => row.id),
+    startVersion === 0 ? [] : (db.prepare(`SELECT id FROM schema_migrations`).all() as Array<{ id: string }>).map((row) => row.id),
   );
 
   const pending: Migration[] = MIGRATIONS.filter((migration) => !alreadyApplied.has(migration.id));
@@ -197,12 +195,7 @@ export function hadAbnormalExit(db: SqliteDatabase): boolean {
   return getMeta(db, 'clean_shutdown') === '0';
 }
 
-export function recordSystemEvent(
-  db: SqliteDatabase,
-  type: string,
-  message: string,
-  detail?: unknown,
-): void {
+export function recordSystemEvent(db: SqliteDatabase, type: string, message: string, detail?: unknown): void {
   db.prepare(`INSERT INTO system_events (type, message, detail_json, created_at) VALUES (?, ?, ?, ?)`).run(
     type,
     message,

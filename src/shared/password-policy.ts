@@ -25,9 +25,29 @@ export const DEFAULT_PASSWORD_POLICY: PasswordPolicy = {
 };
 
 export const COMMON_PASSWORDS: ReadonlySet<string> = new Set([
-  'password', 'password1', 'password123', '12345678', '123456789', '1234567890', 'qwerty123', 'qwertyuiop',
-  'admin123', 'administrator', 'dentiva', 'dentivapro', 'dental123', 'clinic123', 'welcome1', 'letmein1',
-  'iloveyou', 'abc12345', 'passw0rd', 'bangladesh', 'dhaka123', 'doctor123', 'patient1',
+  'password',
+  'password1',
+  'password123',
+  '12345678',
+  '123456789',
+  '1234567890',
+  'qwerty123',
+  'qwertyuiop',
+  'admin123',
+  'administrator',
+  'dentiva',
+  'dentivapro',
+  'dental123',
+  'clinic123',
+  'welcome1',
+  'letmein1',
+  'iloveyou',
+  'abc12345',
+  'passw0rd',
+  'bangladesh',
+  'dhaka123',
+  'doctor123',
+  'patient1',
 ]);
 
 export interface PasswordValidationResult {

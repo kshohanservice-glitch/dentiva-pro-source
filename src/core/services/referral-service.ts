@@ -8,7 +8,6 @@ import type { Paged, Referral, ReferralInput } from '@shared/types';
 import type { ReferralStatus } from '@shared/constants';
 import { AppError } from '@shared/errors';
 import { asNumber, asString, buildWhere, pageCount, paginate } from '../db/sql';
-import {} from '@shared/dates';
 
 interface ReferralRow {
   id: number;
@@ -68,7 +67,9 @@ export class ReferralService {
     };
   }
 
-  list(query: { page?: number; pageSize?: number; patientId?: number; status?: string; search?: string; from?: string; to?: string } = {}): Paged<Referral> {
+  list(
+    query: { page?: number; pageSize?: number; patientId?: number; status?: string; search?: string; from?: string; to?: string } = {},
+  ): Paged<Referral> {
     requirePermission(this.context(), 'patient.view');
     const { limit, offset, page, pageSize } = paginate(query.page, query.pageSize);
     const clauses: string[] = [];
@@ -91,14 +92,18 @@ export class ReferralService {
     }
     if (query.search && query.search.trim() !== '') {
       const term = `%${query.search.trim().replace(/[%_]/g, (match) => `\\${match}`)}%`;
-      clauses.push(`(p.code LIKE ? ESCAPE '\\' OR (p.first_name || ' ' || p.last_name) LIKE ? ESCAPE '\\' OR r.doctor_name LIKE ? ESCAPE '\\')`);
+      clauses.push(
+        `(p.code LIKE ? ESCAPE '\\' OR (p.first_name || ' ' || p.last_name)` + ` LIKE ? ESCAPE '\\' OR r.doctor_name LIKE ? ESCAPE '\\')`,
+      );
       params.push(term, term, term);
     }
     const where = buildWhere(clauses);
     const total = asNumber(
-      (this.db.prepare(`SELECT COUNT(*) AS total FROM referrals r JOIN patients p ON p.id = r.patient_id${where}`).get(...params) as {
-        total: number;
-      }).total,
+      (
+        this.db.prepare(`SELECT COUNT(*) AS total FROM referrals r JOIN patients p ON p.id = r.patient_id${where}`).get(...params) as {
+          total: number;
+        }
+      ).total,
     );
     const rows = this.db
       .prepare(`${SELECT}${where} ORDER BY r.date DESC, r.id DESC LIMIT ? OFFSET ?`)
@@ -153,7 +158,13 @@ export class ReferralService {
         )
         .run({ ...payload, id });
       if (result.changes === 0) throw AppError.notFound('Referral');
-      ctx.audit.record({ action: 'update', entityType: 'referral', entityId: id, entityLabel: payload.doctorName, detail: 'Referral updated' });
+      ctx.audit.record({
+        action: 'update',
+        entityType: 'referral',
+        entityId: id,
+        entityLabel: payload.doctorName,
+        detail: 'Referral' + ' updated',
+      });
       return { id };
     }
     const result = this.db
@@ -177,7 +188,8 @@ export class ReferralService {
 
   delete(id: number, reason: string): void {
     requirePermission(this.context(), 'visit.edit');
-    if (reason.trim().length < 3) throw AppError.validation('Please give a reason for removing this referral.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Please give a reason for' + ' removing this referral.', { reason: 'Reason is required.' });
     const ctx = this.context();
     const row = this.db.prepare(`SELECT doctor_name FROM referrals WHERE id = ?`).get(id) as { doctor_name: string } | undefined;
     if (!row) throw AppError.notFound('Referral');
@@ -195,11 +207,15 @@ export class ReferralService {
     })();
   }
 
-  statistics(from: string, to: string): { total: number; byStatus: Array<{ label: string; value: number }>; bySpecialty: Array<{ label: string; value: number }> } {
+  statistics(
+    from: string,
+    to: string,
+  ): { total: number; byStatus: Array<{ label: string; value: number }>; bySpecialty: Array<{ label: string; value: number }> } {
     requirePermission(this.context(), 'report.operational.view');
-    const rows = this.db
-      .prepare(`SELECT status, specialty FROM referrals WHERE date BETWEEN ? AND ?`)
-      .all(from, to) as Array<{ status: string; specialty: string }>;
+    const rows = this.db.prepare(`SELECT status, specialty FROM referrals WHERE date BETWEEN ? AND ?`).all(from, to) as Array<{
+      status: string;
+      specialty: string;
+    }>;
     const statusCounts = new Map<string, number>();
     const specialtyCounts = new Map<string, number>();
     for (const row of rows) {

@@ -45,11 +45,13 @@ function ensureEventStream(): void {
   source = new EventSource('/api/events');
   source.onmessage = (message) => {
     try {
-      const parsed = JSON.parse(message.data) as { name?: string; payload?: unknown };
-      if (!parsed || typeof parsed.name !== 'string') return;
-      const set = listeners.get(parsed.name as BridgeEventName);
+      const parsed: unknown = JSON.parse(String(message.data));
+      if (typeof parsed !== 'object' || parsed === null) return;
+      const event = parsed as { name?: unknown; payload?: unknown };
+      if (typeof event.name !== 'string') return;
+      const set = listeners.get(event.name as BridgeEventName);
       if (!set) return;
-      for (const listener of set) listener(parsed.payload);
+      for (const listener of set) listener(event.payload);
     } catch {
       /* keep-alive comments and malformed frames are ignored */
     }

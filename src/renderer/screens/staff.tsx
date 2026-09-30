@@ -141,11 +141,7 @@ function StaffDialog({
           <TextField label="Full name" required value={form.name} onChange={(value) => patch({ name: value })} />
           <TextField label="Designation" value={form.designation} onChange={(value) => patch({ designation: value })} />
           <Field label="Department" hint="Type a new department or reuse an existing one">
-            <Input
-              list="staff-departments"
-              value={form.department}
-              onChange={(event) => patch({ department: event.target.value })}
-            />
+            <Input list="staff-departments" value={form.department} onChange={(event) => patch({ department: event.target.value })} />
             <datalist id="staff-departments">
               {departments.map((department) => (
                 <option key={department} value={department} />
@@ -381,8 +377,8 @@ function DentistDialog({
         >
           {form.credentials.length === 0 ? (
             <p className="muted small">
-              No credentials yet. For example: “BDS” (qualification), “Consultant, Orthodontics” (designation) or
-              “Advanced Endodontics, 2024” (certification).
+              No credentials yet. For example: “BDS” (qualification), “Consultant, Orthodontics” (designation) or “Advanced Endodontics,
+              2024” (certification).
             </p>
           ) : (
             <div className="stack stack--sm">
@@ -496,10 +492,9 @@ export function StaffScreen(): JSX.Element {
       reason: true,
     });
     if (!answer.ok || !answer.reason) return;
-    await run(
-      () => bridge.invoke('staff.delete', { id: member.id, reason: answer.reason!, confirmText: member.name }),
-      { success: 'Staff member removed.' },
-    );
+    await run(() => bridge.invoke('staff.delete', { id: member.id, reason: answer.reason!, confirmText: member.name }), {
+      success: 'Staff member removed.',
+    });
     staffList.reload();
     staffStats.reload();
   };
@@ -507,17 +502,15 @@ export function StaffScreen(): JSX.Element {
   const removeDentist = async (dentist: Dentist) => {
     const answer = await confirm({
       title: `Remove ${dentist.name}`,
-      description:
-        'A dentist who has recorded visits is deactivated so prescriptions and invoices stay attributable.',
+      description: 'A dentist who has recorded visits is deactivated so prescriptions and invoices stay attributable.',
       confirmLabel: 'Remove dentist',
       tone: 'danger',
       reason: true,
     });
     if (!answer.ok || !answer.reason) return;
-    await run(
-      () => bridge.invoke('dentists.delete', { id: dentist.id, reason: answer.reason!, confirmText: dentist.name }),
-      { success: 'Dentist removed.' },
-    );
+    await run(() => bridge.invoke('dentists.delete', { id: dentist.id, reason: answer.reason!, confirmText: dentist.name }), {
+      success: 'Dentist removed.',
+    });
     dentists.reload();
     dentistStats.reload();
   };
@@ -630,7 +623,14 @@ export function StaffScreen(): JSX.Element {
                 status: <StatusBadge status={member.status} label={member.status.replace(/_/g, ' ')} />,
                 actions: (
                   <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
-                    <Button size="sm" variant="ghost" onClick={() => { setEditingStaff(member); setStaffOpen(true); }}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setEditingStaff(member);
+                        setStaffOpen(true);
+                      }}
+                    >
                       Edit
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => void removeStaff(member)}>
@@ -684,7 +684,14 @@ export function StaffScreen(): JSX.Element {
                     subtitle={dentist.registrationNumber || 'Registration not recorded'}
                     actions={
                       <div className="row" style={{ gap: 6 }}>
-                        <Button size="sm" variant="ghost" onClick={() => { setEditingDentist(dentist); setDentistOpen(true); }}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingDentist(dentist);
+                            setDentistOpen(true);
+                          }}
+                        >
                           Edit
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => void removeDentist(dentist)}>

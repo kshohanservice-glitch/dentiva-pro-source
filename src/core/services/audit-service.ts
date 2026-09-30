@@ -8,7 +8,7 @@
  */
 import type { SqliteDatabase } from '../db/connection';
 import type { AuditEntryInput, CoreContext, AuditWriter } from '../context';
-import { currentUserId, currentUserName } from '../context';
+import { currentUserId, currentUserName, requirePermission } from '../context';
 import type { AuditEntry, AuditEntryDetail, AuditListQuery, Paged } from '@shared/types';
 import { AUDIT_ACTION_LABELS, type AuditAction } from '@shared/constants';
 import { asNumber, asNullableString, asString, buildWhere, dateRangeClause, likeTerm, paginate, pageCount } from '../db/sql';
@@ -46,7 +46,7 @@ function toEntry(row: AuditRow): AuditEntry {
     userId: row.user_id,
     userName: row.user_name,
     detail: row.detail,
-    severity: (row.severity === 'critical' || row.severity === 'warning' ? row.severity : 'info'),
+    severity: row.severity === 'critical' || row.severity === 'warning' ? row.severity : 'info',
     createdAt: row.created_at,
     hasBeforeAfter: Boolean(row.before_json || row.after_json),
   };
@@ -93,19 +93,30 @@ export class AuditService implements AuditWriter {
   }
 
   /** Convenience wrapper used by security-sensitive code paths. */
-  recordAction(action: AuditAction, entityType: string, entityId: number | null, detail: string, severity: AuditEntryInput['severity'] = 'info'): void {
+  recordAction(
+    action: AuditAction,
+    entityType: string,
+    entityId: number | null,
+    detail: string,
+    severity: AuditEntryInput['severity'] = 'info',
+  ): void {
     this.record({ action, entityType, entityId, detail, severity });
   }
 
+  /** The live context, or a hard failure when there is no session at all. */
+  private context(): CoreContext {
+    const ctx = this.getContext();
+    if (!ctx) throw AppError.unauthenticated();
+    return ctx;
+  }
+
   list(query: AuditListQuery): Paged<AuditEntry> {
+    requirePermission(this.context(), 'audit.view');
     const { limit, offset, page, pageSize } = paginate(query.page, query.pageSize);
     const params: unknown[] = [];
     const preset = query.preset && query.preset !== 'all' ? (query.preset as Parameters<typeof resolveDateRange>[0]) : undefined;
     const range = preset ? resolveDateRange(preset, { custom: { from: query.from, to: query.to } }) : { from: query.from, to: query.to };
-    const clauses: Array<string | null> = [
-      range.from ? `created_at >= ?` : null,
-      range.to ? `substr(created_at, 1, 10) <= ?` : null,
-    ];
+    const clauses: Array<string | null> = [range.from ? `created_at >= ?` : null, range.to ? `substr(created_at, 1, 10) <= ?` : null];
     if (range.from) params.push(range.from);
     if (range.to) params.push(range.to);
     if (query.action && query.action.length > 0) {
@@ -138,6 +149,7 @@ export class AuditService implements AuditWriter {
   }
 
   get(id: number): AuditEntryDetail {
+    requirePermission(this.context(), 'audit.view');
     const row = this.db.prepare(`SELECT * FROM audit_logs WHERE id = ?`).get(id) as AuditRow | undefined;
     if (!row) throw AppError.notFound('Audit entry');
     const parse = (value: string | null): unknown => {
@@ -165,6 +177,7 @@ export class AuditService implements AuditWriter {
 
   /** Rows for CSV/PDF export within a date range. */
   exportRows(from: string | undefined, to: string | undefined, limit = 100_000): AuditEntry[] {
+    requirePermission(this.context(), 'audit.view');
     const params: unknown[] = [];
     const clauses: string[] = [];
     if (from) {
@@ -176,23 +189,24 @@ export class AuditService implements AuditWriter {
       params.push(to);
     }
     const where = buildWhere(clauses);
-    const rows = this.db
-      .prepare(`SELECT * FROM audit_logs${where} ORDER BY created_at DESC LIMIT ?`)
-      .all(...params, limit) as AuditRow[];
+    const rows = this.db.prepare(`SELECT * FROM audit_logs${where} ORDER BY created_at DESC LIMIT ?`).all(...params, limit) as AuditRow[];
     return rows.map(toEntry);
   }
 
   actions(): Array<{ action: string; label: string; count: number }> {
-    const rows = this.db
-      .prepare(`SELECT action, COUNT(*) AS count FROM audit_logs GROUP BY action ORDER BY count DESC`)
-      .all() as Array<{ action: string; count: number }>;
+    requirePermission(this.context(), 'audit.view');
+    const rows = this.db.prepare(`SELECT action, COUNT(*) AS count FROM audit_logs GROUP BY action ORDER BY count DESC`).all() as Array<{
+      action: string;
+      count: number;
+    }>;
     return rows.map((row) => ({ action: row.action, label: actionLabel(row.action), count: asNumber(row.count) }));
   }
 
   counts(): { total: number; critical: number; last24h: number } {
     const total = asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM audit_logs`).get() as { total: number }).total);
     const critical = asNumber(
-      (this.db.prepare(`SELECT COUNT(*) AS total FROM audit_logs WHERE severity IN ('critical','warning')`).get() as { total: number }).total,
+      (this.db.prepare(`SELECT COUNT(*) AS total FROM audit_logs WHERE severity IN ('critical','warning')`).get() as { total: number })
+        .total,
     );
     const since = new Date(Date.now() - 86_400_000).toISOString();
     const last24h = asNumber(

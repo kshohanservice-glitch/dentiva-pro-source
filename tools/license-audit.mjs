@@ -12,7 +12,7 @@
  * block a release whose dependency terms changed underneath us.
  */
 import { createHash } from 'node:crypto';
-import { readFile, readdir, stat, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, readdir, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -123,7 +123,8 @@ async function findLicenseText(dir) {
  * boilerplate ("Copyright law", "copyright owner or entity authorized by")
  * carries no information, so it is filtered out.
  */
-const BOILERPLATE = /copyright\s+(?:law|notice|owner|holder|and\s+related|license|protection)|without\s+limitation|as\s+defined|in\s+the\s+(?:software|document)/i;
+const BOILERPLATE =
+  /copyright\s+(?:law|notice|owner|holder|and\s+related|license|protection)|without\s+limitation|as\s+defined|in\s+the\s+(?:software|document)/i;
 
 function copyrightLine(text) {
   if (!text) return null;
@@ -155,10 +156,7 @@ for (const entry of packages) {
 }
 
 const rootManifest = await readJson(path.join(root, 'package.json'));
-const directNames = new Set([
-  ...Object.keys(rootManifest?.dependencies ?? {}),
-  ...Object.keys(rootManifest?.devDependencies ?? {}),
-]);
+const directNames = new Set([...Object.keys(rootManifest?.dependencies ?? {}), ...Object.keys(rootManifest?.devDependencies ?? {})]);
 
 const notices = [];
 const problems = [];
@@ -176,10 +174,7 @@ for (const entry of [...byName.values()].sort((a, b) => a.name.localeCompare(b.n
     version: entry.version,
     license,
     homepage: typeof entry.manifest.homepage === 'string' ? entry.manifest.homepage : null,
-    repository:
-      typeof entry.manifest.repository === 'string'
-        ? entry.manifest.repository
-        : entry.manifest.repository?.url ?? null,
+    repository: typeof entry.manifest.repository === 'string' ? entry.manifest.repository : (entry.manifest.repository?.url ?? null),
     copyright: copyrightLine(licenseText?.text ?? null),
     direct: directNames.has(entry.name),
     licenseFile: licenseText?.file ?? null,
@@ -206,9 +201,7 @@ noticeLines.push('');
 noticeLines.push('| Package | Version | Licence | Copyright |');
 noticeLines.push('| --- | --- | --- | --- |');
 for (const entry of direct) {
-  noticeLines.push(
-    `| ${entry.name} | ${entry.version} | ${entry.license} | ${(entry.copyright ?? '—').replace(/\|/g, '\\|')} |`,
-  );
+  noticeLines.push(`| ${entry.name} | ${entry.version} | ${entry.license} | ${(entry.copyright ?? '—').replace(/\|/g, '\\|')} |`);
 }
 noticeLines.push('');
 noticeLines.push('## Transitive dependencies');
@@ -253,7 +246,9 @@ export interface ThirdPartyNotice {
 
 export const LICENSES_GENERATED_AT = ${JSON.stringify(generatedAt)};
 export const LICENSES_DIGEST = ${JSON.stringify(
-  createHash('sha256').update(JSON.stringify(notices.map((entry) => [entry.name, entry.version, entry.license]))).digest('hex'),
+  createHash('sha256')
+    .update(JSON.stringify(notices.map((entry) => [entry.name, entry.version, entry.license])))
+    .digest('hex'),
 )};
 export const THIRD_PARTY_NOTICES: readonly ThirdPartyNotice[] = ${JSON.stringify(
   notices.map((entry) => ({

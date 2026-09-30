@@ -10,63 +10,63 @@ codebase: deviations must be recorded here first.
 
 ## 1. Context and constraints
 
-| Constraint | Consequence |
-| --- | --- |
-| Commercial product for real dental clinics in Bangladesh | Production-quality code, no placeholder behaviour, audit trail, safe data handling |
-| Completely offline | No cloud services, no remote auth, no online licensing, no web fonts, no telemetry, no OCR/AI APIs |
-| Windows desktop | Native printer discovery, Windows dialogs, NSIS installer, `.ico` application icon, DPI scaling |
-| BDT currency, Bengali Unicode content | Integer minor units (paisa), bundled Bengali-capable fonts |
-| Large data volumes (10k+ patients, 50k+ visits) | Indexed schema, pagination/virtualised lists, no N+1 queries |
-| Patient data is sensitive | Local-only storage, hashed credentials, RBAC enforced in the service layer, audit log |
+| Constraint                                        | Consequence                                                                                     |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Commercial product for real clinics in Bangladesh | Production-quality code, no placeholder behaviour, audit trail, safe data handling              |
+| Completely offline                                | No cloud, remote auth, online licensing, web fonts, telemetry or OCR/AI APIs                    |
+| Windows desktop                                   | Native printer discovery, Windows dialogs, NSIS installer, `.ico` application icon, DPI scaling |
+| BDT currency, Bengali Unicode content             | Integer minor units (paisa) and bundled Bengali-capable fonts                                   |
+| Large data volumes (10k+ patients, 50k+ visits)   | Indexed schema, paginated lists, no N+1 queries                                                 |
+| Patient data is sensitive                         | Local-only storage, hashed credentials, RBAC enforced in the service layer, audit log           |
 
 ## 2. Selected stack
 
-| Layer | Selection | Notes |
-| --- | --- | --- |
-| Desktop shell | **Electron 39** (Chromium 142 / Node 22) | Mature Windows packaging, Chromium print engine, native dialogs and printers |
-| UI | **React 19 + TypeScript 5.9**, Vite 7 build, React Router 7 | Fast dev loop, single renderer codebase |
-| Styling | **Hand-authored design-system CSS** with token layer | No CSS framework dependency; full control of the clinical visual language |
-| Icons | **lucide-react** (ISC) | One coherent 2px-stroke icon set |
-| Database | **SQLite via better-sqlite3 13** (N-API) | Embedded, ACID, WAL, foreign keys, FTS5, online backup API |
-| Domain layer | Framework-free TypeScript in `src/core` | Business rules never live in React components |
-| Validation | **zod 4** at every IPC boundary + service entry point | Rejects malformed payloads before they reach SQL |
-| Password hashing | **Argon2id via hash-wasm** (WASM, MIT) | Memory-hard KDF, no native build step, works offline |
-| Archive/backup | **fflate** (MIT) for zip container | Pure JS, streaming-friendly, no native code |
-| Printing | Chromium print pipeline driven from the main process | `printToPDF` for PDF, `webContents.print` for printers |
-| Installer | **electron-builder 26 → NSIS x64** (+ portable target) | Start-menu/desktop shortcuts, clean uninstall, data preservation |
-| Tests | **Vitest** (unit/integration/ui), **Playwright-Electron** (Windows E2E), headless-Chromium harness (cross-platform E2E) | See §9 |
-| CI/CD | **GitHub Actions** (ubuntu quality gate + windows packaging/E2E) | Reproducible artifacts from a clean checkout |
+| Layer            | Selection                                                                                                               | Notes                                                                        |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Desktop shell    | **Electron 39** (Chromium 142 / Node 22)                                                                                | Mature Windows packaging, Chromium print engine, native dialogs and printers |
+| UI               | **React 19 + TypeScript 5.9**, Vite 7 build, React Router 7                                                             | Fast dev loop, single renderer codebase                                      |
+| Styling          | **Hand-authored design-system CSS** with token layer                                                                    | No CSS framework; full control of the clinical visual language               |
+| Icons            | **lucide-react** (ISC)                                                                                                  | One coherent 2px-stroke icon set                                             |
+| Database         | **SQLite via better-sqlite3 13** (N-API)                                                                                | Embedded, ACID, WAL, foreign keys, FTS5, online backup API                   |
+| Domain layer     | Framework-free TypeScript in `src/core`                                                                                 | Business rules never live in React components                                |
+| Validation       | **zod 4** at every IPC boundary + service entry point                                                                   | Rejects malformed payloads before they reach SQL                             |
+| Password hashing | **Argon2id via hash-wasm** (WASM, MIT)                                                                                  | Memory-hard KDF, no native build step, works offline                         |
+| Archive/backup   | **fflate** (MIT) for zip container                                                                                      | Pure JS, streaming-friendly, no native code                                  |
+| Printing         | Chromium print pipeline driven from the main process                                                                    | `printToPDF` for PDF, `webContents.print` for printers                       |
+| Installer        | **electron-builder 26 → NSIS x64** (+ portable target)                                                                  | Start-menu/desktop shortcuts, clean uninstall, data preservation             |
+| Tests            | **Vitest** (unit/integration/ui), **Playwright-Electron** (Windows E2E), headless-Chromium harness (cross-platform E2E) | See §9                                                                       |
+| CI/CD            | **GitHub Actions** (ubuntu quality gate + windows packaging/E2E)                                                        | Reproducible artifacts from a clean checkout                                 |
 
 ### Alternatives considered and rejected
 
-| Alternative | Why rejected |
-| --- | --- |
-| Tauri + Rust | Excellent footprint, but the print pipeline (thermal/mini-printer page geometry) and Windows printer integration are markedly less controllable than Chromium's; also adds a second toolchain and a Rust build dependency for a Windows-only product |
-| .NET WPF / WinUI | Strong Windows integration, but a second UI language for the team, slower iteration on a rich design system, and no shared code with the web-style print templates |
-| Web app + local server (PWA) | Cannot reliably drive Windows printers, page sizes and margins; poor offline install story; not a "real Windows desktop application" |
-| Node + `node:sqlite` built-in | Still experimental in the runtime and lacks the mature backup/restore ergonomics of better-sqlite3 |
-| `sql.js` (WASM SQLite) | Database lives in memory; durability and integrity guarantees are far weaker for clinical data |
-| Electron `nodeIntegration: true` renderer doing SQL directly | Unacceptable security posture; business rules must not be bypassable from the UI layer |
-| Redux/Zustand-style global store for server state | The database is the source of truth; a thin query layer with explicit invalidation is simpler and avoids stale clinical data |
-| Tailwind/MUI design system | Would dictate a generic visual language and add a large dependency surface; the product needs a bespoke clinical design system |
+| Alternative                                     | Why rejected                                                                                                                 |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Tauri + Rust                                    | Great footprint, but printer geometry and Windows printer control are harder than Chromium's, and it adds a second toolchain |
+| .NET WPF / WinUI                                | Strong Windows integration, but a second UI language, slower design-system iteration and no shared print templates           |
+| Web app + local server (PWA)                    | Cannot reliably drive Windows printers or page geometry, and installs poorly as a desktop product                            |
+| Node `node:sqlite` built-in                     | Still experimental and lacks the mature backup/restore ergonomics of better-sqlite3                                          |
+| `sql.js` (WASM SQLite)                          | In-memory database: durability and integrity guarantees are far weaker for clinical data                                     |
+| Renderer with `nodeIntegration: true` doing SQL | Unacceptable security posture; business rules must not be bypassable from the UI                                             |
+| Redux/Zustand-style global store                | The database is the source of truth; a thin query layer with explicit invalidation avoids stale data                         |
+| Tailwind/MUI design system                      | Would dictate a generic visual language and a large dependency surface; the product needs a bespoke system                   |
 
 ## 3. Process architecture
 
 ```
-┌───────────────────────────── Electron main process (Node 22) ─────────────────────────────┐
-│  src/main        windows, menu/shortcuts, native dialogs, printers, single-instance,      │
-│                  crash/abnormal-exit detection, IPC router (typed, permission-gated)      │
-│  src/core        domain services (patients, visits, dental chart, prescriptions,          │
-│                  invoices, payments, inventory, accounting, appointments, queue, staff,   │
-│                  users/RBAC, audit, notifications, search, reports, backup/restore,       │
-│                  printing templates, settings)      ← all business rules live here        │
-│  better-sqlite3  embedded SQLite (WAL, FK, FTS5) in the per-user application data folder  │
-└───────────────────────────────────────────────┬───────────────────────────────────────────┘
-                        contextBridge (src/preload) — no Node access in the renderer
-┌───────────────────────────────────────────────┴───────────────────────────────────────────┐
-│  src/renderer    React 19 UI: design system, shell (sidebar/header/search/notifications),  │
-│                  all screens, print preview, setup wizard, lock screen                     │
-└───────────────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────── Electron main process (Node 22) ─────────────────────────────┐
+│  src/main        windows, menu/shortcuts, native dialogs, printers, single-instance,     │
+│                  crash detection, IPC router (typed, permission-gated)                   │
+│  src/core        domain services: patients, visits, dental chart, prescriptions,         │
+│                  invoices, payments, inventory, accounting, appointments, queue, staff,  │
+│                  users/RBAC, audit, notifications, search, reports, backup/restore,      │
+│                  print templates, settings        ← all business rules live here         │
+│  better-sqlite3  embedded SQLite (WAL, FK, FTS5) in the per-user data folder             │
+└──────────────────────────────────────────────┬───────────────────────────────────────────┘
+                      contextBridge (src/preload) — no Node access in the renderer
+┌──────────────────────────────────────────────┴───────────────────────────────────────────┐
+│  src/renderer    React 19 UI: design system, shell (sidebar/header/search/alerts),       │
+│                  every screen, print preview, setup wizard, lock screen                   │
+└──────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 The renderer is untrusted: every call arrives at the IPC router, is schema-validated, is checked against the
@@ -145,14 +145,14 @@ data mutation.
 
 ## 9. Testing strategy
 
-| Layer | Tooling | Coverage |
-| --- | --- | --- |
-| Unit | Vitest (node) | money, dates, validation, permissions, calculations, printing template structure, activation, password policy |
-| Integration | Vitest + real SQLite in temp dirs | all services against a real database: patients→visits→prescriptions→invoices→payments, inventory→accounting, RBAC matrix, backup→restore round trip |
-| UI component | Vitest + jsdom + Testing Library | forms, tables, modals, empty/loading/error states, keyboard access |
-| End-to-end (cross-platform) | Headless Chromium + the real core services over the dev bridge | full workflows, print/PDF generation, screenshots for visual QA on any CI runner |
-| End-to-end (Windows) | Playwright-Electron on `windows-latest` | packaging-level flows: real IPC, real print pipeline, real file dialogs (`--silent-print` harness) |
-| Stress | Vitest, opt-in (`npm run test:stress`) | 10k patients / 50k visits / 100k records / large invoices and audit logs, with timing assertions |
+| Layer                       | Tooling                                                    | Coverage                                                                                                              |
+| --------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Unit                        | Vitest (node)                                              | money, dates, validation, permissions, calculations, print templates, activation, password policy                     |
+| Integration                 | Vitest + real SQLite in temp dirs                          | every service against a real database: clinical and billing chains, inventory→accounting, RBAC matrix, backup→restore |
+| UI component                | Vitest + jsdom + Testing Library                           | forms, tables, modals, empty/loading/error states, keyboard access                                                    |
+| End-to-end (cross-platform) | Headless Chromium + real core services over the dev bridge | full workflows, print/PDF output, screenshots for visual QA on any runner                                             |
+| End-to-end (Windows)        | Playwright-Electron on `windows-latest`                    | packaging flows: real IPC, print pipeline and file dialogs (`--silent-print`)                                         |
+| Stress                      | Vitest, opt-in (`npm run test:stress`)                     | Large clinics (thousands of patients, visits and records) with timing assertions                                      |
 
 The installer is built only after the quality gate passes, and the produced `.exe` is exercised by the Windows
 E2E job (install → first run → activation → setup → core workflow → uninstall).

@@ -61,7 +61,7 @@ export async function writeZipArchive(
   try {
     for (const entry of entries) {
       const name = Buffer.from(entry.name.replace(/\\/g, '/'), 'utf8');
-      const { crc, size } = await streamEntry(handle, entry.sourcePath, name, offset);
+      const { crc, size } = await streamEntry(handle, entry.sourcePath, name);
       offset += 30 + name.length + size + 16;
       central.push(centralHeader(name, crc, size, offset - (30 + name.length + size + 16)));
       index += 1;
@@ -81,12 +81,7 @@ export async function writeZipArchive(
 }
 
 /** Local header + file bytes + data descriptor; returns the CRC and size. */
-async function streamEntry(
-  handle: FileHandle,
-  sourcePath: string,
-  name: Buffer,
-  offset: number,
-): Promise<{ crc: number; size: number }> {
+async function streamEntry(handle: FileHandle, sourcePath: string, name: Buffer): Promise<{ crc: number; size: number }> {
   const local = Buffer.alloc(30 + name.length);
   local.writeUInt32LE(LOCAL_SIGNATURE, 0);
   local.writeUInt16LE(20, 4); // version needed
@@ -97,7 +92,6 @@ async function streamEntry(
   local.writeUInt16LE(name.length, 26);
   name.copy(local, 30);
   await handle.write(local);
-  let position = offset + local.length;
 
   const source = await open(sourcePath, 'r');
   const chunk = Buffer.alloc(1024 * 1024);
@@ -109,7 +103,6 @@ async function streamEntry(
       if (bytesRead <= 0) break;
       const slice = chunk.subarray(0, bytesRead);
       await handle.write(slice);
-      position += bytesRead;
       size += bytesRead;
       crc = crc32(slice, crc) >>> 0;
     }

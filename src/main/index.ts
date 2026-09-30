@@ -11,7 +11,7 @@
  */
 import { BrowserWindow, Menu, app, ipcMain, session, shell, type MenuItemConstructorOptions } from 'electron';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { createCoreContainer, type CoreContainer } from '@core/container';
 import { createLogger } from '@core/util/logger';
 import { APP_BUILD_NUMBER, APP_NAME, APP_VERSION } from '@shared/app-info';
@@ -19,6 +19,7 @@ import type { BridgeEventName } from '@shared/api';
 import { machineGuid, resolveCorePaths } from './paths';
 import { loadEmbeddedFontCss } from './fonts';
 import { ElectronPrintHost, appTempDir } from './print-host';
+import { applyPendingRestore, type PendingRestoreOutcome } from '@core/services/backup-service';
 import { createRouter, type IpcRouter } from './ipc/router';
 import { createElectronPorts } from './ports-electron';
 
@@ -109,6 +110,20 @@ function bootStrapping(): boolean {
 // Container
 // ---------------------------------------------------------------------------
 
+/**
+ * Finish a restore that was staged before the last shutdown. This has to happen
+ * before the database is opened — SQLite will not let us swap the file out from
+ * under a live connection.
+ */
+async function finishStagedRestore(logger: ReturnType<typeof createLogger>): Promise<PendingRestoreOutcome | null> {
+  const paths = resolveCorePaths();
+  const outcome = await applyPendingRestore(paths, { logger });
+  if (!outcome) return null;
+  if (outcome.applied) logger.info('Staged restore applied', { source: outcome.sourceFile, files: outcome.attachmentsRestored });
+  else logger.error('Staged restore could not be applied', { problem: outcome.problem });
+  return outcome;
+}
+
 function startContainer(): CoreContainer {
   const paths = resolveCorePaths();
   const logger = createLogger({
@@ -167,6 +182,23 @@ function startContainer(): CoreContainer {
       }
       if (event === 'backup.progress' && payload) {
         broadcast('backup.progress', payload);
+      }
+      if (event === 'restore.relaunching') {
+        const raw = payload?.['message'];
+        const message = typeof raw === 'string' && raw !== '' ? raw : 'Dentiva Pro will restart to finish restoring your data.';
+        broadcast('restore.relaunching', { message });
+        // Give the window a moment to show the message, then restart so the
+        // staged database is applied on the way back up.
+        setTimeout(() => {
+          quitting = true;
+          try {
+            container?.services.app.markShutdown(true);
+          } catch {
+            /* never block the restart */
+          }
+          app.relaunch();
+          app.exit(0);
+        }, 2500);
       }
     },
   });
@@ -367,7 +399,9 @@ function registerIpc(): void {
   const ports = createElectronPorts({
     window: () => mainWindow,
   });
-  router = createRouter({ container: container!, ports });
+  const active = container;
+  if (!active) return;
+  router = createRouter({ container: active, ports });
   ipcMain.handle(INVOKE_CHANNEL, async (_event, method: unknown, payload: unknown) => {
     const active = router;
     if (!active) return { ok: false, error: { code: 'UNKNOWN', message: 'The application is still starting.' } };
@@ -388,11 +422,61 @@ function applySecurityPolicy(): void {
         responseHeaders: {
           ...details.responseHeaders,
           'Content-Security-Policy': [
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'",
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src" +
+              " 'self' data:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'",
           ],
         },
       });
     });
+  }
+}
+
+/**
+ * Tell the clinic what happened on the way up. A completed restore is written
+ * into the audit trail and raised in the notification centre; a restore that
+ * could not be applied is reported at critical severity so it cannot be missed.
+ */
+function reportRestoreOutcome(outcome: PendingRestoreOutcome): void {
+  if (!container) return;
+  try {
+    const { audit, notifications, system } = container.services;
+    const source = outcome.sourceFile ? basename(outcome.sourceFile) : 'a backup';
+    if (outcome.applied) {
+      const integrity = system.integrityCheck();
+      audit.recordAction(
+        'restore_completed',
+        'backup',
+        null,
+        `Restored ${source} on restart — ${outcome.attachmentsRestored} file(s)` +
+          ` copied, integrity check ${integrity.ok ? 'passed' : 'FAILED'}`,
+        'critical',
+      );
+      notifications.create({
+        category: 'backup',
+        severity: integrity.ok ? 'info' : 'critical',
+        title: 'Restore completed',
+        message: `${source} was restored when Dentiva Pro restarted. ${outcome.attachmentsRestored} file(s) were copied back.`,
+        dedupeKey: `restore-completed:${outcome.sourceFile}`,
+      });
+    } else {
+      audit.recordAction(
+        'restore_failed',
+        'backup',
+        null,
+        `A staged restore could not be` + ` applied: ${outcome.problem ?? 'unknown problem'}`,
+        'critical',
+      );
+      notifications.create({
+        category: 'backup',
+        severity: 'critical',
+        title: 'Restore could not be applied',
+        message: outcome.problem ?? 'The staged restore was cancelled. Your data has not been changed.',
+        dedupeKey: `restore-failed:${outcome.problem ?? 'unknown'}`,
+      });
+    }
+    notifications.refresh();
+  } catch (error) {
+    container?.logger.error(`Could not report the restore outcome: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -421,12 +505,21 @@ function bootstrap(): void {
     router = null;
   });
 
-  void app.whenReady().then(() => {
+  void app.whenReady().then(async () => {
+    const paths = resolveCorePaths();
+    const bootLogger = createLogger({
+      directory: paths.logsDir,
+      minLevel: process.env['DENTIVA_LOG_LEVEL'] === 'debug' ? 'debug' : 'info',
+      mirrorToConsole: !app.isPackaged,
+    });
+    const restoreOutcome = await finishStagedRestore(bootLogger);
+
     container = startContainer();
     registerIpc();
     buildMenu();
     mainWindow = createWindow();
     startHousekeeping();
+    if (restoreOutcome) reportRestoreOutcome(restoreOutcome);
   });
 }
 

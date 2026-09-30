@@ -34,7 +34,13 @@ function normaliseCode(input: string): string {
 }
 
 export function deriveCodeDigest(code: string): string {
-  return pbkdf2Sync(`${normaliseCode(code)}${ACTIVATION_PEPPER}`, Buffer.from(ACTIVATION_SALT_HEX, 'hex'), ACTIVATION_ITERATIONS, 64, 'sha512').toString('hex');
+  return pbkdf2Sync(
+    `${normaliseCode(code)}${ACTIVATION_PEPPER}`,
+    Buffer.from(ACTIVATION_SALT_HEX, 'hex'),
+    ACTIVATION_ITERATIONS,
+    64,
+    'sha512',
+  ).toString('hex');
 }
 
 /** Constant-time verification of a candidate activation code. */
@@ -83,13 +89,9 @@ export function machineIdentity(machineGuid = ''): MachineIdentity {
 }
 
 export function machineFingerprint(identity: MachineIdentity = machineIdentity()): string {
-  const material = [
-    identity.machineGuid || identity.hostname,
-    identity.platform,
-    identity.arch,
-    identity.username,
-    identity.cpuModel,
-  ].join('|');
+  const material = [identity.machineGuid || identity.hostname, identity.platform, identity.arch, identity.username, identity.cpuModel].join(
+    '|',
+  );
   return createHmac('sha256', 'dentiva-pro/machine-binding/v1').update(material).digest('hex');
 }
 

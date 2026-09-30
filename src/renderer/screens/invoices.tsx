@@ -13,7 +13,6 @@ import type { InvoiceStatus } from '@shared/constants';
 import { todayIso } from '@shared/dates';
 import { applyDiscount } from '@shared/money';
 import type {
-  Dentist,
   InvoiceDetail,
   InvoiceInput,
   InvoiceItemInput,
@@ -101,11 +100,10 @@ function InvoiceEditor({
       setPatient(match);
       setForm(emptyInvoice(match.id));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultPatientId, prefill.data, invoiceId]);
 
   useEffect(() => {
-    const detail = existing.data as InvoiceDetail | null;
+    const detail = existing.data;
     if (!detail) return;
     setForm({
       patientId: detail.patientId,
@@ -215,9 +213,7 @@ function InvoiceEditor({
             <Input
               className="input--numeric"
               value={form.visitId === null ? '' : String(form.visitId)}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, visitId: event.target.value ? Number(event.target.value) : null }))
-              }
+              onChange={(event) => setForm((current) => ({ ...current, visitId: event.target.value ? Number(event.target.value) : null }))}
             />
           </Field>
         </div>
@@ -276,7 +272,13 @@ function InvoiceEditor({
                       hint="FDI codes"
                       onChange={(value) => {
                         const items = [...form.items];
-                        items[index] = { ...item, toothCodes: value.split(',').map((part) => part.trim()).filter(Boolean) };
+                        items[index] = {
+                          ...item,
+                          toothCodes: value
+                            .split(',')
+                            .map((part) => part.trim())
+                            .filter(Boolean),
+                        };
                         setForm((current) => ({ ...current, items }));
                       }}
                     />
@@ -335,7 +337,12 @@ function InvoiceEditor({
                       <Button
                         variant="ghost"
                         aria-label="Remove line"
-                        onClick={() => setForm((current) => ({ ...current, items: current.items.filter((_, position) => position !== index) }))}
+                        onClick={() =>
+                          setForm((current) => ({
+                            ...current,
+                            items: current.items.filter((_, position) => position !== index),
+                          }))
+                        }
                       >
                         <Trash2 size={15} />
                       </Button>
@@ -485,7 +492,7 @@ function InvoiceDrawer({
   const { confirm } = useApp();
   const { run } = useAction();
   const invoice = useApi('invoices.get', invoiceId ? { id: invoiceId } : null);
-  const detail = invoice.data as InvoiceDetail | null;
+  const detail = invoice.data;
   const [payOpen, setPayOpen] = useState(false);
 
   if (!invoiceId) return null;
@@ -525,10 +532,9 @@ function InvoiceDrawer({
       reason: true,
     });
     if (!answer.ok || !answer.reason) return;
-    const done = await run(
-      () => bridge.invoke('payments.void', { id: paymentId, reason: answer.reason!, confirmText: receiptNumber }),
-      { success: 'Receipt voided.' },
-    );
+    const done = await run(() => bridge.invoke('payments.void', { id: paymentId, reason: answer.reason!, confirmText: receiptNumber }), {
+      success: 'Receipt voided.',
+    });
     if (done !== null) {
       onChanged();
       invoice.reload();
@@ -720,7 +726,14 @@ export function InvoicesScreen(): JSX.Element {
               setPage(1);
             }}
           />
-          <Switch label="With dues" checked={outstandingOnly} onChange={(value) => { setOutstandingOnly(value); setPage(1); }} />
+          <Switch
+            label="With dues"
+            checked={outstandingOnly}
+            onChange={(value) => {
+              setOutstandingOnly(value);
+              setPage(1);
+            }}
+          />
         </div>
       </div>
 
@@ -744,7 +757,7 @@ export function InvoicesScreen(): JSX.Element {
                 className="btn btn--link"
                 onClick={(event) => {
                   event.stopPropagation();
-                  navigate(resolveScreenPath('patient', invoice.patientId));
+                  void navigate(resolveScreenPath('patient', invoice.patientId));
                 }}
               >
                 {invoice.patientName}
@@ -800,11 +813,7 @@ export function InvoicesScreen(): JSX.Element {
           setSelected(id);
         }}
       />
-      <InvoiceDrawer
-        invoiceId={selected}
-        onClose={() => setSelected(null)}
-        onChanged={() => list.reload()}
-      />
+      <InvoiceDrawer invoiceId={selected} onClose={() => setSelected(null)} onChanged={() => list.reload()} />
     </Page>
   );
 }

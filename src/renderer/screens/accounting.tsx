@@ -10,7 +10,7 @@ import { todayIso } from '@shared/dates';
 import type { AccountingTransaction, AccountingTransactionInput, FinancialPeriod } from '@shared/types';
 import { useAction, useApi, useApp } from '@renderer/state/store';
 import { bridge } from '@renderer/lib/bridge';
-import { fmtDate, fmtMoney } from '@renderer/lib/format';
+import { fmtDate, fmtMoney, num } from '@renderer/lib/format';
 import {
   Badge,
   Button,
@@ -138,15 +138,18 @@ function TransactionDialog({
             onChange={(value) => patch({ categoryId: value ?? 0 })}
             allowEmpty={false}
           />
-          <OptionSelect label="Payment method" resource="payment-methods" value={form.paymentMethodId} onChange={(value) => patch({ paymentMethodId: value })} />
+          <OptionSelect
+            label="Payment method"
+            resource="payment-methods"
+            value={form.paymentMethodId}
+            onChange={(value) => patch({ paymentMethodId: value })}
+          />
         </div>
         <TextField label="Reference" value={form.reference} onChange={(value) => patch({ reference: value })} />
         <Field label="Note" required hint="Explain the entry — this text appears in the daybook">
           <TextArea rows={2} value={form.note} onChange={(event) => patch({ note: event.target.value })} />
         </Field>
-        <div className="small muted">
-          Categories belong to one direction only; switching type clears the chosen category.
-        </div>
+        <div className="small muted">Categories belong to one direction only; switching type clears the chosen category.</div>
       </div>
     </Modal>
   );
@@ -177,10 +180,10 @@ function ClosePeriodDialog({ open, onClose, onSaved }: { open: boolean; onClose(
             loading={busy}
             disabled={notes.trim().length < 3 || periodEnd < periodStart}
             onClick={async () => {
-              const saved = await run(
-                () => bridge.invoke('accounting.periods.close', { periodStart, periodEnd, notes }),
-                { success: 'Period closed.', failure: 'The period could not be closed.' },
-              );
+              const saved = await run(() => bridge.invoke('accounting.periods.close', { periodStart, periodEnd, notes }), {
+                success: 'Period closed.',
+                failure: 'The period could not be closed.',
+              });
               if (saved) {
                 onSaved();
                 onClose();
@@ -236,7 +239,11 @@ export function AccountingScreen(): JSX.Element {
     [tab, lists.state.page, lists.state.search, direction, categoryId, includeVoid],
   );
   const summary = useApi('accounting.summary', { preset: lists.state.preset || 'this_month' }, [tab, lists.state.preset]);
-  const daybook = useApi('accounting.daybook', tab === 'daybook' ? { from: daybookFrom, to: daybookTo } : null, [tab, daybookFrom, daybookTo]);
+  const daybook = useApi('accounting.daybook', tab === 'daybook' ? { from: daybookFrom, to: daybookTo } : null, [
+    tab,
+    daybookFrom,
+    daybookTo,
+  ]);
   const periods = useApi('accounting.periods.list', tab === 'periods' ? undefined : null, [tab]);
   const categories = useApi('resource.list', { resource: 'accounting-categories', query: { pageSize: 200 }, includeInactive: true });
 
@@ -245,7 +252,9 @@ export function AccountingScreen(): JSX.Element {
   const voidTransaction = async (transaction: AccountingTransaction) => {
     const answer = await confirm({
       title: 'Void this entry',
-      description: `${transaction.direction === 'income' ? 'Income' : 'Expense'} of ${fmtMoney(transaction.amountPaisa)} on ${fmtDate(transaction.date)}.`,
+      description: `${
+        transaction.direction === 'income' ? 'Income' : 'Expense'
+      } of ${fmtMoney(transaction.amountPaisa)} on ${fmtDate(transaction.date)}.`,
       confirmLabel: 'Void entry',
       tone: 'danger',
       reason: true,
@@ -267,10 +276,9 @@ export function AccountingScreen(): JSX.Element {
       reason: true,
     });
     if (!answer.ok || !answer.reason) return;
-    await run(
-      () => bridge.invoke('accounting.transactions.delete', { id: transaction.id, reason: answer.reason! }),
-      { success: 'Entry deleted.' },
-    );
+    await run(() => bridge.invoke('accounting.transactions.delete', { id: transaction.id, reason: answer.reason! }), {
+      success: 'Entry deleted.',
+    });
     list.reload();
     summary.reload();
   };
@@ -285,10 +293,9 @@ export function AccountingScreen(): JSX.Element {
       typedWord: 'REOPEN',
     });
     if (!answer.ok || !answer.typed) return;
-    await run(
-      () => bridge.invoke('accounting.periods.reopen', { id: period.id, reason: answer.reason ?? '', confirmText: answer.typed }),
-      { success: 'Period reopened.' },
-    );
+    await run(() => bridge.invoke('accounting.periods.reopen', { id: period.id, reason: answer.reason ?? '', confirmText: answer.typed }), {
+      success: 'Period reopened.',
+    });
     periods.reload();
   };
 
@@ -317,11 +324,7 @@ export function AccountingScreen(): JSX.Element {
       <div className="stat-grid">
         <Stat label="Income" value={fmtMoney(summary.data?.incomePaisa ?? 0)} tone="success" icon={<TrendingUp size={16} />} />
         <Stat label="Expenses" value={fmtMoney(summary.data?.expensePaisa ?? 0)} tone="danger" icon={<TrendingDown size={16} />} />
-        <Stat
-          label="Net"
-          value={fmtMoney(summary.data?.netPaisa ?? 0)}
-          tone={(summary.data?.netPaisa ?? 0) >= 0 ? 'success' : 'danger'}
-        />
+        <Stat label="Net" value={fmtMoney(summary.data?.netPaisa ?? 0)} tone={(summary.data?.netPaisa ?? 0) >= 0 ? 'success' : 'danger'} />
         <Stat label="Collected from invoices" value={fmtMoney(summary.data?.collectedFromInvoicesPaisa ?? 0)} />
         <Stat label="Patient dues" value={fmtMoney(summary.data?.outstandingPaisa ?? 0)} tone="warning" />
       </div>
@@ -425,7 +428,13 @@ export function AccountingScreen(): JSX.Element {
             error={list.error}
             onRetry={list.reload}
             rowKey={(index) => String(rows[index]?.id ?? index)}
-            empty={<Empty title="No entries in this period" text="Record income and expenses to build the daybook." icon={<BookOpen size={24} />} />}
+            empty={
+              <Empty
+                title="No entries in this period"
+                text="Record income and expenses to build the daybook."
+                icon={<BookOpen size={24} />}
+              />
+            }
           />
           {list.data && list.data.total > 0 ? (
             <div className="pagination">
@@ -584,7 +593,7 @@ export function AccountingScreen(): JSX.Element {
           columns={[
             { key: 'name', label: 'Category' },
             { key: 'direction', label: 'Type', render: (row) => (row['direction'] === 'income' ? 'Income' : 'Expense') },
-            { key: 'usageCount', label: 'Used', align: 'right', render: (row) => String(row['usageCount'] ?? 0) },
+            { key: 'usageCount', label: 'Used', align: 'right', render: (row) => String(num(row['usageCount'])) },
             {
               key: 'isActive',
               label: 'State',

@@ -8,10 +8,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import type { ResourceName } from '@shared/api';
-import type { ListQuery, Paged } from '@shared/types';
 import { useAction, useApi, useApp } from '@renderer/state/store';
 import { bridge } from '@renderer/lib/bridge';
-import { fmtMoney } from '@renderer/lib/format';
+import { fmtMoney, num, text } from '@renderer/lib/format';
 import { Button, Empty, Field, Input, Modal, Page, SearchInput, Select, Switch, TextArea } from './ui';
 import { DataTable, PagedFooter, TextField, useListState } from './forms';
 
@@ -53,7 +52,7 @@ export function ResourceManager({
   includeInactive?: boolean;
   onChanged?(): void;
 }): JSX.Element {
-  const { toast, confirm } = useApp();
+  const { confirm } = useApp();
   const { run, busy } = useAction();
   const lists = useListState();
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null);
@@ -64,7 +63,7 @@ export function ResourceManager({
     {
       resource,
       includeInactive: showInactive,
-      query: { page: lists.state.page, pageSize: 25, search: lists.state.search || undefined } as ListQuery,
+      query: { page: lists.state.page, pageSize: 25, search: lists.state.search || undefined },
     },
     [resource, lists.state.page, lists.state.search, showInactive],
   );
@@ -72,19 +71,21 @@ export function ResourceManager({
 
   const blank = (): Record<string, unknown> => {
     const draft: Record<string, unknown> = {};
-    for (const field of fields) draft[field.key] = field.defaultValue ?? (field.type === 'switch' ? true : field.type === 'number' || field.type === 'money' ? 0 : '');
+    for (const field of fields)
+      draft[field.key] =
+        field.defaultValue ?? (field.type === 'switch' ? true : field.type === 'number' || field.type === 'money' ? 0 : '');
     return draft;
   };
 
   const save = async () => {
     if (!editing) return;
-    const id = typeof editing['id'] === 'number' ? (editing['id'] as number) : null;
+    const id = typeof editing['id'] === 'number' ? editing['id'] : null;
     const payload: Record<string, unknown> = {};
     for (const field of fields) payload[field.key] = editing[field.key] ?? null;
-    const saved = await run(
-      () => bridge.invoke('resource.save', { resource, id, input: payload }),
-      { success: id ? 'Saved.' : 'Created.', failure: 'The record could not be saved.' },
-    );
+    const saved = await run(() => bridge.invoke('resource.save', { resource, id, input: payload }), {
+      success: id ? 'Saved.' : 'Created.',
+      failure: 'The record could not be saved.',
+    });
     if (saved) {
       setEditing(null);
       list.reload();
@@ -96,7 +97,7 @@ export function ResourceManager({
     const id = Number(row['id']);
     const usage = Number(row['usageCount'] ?? 0);
     const answer = await confirm({
-      title: `Delete “${String(row['name'] ?? row['label'] ?? row['code'] ?? id)}”`,
+      title: `Delete “${text(row['name']) || text(row['label']) || text(row['code']) || String(id)}”`,
       description:
         usage > 0
           ? `This entry has been used ${usage} time(s). It will be deactivated so history stays readable.`
@@ -106,10 +107,10 @@ export function ResourceManager({
       reason: true,
     });
     if (!answer.ok) return;
-    const done = await run(
-      () => bridge.invoke('resource.delete', { resource, id, options: { reason: answer.reason } }),
-      { success: 'Deleted.', failure: 'The record could not be deleted.' },
-    );
+    const done = await run(() => bridge.invoke('resource.delete', { resource, id, options: { reason: answer.reason } }), {
+      success: 'Deleted.',
+      failure: 'The record could not be deleted.',
+    });
     if (done !== null) {
       list.reload();
       onChanged?.();
@@ -130,11 +131,7 @@ export function ResourceManager({
       actions={
         <>
           <Switch label="Show inactive" checked={showInactive} onChange={setShowInactive} />
-          <Button
-            variant="primary"
-            icon={<Plus size={15} />}
-            onClick={() => setEditing(blank())}
-          >
+          <Button variant="primary" icon={<Plus size={15} />} onClick={() => setEditing(blank())}>
             New
           </Button>
         </>
@@ -142,11 +139,7 @@ export function ResourceManager({
     >
       <div className="filters">
         <div style={{ minWidth: 280 }}>
-          <SearchInput
-            value={lists.state.search}
-            onChange={(value) => lists.patch({ search: value })}
-            placeholder="Search…"
-          />
+          <SearchInput value={lists.state.search} onChange={(value) => lists.patch({ search: value })} placeholder="Search…" />
         </div>
       </div>
 
@@ -179,10 +172,10 @@ export function ResourceManager({
           loading={list.loading && !list.data}
           error={list.error}
           onRetry={list.reload}
-          rowKey={(index) => String(items[index]?.['id'] ?? index)}
+          rowKey={(index) => text(items[index]?.['id']) || String(index)}
           empty={<Empty title={emptyText} />}
         />
-        <PagedFooter page={lists.state.page} onPage={(page) => lists.patch({ page })} data={list.data as Paged<never> | null} />
+        <PagedFooter page={lists.state.page} onPage={(page) => lists.patch({ page })} data={list.data} />
       </div>
 
       <Modal
@@ -218,13 +211,20 @@ export function ResourceManager({
                 return (
                   <Field key={field.key} label={field.label} required={field.required} hint={field.hint}>
                     <Select
-                      value={value === null || value === undefined ? '' : String(value)}
+                      value={text(value)}
                       placeholder={field.required ? undefined : 'None'}
                       options={field.options ?? []}
                       onChange={(event) =>
                         setEditing({
                           ...editing,
-                          [field.key]: event.target.value === '' ? null : Number.isNaN(Number(event.target.value)) ? event.target.value : (field.defaultValue !== undefined && typeof field.defaultValue === 'number' ? Number(event.target.value) : event.target.value),
+                          [field.key]:
+                            event.target.value === ''
+                              ? null
+                              : Number.isNaN(Number(event.target.value))
+                                ? event.target.value
+                                : field.defaultValue !== undefined && typeof field.defaultValue === 'number'
+                                  ? Number(event.target.value)
+                                  : event.target.value,
                         })
                       }
                     />
@@ -236,7 +236,7 @@ export function ResourceManager({
                   <Field key={field.key} label={field.label} hint={field.hint}>
                     <TextArea
                       rows={3}
-                      value={String(value ?? '')}
+                      value={text(value)}
                       onChange={(event) => setEditing({ ...editing, [field.key]: event.target.value })}
                     />
                   </Field>
@@ -264,7 +264,7 @@ export function ResourceManager({
                     <Input
                       className="input--numeric"
                       inputMode="numeric"
-                      value={String(value ?? 0)}
+                      value={String(num(value))}
                       onChange={(event) => setEditing({ ...editing, [field.key]: Number(event.target.value) || 0 })}
                     />
                   </Field>
@@ -276,7 +276,7 @@ export function ResourceManager({
                   label={field.label}
                   required={field.required}
                   hint={field.hint}
-                  value={String(value ?? '')}
+                  value={text(value)}
                   onChange={(next) => setEditing({ ...editing, [field.key]: next })}
                 />
               );
@@ -318,7 +318,7 @@ export function OptionSelect({
   return (
     <Field label={label}>
       <Select
-        value={value === null ? '' : String(value)}
+        value={text(value)}
         placeholder={allowEmpty ? 'None' : undefined}
         options={options.map((option) => ({
           value: String(option.value),

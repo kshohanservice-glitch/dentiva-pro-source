@@ -24,7 +24,6 @@ import type { PrintTemplateKind } from '@shared/constants';
 import { formatMoney } from '@shared/money';
 import { formatDate } from '@shared/dates';
 import type {
-  InvoiceDetail,
   PatientDetail,
   PrescriptionDetail,
   PrintRenderRequest,
@@ -108,7 +107,9 @@ function permissionForKind(kind: PrintTemplateKind): string {
 }
 
 function asString(value: unknown, fallback = ''): string {
-  return typeof value === 'string' ? value : value === null || value === undefined ? fallback : String(value);
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+  return fallback;
 }
 
 function asNumber(value: unknown, fallback = 0): number {
@@ -176,12 +177,7 @@ function mapTemplate(row: Record<string, unknown>): PrintTemplate {
 }
 
 function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 /** Keep the author's line breaks without letting markup through. */
@@ -192,7 +188,8 @@ function textBlock(value: string): string {
 const FONT_STACK = `'Dentiva Sans', 'Inter', 'Noto Sans Bengali', 'Segoe UI', 'Nirmala UI', sans-serif`;
 
 function documentCss(): string {
-  return `
+  return (
+    `
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
     body {
@@ -235,7 +232,8 @@ function documentCss(): string {
     table.items td { border-bottom: 1px solid #eef2f7; padding: 6px; vertical-align: top; }
     table.items td.num, table.items th.num { text-align: right; font-variant-numeric: tabular-nums; }
     table.items tr { page-break-inside: avoid; }
-    .rx-item { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; padding: 7px 0; border-bottom: 1px solid #eef2f7; page-break-inside: avoid; }
+    .rx-item { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px;` +
+    ` padding: 7px 0; border-bottom: 1px solid #eef2f7; page-break-inside: avoid; }
     .rx-item__index { font-weight: 700; color: var(--accent); }
     .rx-item__name { font-weight: 600; }
     .rx-item__dose { font-size: 9.5pt; color: #33455c; }
@@ -251,6 +249,8 @@ function documentCss(): string {
     }
     .signature { margin-top: 24px; display: flex; justify-content: flex-end; page-break-inside: avoid; }
     .signature__block { min-width: 64mm; text-align: center; }
+    .signature__image { max-height: 16mm; max-width: 52mm; }
+    .signature__spacer { height: 12mm; }
     .signature__line { border-top: 1px solid #33455c; margin-bottom: 4px; }
     .signature__name { font-weight: 600; }
     .signature__credential { font-size: 8.5pt; color: #5b6b80; }
@@ -260,7 +260,8 @@ function documentCss(): string {
     }
     .note { font-size: 9pt; color: #5b6b80; }
     .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  `;
+  `
+  );
 }
 
 interface DocumentShellOptions {
@@ -292,9 +293,13 @@ function documentShell(options: DocumentShellOptions): string {
     .filter(Boolean)
     .join('\n');
   const headerNote = template?.headerText || profile.headerNote;
-  const footerBits = [profile.footerNote, options.footerNote ?? '', template?.footerText ?? '', header.name ? `<span>${escapeHtml(header.name)}</span>` : '', '<span>Dentiva Pro</span>'].filter(
-    (part) => part !== '',
-  );
+  const footerBits = [
+    profile.footerNote,
+    options.footerNote ?? '',
+    template?.footerText ?? '',
+    header.name ? `<span>${escapeHtml(header.name)}</span>` : '',
+    '<span>Dentiva' + ' Pro</span>',
+  ].filter((part) => part !== '');
 
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8" /><title>${escapeHtml(options.title)}</title>
@@ -364,10 +369,12 @@ function prescriptionBody(
   const prescription = data.prescription;
   const items = prescription.items
     .map(
-      (item, index) => `<div class="rx-item">
+      (item, index) =>
+        `<div class="rx-item">
         <div class="rx-item__index">${index + 1}.</div>
         <div>
-          <div class="rx-item__name">${escapeHtml(item.name)}${item.strength ? ` ${escapeHtml(item.strength)}` : ''} <span class="note">(${escapeHtml(item.form)})</span></div>
+          <div class="rx-item__name">${escapeHtml(item.name)}${item.strength ? ` ${escapeHtml(item.strength)}` : ''}` +
+        ` <span class="note">(${escapeHtml(item.form)})</span></div>
           <div class="rx-item__dose">${escapeHtml(doseText(item))}</div>
           ${item.instructions ? `<div class="rx-item__note">${escapeHtml(item.instructions)}</div>` : ''}
         </div>
@@ -378,19 +385,16 @@ function prescriptionBody(
   const dentist = data.dentist;
   const showSignature = template?.showDentistSignature !== false;
   const showCredentials = template?.showDentistQualifications !== false;
-  const credentialLines = dentist
-    ? [...dentist.designations, ...dentist.qualifications, ...dentist.certifications]
-    : [];
+  const credentialLines = dentist ? [...dentist.designations, ...dentist.qualifications, ...dentist.certifications] : [];
+  const signatureImage = signatureDataUrl
+    ? `<img src="${signatureDataUrl}" alt="" class="signature__image" />`
+    : '<div class="signature__spacer"></div>';
   const signature = showSignature
     ? `<div class="signature"><div class="signature__block">
-        ${signatureDataUrl ? `<img src="${signatureDataUrl}" alt="" style="max-height:16mm;max-width:52mm" />` : '<div style="height:12mm"></div>'}
+        ${signatureImage}
         <div class="signature__line"></div>
         <div class="signature__name">${escapeHtml(dentist?.name ?? 'Dentist')}</div>
-        ${
-          showCredentials
-            ? credentialLines.map((line) => `<div class="signature__credential">${escapeHtml(line)}</div>`).join('')
-            : ''
-        }
+        ${showCredentials ? credentialLines.map((line) => `<div class="signature__credential">${escapeHtml(line)}</div>`).join('') : ''}
         <div class="signature__credential">${escapeHtml(template?.signatureLabel ?? 'Dentist')}</div>
       </div></div>`
     : '';
@@ -421,26 +425,94 @@ function prescriptionBody(
   `;
 }
 
-function invoiceBody(data: ReturnType<InvoiceService['forPrint']>, template: PrintTemplate | null, footerNote: string): string {
-  const invoice = data.invoice;
-  const rows = invoice.items
-    .map(
-      (item) => `<tr>
-        <td>${escapeHtml(item.code ? `${item.code} — ` : '')}${escapeHtml(item.description)}${item.toothCodes.length > 0 ? `<div class="note">Tooth: ${escapeHtml(item.toothCodes.join(', '))}</div>` : ''}</td>
+type InvoicePrintData = ReturnType<InvoiceService['forPrint']>;
+type InvoicePrintItem = InvoicePrintData['invoice']['items'][number];
+
+/** One invoice line item; the tooth note only appears when the line has teeth. */
+function invoiceItemRow(item: InvoicePrintItem): string {
+  const code = item.code ? `${item.code} — ` : '';
+  const toothNote = item.toothCodes.length > 0 ? `<div class="note">Tooth: ${escapeHtml(item.toothCodes.join(', '))}</div>` : '';
+  const discount = item.discountPaisa > 0 ? escapeHtml(formatMoney(-item.discountPaisa)) : '—';
+  return `
+      <tr>
+        <td>${escapeHtml(code)}${escapeHtml(item.description)}${toothNote}</td>
         <td class="num">${item.quantity}</td>
         <td class="num">${escapeHtml(formatMoney(item.unitPricePaisa))}</td>
-        <td class="num">${item.discountPaisa > 0 ? escapeHtml(formatMoney(-item.discountPaisa)) : '—'}</td>
+        <td class="num">${discount}</td>
         <td class="num">${escapeHtml(formatMoney(item.lineTotalPaisa))}</td>
-      </tr>`,
-    )
-    .join('');
+      </tr>`;
+}
 
+/** One receipt line of the payment history block. */
+function paymentRow(payment: InvoicePrintData['invoice']['payments'][number]): string {
+  const reference = `${escapeHtml(payment.receiptNumber)} • ${escapeHtml(formatDate(payment.paidDate))}`;
+  return `
+        <div class="totals__row">
+          <span>${reference} • ${escapeHtml(payment.methodName)}</span>
+          <span>${escapeHtml(formatMoney(-payment.amountPaisa))}</span>
+        </div>`;
+}
+
+/** The discount line is only printed when the invoice actually carries one. */
+function invoiceDiscountRow(invoice: InvoicePrintData['invoice']): string {
+  if (invoice.discountPaisa <= 0) return '';
+  return `<div class="totals__row"><span>Discount</span>` + `<span>${escapeHtml(formatMoney(-invoice.discountPaisa))}</span></div>`;
+}
+
+function summaryVisitRow(visit: {
+  visitDate: string;
+  dentistName: string;
+  diagnosis: string;
+  chiefComplaint: string;
+  treatmentCount: number;
+}): string {
+  const diagnosis = escapeHtml(visit.diagnosis || visit.chiefComplaint || '—');
+  return `
+        <tr>
+          <td>${escapeHtml(formatDate(visit.visitDate))}</td>
+          <td>${escapeHtml(visit.dentistName || '—')}</td>
+          <td>${diagnosis}</td>
+          <td class="num">${visit.treatmentCount}</td>
+        </tr>`;
+}
+
+function summaryTreatmentRow(record: {
+  performedAt: string;
+  description: string;
+  toothCodes: readonly string[];
+  totalPaisa: number;
+}): string {
+  const toothNote = record.toothCodes.length > 0 ? `<div class="note">Tooth: ${escapeHtml(record.toothCodes.join(', '))}</div>` : '';
+  return `
+        <tr>
+          <td>${escapeHtml(formatDate(record.performedAt))}</td>
+          <td>${escapeHtml(record.description)}${toothNote}</td>
+          <td class="num">${escapeHtml(formatMoney(record.totalPaisa))}</td>
+        </tr>`;
+}
+
+function summaryPlanRow(plan: {
+  title: string;
+  status: string;
+  completedItems: number;
+  items: readonly unknown[];
+  estimatedTotalPaisa: number;
+}): string {
+  return `
+        <tr>
+          <td>${escapeHtml(plan.title)}</td>
+          <td>${escapeHtml(plan.status)}</td>
+          <td class="num">${plan.completedItems}/${plan.items.length}</td>
+          <td class="num">${escapeHtml(formatMoney(plan.estimatedTotalPaisa))}</td>
+        </tr>`;
+}
+
+function invoiceBody(data: ReturnType<InvoiceService['forPrint']>, template: PrintTemplate | null, footerNote: string): string {
+  const invoice = data.invoice;
+  const rows = invoice.items.map(invoiceItemRow).join('');
   const paymentRows = invoice.payments
     .filter((payment) => !payment.isVoid)
-    .map(
-      (payment) =>
-        `<div class="totals__row"><span>${escapeHtml(payment.receiptNumber)} • ${escapeHtml(formatDate(payment.paidDate))} • ${escapeHtml(payment.methodName)}</span><span>${escapeHtml(formatMoney(-payment.amountPaisa))}</span></div>`,
-    )
+    .map((payment) => paymentRow(payment))
     .join('');
 
   return `
@@ -459,16 +531,26 @@ function invoiceBody(data: ReturnType<InvoiceService['forPrint']>, template: Pri
       ['Status', invoice.status.replace(/_/g, ' ')],
     ])}
     <table class="items">
-      <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Discount</th><th class="num">Amount</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th class="num">Qty</th>
+          <th class="num">Rate</th>
+          <th class="num">Discount</th>
+          <th class="num">Amount</th>
+        </tr>
+      </thead>
       <tbody>${rows || '<tr><td colspan="5" class="note">No items.</td></tr>'}</tbody>
     </table>
     <div class="totals" style="margin-top:10px">
       <div class="totals__row"><span>Subtotal</span><span>${escapeHtml(formatMoney(invoice.subtotalPaisa))}</span></div>
-      ${invoice.discountPaisa > 0 ? `<div class="totals__row"><span>Discount</span><span>${escapeHtml(formatMoney(-invoice.discountPaisa))}</span></div>` : ''}
+      ${invoiceDiscountRow(invoice)}
       <div class="totals__row totals__row--grand"><span>Total</span><span>${escapeHtml(formatMoney(invoice.totalPaisa))}</span></div>
       ${paymentRows}
       <div class="totals__row totals__row--paid"><span>Paid</span><span>${escapeHtml(formatMoney(invoice.paidPaisa))}</span></div>
-      <div class="totals__row ${invoice.duePaisa > 0 ? 'totals__row--due' : ''}"><span>Due</span><span>${escapeHtml(formatMoney(invoice.duePaisa))}</span></div>
+      <div class="totals__row ${invoice.duePaisa > 0 ? 'totals__row--due' : ''}">
+        <span>Due</span><span>${escapeHtml(formatMoney(invoice.duePaisa))}</span>
+      </div>
     </div>
     ${section('Notes', invoice.notes)}
     ${section('Payment terms', footerNote)}
@@ -484,29 +566,14 @@ function patientSummaryBody(data: {
   treatments: ReadonlyArray<{ description: string; toothCodes: readonly string[]; totalPaisa: number; performedAt: string }>;
 }): string {
   const patient = data.patient;
-  const visitRows = data.visits
-    .slice(0, 20)
-    .map(
-      (visit) =>
-        `<tr><td>${escapeHtml(formatDate(visit.visitDate))}</td><td>${escapeHtml(visit.dentistName || '—')}</td><td>${escapeHtml(visit.diagnosis || visit.chiefComplaint || '—')}</td><td class="num">${visit.treatmentCount}</td></tr>`,
-    )
-    .join('');
-  const treatmentRows = data.treatments
-    .slice(0, 40)
-    .map(
-      (record) =>
-        `<tr><td>${escapeHtml(formatDate(record.performedAt))}</td><td>${escapeHtml(record.description)}${record.toothCodes.length > 0 ? `<div class="note">Tooth: ${escapeHtml(record.toothCodes.join(', '))}</div>` : ''}</td><td class="num">${escapeHtml(formatMoney(record.totalPaisa))}</td></tr>`,
-    )
-    .join('');
-  const planRows = data.plans
-    .map(
-      (plan) =>
-        `<tr><td>${escapeHtml(plan.title)}</td><td>${escapeHtml(plan.status)}</td><td class="num">${plan.completedItems}/${plan.items.length}</td><td class="num">${escapeHtml(formatMoney(plan.estimatedTotalPaisa))}</td></tr>`,
-    )
-    .join('');
+  const visitRows = data.visits.slice(0, 20).map(summaryVisitRow).join('');
+  const treatmentRows = data.treatments.slice(0, 40).map(summaryTreatmentRow).join('');
+  const planRows = data.plans.map(summaryPlanRow).join('');
 
-  return `
-    <div class="doc-title"><h1>Patient summary</h1><div class="doc-meta">${escapeHtml(formatDate(patient.registeredAt))}<div>${escapeHtml(patient.code)}</div></div></div>
+  return (
+    `
+    <div class="doc-title"><h1>Patient summary</h1><div` +
+    ` class="doc-meta">${escapeHtml(formatDate(patient.registeredAt))}<div>${escapeHtml(patient.code)}</div></div></div>
     ${patientStrip([
       ['Patient', patient.name],
       ['Age / Sex', `${patient.ageText || '—'} • ${patient.gender}`],
@@ -532,20 +599,45 @@ function patientSummaryBody(data: {
     }
     ${
       visitRows
-        ? `<div class="section"><div class="section__title">Recent visits</div><table class="items"><thead><tr><th>Date</th><th>Dentist</th><th>Diagnosis</th><th class="num">Items</th></tr></thead><tbody>${visitRows}</tbody></table></div>`
+        ? `<div class="section">
+            <div class="section__title">Recent visits</div>
+            <table class="items">
+              <thead>
+                <tr><th>Date</th><th>Dentist</th><th>Diagnosis</th><th class="num">Items</th></tr>
+              </thead>
+              <tbody>${visitRows}</tbody>
+            </table>
+          </div>`
         : ''
     }
     ${
       treatmentRows
-        ? `<div class="section"><div class="section__title">Treatments</div><table class="items"><thead><tr><th>Date</th><th>Treatment</th><th class="num">Amount</th></tr></thead><tbody>${treatmentRows}</tbody></table></div>`
+        ? `<div class="section">
+            <div class="section__title">Treatments</div>
+            <table class="items">
+              <thead>
+                <tr><th>Date</th><th>Treatment</th><th class="num">Amount</th></tr>
+              </thead>
+              <tbody>${treatmentRows}</tbody>
+            </table>
+          </div>`
         : ''
     }
     ${
       planRows
-        ? `<div class="section"><div class="section__title">Treatment plans</div><table class="items"><thead><tr><th>Plan</th><th>Status</th><th class="num">Done</th><th class="num">Estimate</th></tr></thead><tbody>${planRows}</tbody></table></div>`
+        ? `<div class="section">
+            <div class="section__title">Treatment plans</div>
+            <table class="items">
+              <thead>
+                <tr><th>Plan</th><th>Status</th><th class="num">Done</th><th class="num">Estimate</th></tr>
+              </thead>
+              <tbody>${planRows}</tbody>
+            </table>
+          </div>`
         : ''
     }
-  `;
+  `
+  );
 }
 
 function reportBody(result: ReportResult): string {
@@ -699,9 +791,7 @@ export class PrintService implements ReportPrinterPort {
     const document = await this.buildDocument(request);
     const resolved = this.resolveProfile(request.kind, request.profileId);
     const copies =
-      request.copies === null || request.copies === undefined
-        ? resolved.copies
-        : Math.min(Math.max(Math.round(request.copies), 1), 10);
+      request.copies === null || request.copies === undefined ? resolved.copies : Math.min(Math.max(Math.round(request.copies), 1), 10);
     const profile: ResolvedProfile = { ...resolved, copies };
     const options: PrintRenderOptions = { ...profile, jobName: document.jobName, fontCss: this.fontCss };
 
@@ -864,7 +954,7 @@ export class PrintService implements ReportPrinterPort {
       }
       case 'patient_summary': {
         if (!request.id) throw AppError.validation('Choose a patient.', { id: 'A patient is required.' });
-        const data = await this.patientSummary(request.id);
+        const data = this.patientSummary(request.id);
         const header = await this.clinicHeader();
         return {
           html: documentShell({
@@ -889,13 +979,13 @@ export class PrintService implements ReportPrinterPort {
     return document.html;
   }
 
-  private async patientSummary(patientId: number): Promise<{
+  private patientSummary(patientId: number): {
     patient: PatientDetail;
     financial: ReturnType<PatientService['financialSummary']> | null;
     visits: readonly VisitSummary[];
     plans: readonly TreatmentPlan[];
     treatments: ReadonlyArray<{ description: string; toothCodes: readonly string[]; totalPaisa: number; performedAt: string }>;
-  }> {
+  } {
     const ctx = this.context();
     const patient = this.patients.get(patientId);
     let financial: ReturnType<PatientService['financialSummary']> | null = null;
@@ -921,7 +1011,11 @@ export class PrintService implements ReportPrinterPort {
     const absolute = this.attachments.profileImagePath(relativePath);
     if (!absolute) return null;
     try {
-      const extension = /\.png$/i.test(relativePath ?? '') ? 'image/png' : /\.webp$/i.test(relativePath ?? '') ? 'image/webp' : 'image/jpeg';
+      const extension = /\.png$/i.test(relativePath ?? '')
+        ? 'image/png'
+        : /\.webp$/i.test(relativePath ?? '')
+          ? 'image/webp'
+          : 'image/jpeg';
       return `data:${extension};base64,${(await readFile(absolute)).toString('base64')}`;
     } catch {
       return null;

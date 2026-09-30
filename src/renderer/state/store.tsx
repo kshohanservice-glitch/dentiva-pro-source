@@ -11,16 +11,7 @@
  * The renderer is a pure presentation layer: every mutation goes through
  * `bridge.invoke` and is authorised again inside the core.
  */
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ApiMethodName, ApiRequest, ApiResponse } from '@shared/api';
 import type { AppBootstrap, AppSettings, AppState, ClinicProfile, SessionUser } from '@shared/types';
 import { DEFAULT_DATE_FORMAT, DEFAULT_TIME_FORMAT, DEFAULT_TIME_ZONE } from '@shared/app-info';
@@ -177,9 +168,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       setBootstrap((current) => (current ? { ...current, state: 'locked' } : current));
     });
     const unsubscribeUnlocked = bridge.on('session.unlocked', () => void refresh());
-    const unsubscribeRestore = bridge.on('restore.relaunching', (payload) =>
-      toast('warning', 'Restoring a backup', payload.message),
-    );
+    const unsubscribeRestore = bridge.on('restore.relaunching', (payload) => toast('warning', 'Restoring a backup', payload.message));
     return () => {
       unsubscribeState();
       unsubscribeSession();

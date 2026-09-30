@@ -12,7 +12,18 @@ import type { Appointment, AppointmentInput, AppointmentListQuery, Paged } from 
 import type { AppointmentStatus } from '@shared/constants';
 import { ACTIVE_APPOINTMENT_STATUSES } from '@shared/constants';
 import { AppError } from '@shared/errors';
-import { addDays, durationMinutes, endOfMonth, endOfWeek, resolveDateRange, startOfMonth, startOfWeek, timeToMinutes, timesOverlap, todayIso } from '@shared/dates';
+import {
+  addDays,
+  durationMinutes,
+  endOfMonth,
+  endOfWeek,
+  resolveDateRange,
+  startOfMonth,
+  startOfWeek,
+  timeToMinutes,
+  timesOverlap,
+  todayIso,
+} from '@shared/dates';
 import { asNumber, buildWhere, pageCount, paginate } from '../db/sql';
 
 interface AppointmentRow {
@@ -36,10 +47,12 @@ interface AppointmentRow {
   queue_entry_id?: number | null;
 }
 
-const SELECT = `
+const SELECT =
+  `
   SELECT a.*, p.code AS patient_code, trim(p.first_name || ' ' || p.last_name) AS patient_name, p.phone AS patient_phone,
          d.name AS dentist_name,
-         (SELECT q.id FROM queue_entries q WHERE q.appointment_id = a.id AND q.status IN ('waiting','called','in_consultation') LIMIT 1) AS queue_entry_id
+         (SELECT q.id FROM queue_entries q WHERE q.appointment_id = a.id AND` +
+  ` q.status IN ('waiting','called','in_consultation') LIMIT 1) AS queue_entry_id
     FROM appointments a
     JOIN patients p ON p.id = a.patient_id
     LEFT JOIN dentists d ON d.id = a.dentist_id
@@ -96,7 +109,9 @@ export class AppointmentService {
       from = startOfMonth(query.date);
       to = endOfMonth(query.date);
     } else if (query.preset && query.preset !== 'all') {
-      const range = resolveDateRange(query.preset as Parameters<typeof resolveDateRange>[0], { custom: { from: query.from, to: query.to } });
+      const range = resolveDateRange(query.preset as Parameters<typeof resolveDateRange>[0], {
+        custom: { from: query.from, to: query.to },
+      });
       from = range.from;
       to = range.to;
     }
@@ -122,14 +137,19 @@ export class AppointmentService {
     }
     if (query.search && query.search.trim() !== '') {
       const term = `%${query.search.trim().replace(/[%_]/g, (match) => `\\${match}`)}%`;
-      clauses.push(`(p.code LIKE ? ESCAPE '\\' OR p.phone LIKE ? ESCAPE '\\' OR (p.first_name || ' ' || p.last_name) LIKE ? ESCAPE '\\' OR a.reason LIKE ? ESCAPE '\\')`);
+      clauses.push(
+        `(p.code LIKE ? ESCAPE '\\' OR p.phone LIKE ? ESCAPE '\\' OR (p.first_name` +
+          ` || ' ' || p.last_name) LIKE ? ESCAPE '\\' OR a.reason LIKE ? ESCAPE '\\')`,
+      );
       params.push(term, term, term, term);
     }
     const where = buildWhere(clauses);
     const total = asNumber(
-      (this.db.prepare(`SELECT COUNT(*) AS total FROM appointments a JOIN patients p ON p.id = a.patient_id${where}`).get(...params) as {
-        total: number;
-      }).total,
+      (
+        this.db.prepare(`SELECT COUNT(*) AS total FROM appointments a JOIN patients p ON p.id = a.patient_id${where}`).get(...params) as {
+          total: number;
+        }
+      ).total,
     );
     const rows = this.db
       .prepare(`${SELECT}${where} ORDER BY a.date ASC, a.start_time ASC, a.id ASC LIMIT ? OFFSET ?`)
@@ -179,8 +199,10 @@ export class AppointmentService {
       const now = ctx.instant();
       const result = this.db
         .prepare(
-          `INSERT INTO appointments (patient_id, dentist_id, date, start_time, end_time, reason, notes, status, reminder_note, created_by, created_at, updated_at)
-           VALUES (@patientId, @dentistId, @date, @startTime, @endTime, @reason, @notes, @status, @reminderNote, @createdBy, @createdAt, @updatedAt)`,
+          `INSERT INTO appointments (patient_id, dentist_id, date, start_time, end_time,` +
+            ` reason, notes, status, reminder_note, created_by, created_at, updated_at)
+           VALUES (@patientId, @dentistId, @date, @startTime, @endTime,` +
+            ` @reason, @notes, @status, @reminderNote, @createdBy, @createdAt, @updatedAt)`,
         )
         .run({
           patientId: input.patientId,
@@ -292,20 +314,19 @@ export class AppointmentService {
     const ctx = this.context();
     const now = ctx.instant();
     this.db.transaction(() => {
-      this.db.prepare(`UPDATE appointments SET status = ?, cancelled_reason = ?, updated_at = ? WHERE id = ?`).run(
-        status,
-        status === 'cancelled' ? (note ?? '').trim() : '',
-        now,
-        id,
-      );
+      this.db
+        .prepare(`UPDATE appointments SET status = ?, cancelled_reason = ?, updated_at = ? WHERE id = ?`)
+        .run(status, status === 'cancelled' ? (note ?? '').trim() : '', now, id);
       if (status === 'arrived' || status === 'in_queue') {
-        const existing = this.db
-          .prepare(`SELECT id FROM queue_entries WHERE appointment_id = ? AND date = ?`)
-          .get(id, appointment.date) as { id: number } | undefined;
+        const existing = this.db.prepare(`SELECT id FROM queue_entries WHERE appointment_id = ? AND date = ?`).get(id, appointment.date) as
+          | { id: number }
+          | undefined;
         if (!existing) {
           const nextNumber = asNumber(
             (
-              this.db.prepare(`SELECT COALESCE(MAX(queue_number), 0) + 1 AS next FROM queue_entries WHERE date = ?`).get(appointment.date) as {
+              this.db
+                .prepare(`SELECT COALESCE(MAX(queue_number), 0) + 1` + ` AS next FROM queue_entries WHERE date = ?`)
+                .get(appointment.date) as {
                 next: number;
               }
             ).next,
@@ -313,7 +334,8 @@ export class AppointmentService {
           );
           this.db
             .prepare(
-              `INSERT INTO queue_entries (date, queue_number, patient_id, appointment_id, dentist_id, arrival_time, status, priority, notes, created_by, created_at)
+              `INSERT INTO queue_entries (date, queue_number, patient_id, appointment_id,` +
+                ` dentist_id, arrival_time, status, priority, notes, created_by, created_at)
                VALUES (?, ?, ?, ?, ?, ?, 'waiting', 'normal', ?, ?, ?)`,
             )
             .run(
@@ -347,7 +369,11 @@ export class AppointmentService {
     ctx.notify?.('appointments.changed', { id });
   }
 
-  availability(input: { dentistId: number | null; date: string; excludeId?: number | null }): Array<{ startTime: string; endTime: string; appointmentId: number; patientName: string; status: string }> {
+  availability(input: {
+    dentistId: number | null;
+    date: string;
+    excludeId?: number | null;
+  }): Array<{ startTime: string; endTime: string; appointmentId: number; patientName: string; status: string }> {
     requirePermission(this.context(), 'appointment.view');
     const clauses: string[] = ['a.deleted_at IS NULL', 'a.date = ?', `a.status NOT IN ('cancelled','no_show')`];
     const params: unknown[] = [input.date];
@@ -359,9 +385,7 @@ export class AppointmentService {
       clauses.push('a.id <> ?');
       params.push(input.excludeId);
     }
-    const rows = this.db
-      .prepare(`${SELECT} WHERE ${clauses.join(' AND ')} ORDER BY a.start_time`)
-      .all(...params) as AppointmentRow[];
+    const rows = this.db.prepare(`${SELECT} WHERE ${clauses.join(' AND ')} ORDER BY a.start_time`).all(...params) as AppointmentRow[];
     return rows.map((row) => ({
       startTime: row.start_time,
       endTime: row.end_time,
@@ -391,10 +415,14 @@ export class AppointmentService {
       params.push(options.dentistId);
     }
     const base = `FROM appointments a WHERE a.deleted_at IS NULL AND a.date BETWEEN ? AND ?${dentistClause}`;
-    const totals = this.db.prepare(`SELECT COUNT(*) AS total,
+    const totals = this.db
+      .prepare(
+        `SELECT COUNT(*) AS total,
         SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed,
         SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled,
-        SUM(CASE WHEN status = 'no_show' THEN 1 ELSE 0 END) AS no_show ${base}`).get(...params) as {
+        SUM(CASE WHEN status = 'no_show' THEN 1 ELSE 0 END) AS no_show ${base}`,
+      )
+      .get(...params) as {
       total: number;
       completed: number | null;
       cancelled: number | null;
@@ -414,7 +442,11 @@ export class AppointmentService {
     ).map((row) => ({ date: row.date, count: asNumber(row.count) }));
     const byDentist = (
       this.db
-        .prepare(`SELECT a.dentist_id, COALESCE(d.name,'Unassigned') AS dentist_name, COUNT(*) AS count ${base.replace('FROM appointments a', 'FROM appointments a LEFT JOIN dentists d ON d.id = a.dentist_id')} GROUP BY a.dentist_id ORDER BY count DESC`)
+        .prepare(
+          `SELECT a.dentist_id, COALESCE(d.name,'Unassigned') AS dentist_name, COUNT(*) AS` +
+            ` count ${base.replace('FROM appointments a', 'FROM appointments a LEFT JOIN dentists d ON d.id = a.dentist_id')}` +
+            ` GROUP BY a.dentist_id ORDER BY count DESC`,
+        )
         .all(...params) as Array<{ dentist_id: number | null; dentist_name: string; count: number }>
     ).map((row) => ({ dentistId: row.dentist_id, dentistName: row.dentist_name, count: asNumber(row.count) }));
     return {
@@ -448,7 +480,8 @@ export class AppointmentService {
       const overlapping = this.db
         .prepare(
           `SELECT id, start_time, end_time FROM appointments
-            WHERE deleted_at IS NULL AND date = ? AND dentist_id = ? AND status NOT IN ('cancelled','no_show')${excludeId ? ' AND id <> ?' : ''}`,
+            WHERE deleted_at IS NULL AND date = ? AND dentist_id = ? AND` +
+            ` status NOT IN ('cancelled','no_show')${excludeId ? ' AND id <> ?' : ''}`,
         )
         .all(...(excludeId ? [input.date, input.dentistId, excludeId] : [input.date, input.dentistId])) as Array<{
         id: number;
@@ -489,7 +522,9 @@ export class AppointmentService {
     const byTime = [...appointments].sort((a, b) => a.startTime.localeCompare(b.startTime));
     return {
       all: byTime,
-      upcoming: byTime.filter((appointment) => ['scheduled', 'confirmed', 'arrived', 'in_queue', 'in_treatment'].includes(appointment.status)),
+      upcoming: byTime.filter((appointment) =>
+        ['scheduled', 'confirmed', 'arrived', 'in_queue', 'in_treatment'].includes(appointment.status),
+      ),
       noShows: byTime.filter((appointment) => appointment.status === 'no_show').length,
       completed: byTime.filter((appointment) => appointment.status === 'completed').length,
     };

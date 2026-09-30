@@ -133,7 +133,7 @@ export function QueueScreen(): JSX.Element {
     );
     if (visit) {
       queue.reload();
-      navigate(resolveScreenPath('visits'));
+      void navigate(resolveScreenPath('visits'));
     }
   };
 
@@ -143,17 +143,8 @@ export function QueueScreen(): JSX.Element {
       description={fmtDate(date)}
       actions={
         <>
-          <input
-            className="input"
-            type="date"
-            value={date}
-            style={{ width: 160 }}
-            onChange={(event) => setDate(event.target.value)}
-          />
-          <Button
-            variant={includeClosed ? 'default' : 'ghost'}
-            onClick={() => setIncludeClosed((current) => !current)}
-          >
+          <input className="input" type="date" value={date} style={{ width: 160 }} onChange={(event) => setDate(event.target.value)} />
+          <Button variant={includeClosed ? 'default' : 'ghost'} onClick={() => setIncludeClosed((current) => !current)}>
             {includeClosed ? 'Showing closed' : 'Open only'}
           </Button>
           <Button variant="primary" icon={<Plus size={15} />} onClick={() => setAddOpen(true)}>
@@ -168,7 +159,11 @@ export function QueueScreen(): JSX.Element {
         <Stat label="In consultation" value={String(stats.data?.inConsultation ?? 0)} tone="warning" />
         <Stat
           label="Average wait"
-          value={stats.data?.averageWaitMinutes === null || stats.data?.averageWaitMinutes === undefined ? '—' : `${stats.data.averageWaitMinutes} min`}
+          value={
+            stats.data?.averageWaitMinutes === null || stats.data?.averageWaitMinutes === undefined
+              ? '—'
+              : `${stats.data.averageWaitMinutes} min`
+          }
           hint={stats.data?.longestWaitMinutes ? `Longest ${stats.data.longestWaitMinutes} min` : undefined}
         />
       </div>
@@ -197,11 +192,7 @@ export function QueueScreen(): JSX.Element {
                     {entry.queueLabel}
                   </Badge>
                   <div>
-                    <button
-                      type="button"
-                      className="btn btn--link"
-                      onClick={() => navigate(resolveScreenPath('patient', entry.patientId))}
-                    >
+                    <button type="button" className="btn btn--link" onClick={() => navigate(resolveScreenPath('patient', entry.patientId))}>
                       {entry.patientName}
                     </button>
                     <div className="small muted">
@@ -259,7 +250,11 @@ export function QueueScreen(): JSX.Element {
                   ) : null}
                 </div>
               </div>
-              {entry.notes ? <div className="small muted" style={{ padding: '0 var(--space-4) var(--space-3)' }}>{entry.notes}</div> : null}
+              {entry.notes ? (
+                <div className="small muted" style={{ padding: '0 var(--space-4) var(--space-3)' }}>
+                  {entry.notes}
+                </div>
+              ) : null}
             </Card>
           ))}
         </div>
@@ -294,9 +289,7 @@ export function QueueScreen(): JSX.Element {
           <Field label="Notes" hint="Pain level, referral, anything the dentist should know">
             <TextArea value={notes} rows={2} onChange={(event) => setNotes(event.target.value)} />
           </Field>
-          <div className="small muted">
-            Statuses available: {QUEUE_STATUSES.map((option) => option.label).join(' → ')}
-          </div>
+          <div className="small muted">Statuses available: {QUEUE_STATUSES.map((option) => option.label).join(' → ')}</div>
         </div>
       </Modal>
     </Page>

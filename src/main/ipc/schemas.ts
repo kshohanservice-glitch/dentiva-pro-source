@@ -23,7 +23,6 @@ import {
   INVENTORY_UNITS,
   INVOICE_STATUSES,
   MEDICATION_FORMS,
-  NOTIFICATION_SEVERITIES,
   PAPER_SIZES,
   PATIENT_STATUSES,
   PAYMENT_METHOD_CATEGORIES,
@@ -43,12 +42,12 @@ import {
 // ---------------------------------------------------------------------------
 
 function enumOf<T extends string>(values: readonly T[]): z.ZodType<T> {
-  return z.enum(values as unknown as [T, ...T[]]) as unknown as z.ZodType<T>;
+  return z.enum(values as unknown as [T, ...T[]]);
 }
 
 /** Numeric enumerations (auto-lock minutes, backup interval days). */
 function numberEnumOf<T extends number>(values: readonly T[]): z.ZodType<T> {
-  return z.union(values.map((value) => z.literal(value)) as [z.ZodLiteral<T>, ...Array<z.ZodLiteral<T>>]) as unknown as z.ZodType<T>;
+  return z.union(values.map((value) => z.literal(value)) as [z.ZodLiteral<T>, ...Array<z.ZodLiteral<T>>]);
 }
 
 const valuesOf = <T extends string>(list: ReadonlyArray<{ value: T }>): T[] => list.map((entry) => entry.value);
@@ -61,7 +60,6 @@ const isoTime = z.string().regex(/^\d{2}:\d{2}$/, 'Use HH:MM.');
 const isoInstant = z.string().min(10).max(40);
 const text = z.string().max(2000);
 const shortText = z.string().max(200);
-const money = z.number().int().min(-9_000_000_000).max(9_000_000_000);
 const nonNegativeMoney = z.number().int().min(0).max(9_000_000_000);
 const quantity = z.number().min(-1_000_000).max(1_000_000);
 const smallCount = z.number().int().min(0).max(1_000_000);
@@ -125,18 +123,19 @@ const toothFinding = z.object({
   toothFdi: z.string().min(1).max(4),
   finding: enumOf(valuesOf(TOOTH_FINDING_TYPES)),
   surfaces: z.array(enumOf(valuesOf(TOOTH_SURFACES))).max(6),
-  mobilityGrade: z.number().int().min(0).max(3),
+  mobilityGrade: numberEnumOf([0, 1, 2, 3] as const),
   note: text,
 });
 
 const treatmentRecordInput = z.object({
+  id: nullableId.optional(),
   treatmentId: nullableId,
+  code: z.string().max(40).optional(),
   description: text,
   toothCodes: z.array(z.string().max(4)).max(32),
   quantity: z.number().min(0).max(1000),
   unitPricePaisa: nonNegativeMoney,
-  discountType: enumOf(['none', 'percent', 'amount'] as const),
-  discountValue: percent,
+  discountPaisa: nonNegativeMoney,
   notes: text,
 });
 
@@ -377,7 +376,7 @@ const treatmentInput = z.object({
 const planInput = z.object({
   patientId: id,
   title: z.string().min(1).max(200),
-  status: enumOf(['planned', 'in_progress', 'completed', 'cancelled'] as const),
+  status: enumOf(['draft', 'active', 'completed', 'cancelled'] as const),
   notes: text,
 });
 
@@ -514,17 +513,38 @@ const resourceQuery = z.object({
   ...listQueryShape,
   category: z.string().max(120).nullable().optional(),
   isActive: enabled.optional(),
-  form: z.array(enumOf(valuesOf(MEDICATION_FORMS))).max(20).optional(),
+  form: z
+    .array(enumOf(valuesOf(MEDICATION_FORMS)))
+    .max(20)
+    .optional(),
   includeInactive: enabled.optional(),
 });
 
 // --- Reports, printing, backup ---------------------------------------------
 
 const REPORT_KEYS = [
-  'patients_registered', 'patient_register_detail', 'appointments', 'no_shows', 'visits', 'treatments',
-  'prescriptions', 'revenue', 'payments', 'outstanding', 'expenses', 'income', 'profit',
-  'inventory_stock', 'inventory_low_stock', 'inventory_expiry', 'inventory_movements',
-  'dentist_activity', 'staff_activity', 'referrals', 'audit_summary', 'daybook',
+  'patients_registered',
+  'patient_register_detail',
+  'appointments',
+  'no_shows',
+  'visits',
+  'treatments',
+  'prescriptions',
+  'revenue',
+  'payments',
+  'outstanding',
+  'expenses',
+  'income',
+  'profit',
+  'inventory_stock',
+  'inventory_low_stock',
+  'inventory_expiry',
+  'inventory_movements',
+  'dentist_activity',
+  'staff_activity',
+  'referrals',
+  'audit_summary',
+  'daybook',
 ] as const;
 
 const reportRequest = z.object({
@@ -543,7 +563,9 @@ const reportRequest = z.object({
       direction: enumOf(valuesOf(ACCOUNTING_DIRECTIONS)).nullable().optional(),
     })
     .optional(),
-  groupBy: enumOf(['day', 'week', 'month', 'category', 'dentist', 'patient', 'method'] as const).nullable().optional(),
+  groupBy: enumOf(['day', 'week', 'month', 'category', 'dentist', 'patient', 'method'] as const)
+    .nullable()
+    .optional(),
 });
 
 const printRequest = z.object({
@@ -588,7 +610,12 @@ const settingsPatch = z.object({
 // The schema table
 // ---------------------------------------------------------------------------
 
-export const SCHEMAS: Record<ApiMethodName, z.ZodTypeAny> = {
+/**
+ * The schema table. `satisfies` keeps the literal type of every entry, so the
+ * handler map can derive each method's payload type from its own schema — a
+ * handler that reads a field its schema does not allow is a compile error.
+ */
+export const SCHEMAS = {
   // Application shell & session
   'app.bootstrap': empty,
   'app.health': empty,
@@ -666,10 +693,19 @@ export const SCHEMAS: Record<ApiMethodName, z.ZodTypeAny> = {
   // Patients
   'patients.list': z.object({
     ...listQueryShape,
-    status: z.array(enumOf(valuesOf(PATIENT_STATUSES))).max(4).optional(),
+    status: z
+      .array(enumOf(valuesOf(PATIENT_STATUSES)))
+      .max(4)
+      .optional(),
     tagIds: z.array(id).max(30).optional(),
-    gender: z.array(enumOf(valuesOf(GENDERS))).max(4).optional(),
-    bloodGroup: z.array(enumOf(BLOOD_GROUPS.map((entry) => entry.value))).max(12).optional(),
+    gender: z
+      .array(enumOf(valuesOf(GENDERS)))
+      .max(4)
+      .optional(),
+    bloodGroup: z
+      .array(enumOf(BLOOD_GROUPS.map((entry) => entry.value)))
+      .max(12)
+      .optional(),
     hasMedicalAlert: enabled.optional(),
     hasOutstanding: enabled.optional(),
     includeDeleted: enabled.optional(),
@@ -698,10 +734,7 @@ export const SCHEMAS: Record<ApiMethodName, z.ZodTypeAny> = {
   'patients.quickSearch': z.object({ query: z.string().max(120), limit: z.number().int().min(1).max(50).optional() }),
 
   // Attachments
-  'attachments.list': z.union([
-    z.object({ entityType: z.string().max(40), entityId: id }),
-    z.object({ patientId: id }),
-  ]),
+  'attachments.list': z.union([z.object({ entityType: z.string().max(40), entityId: id }), z.object({ patientId: id })]),
   'attachments.pickAndAdd': z.object({
     entityType: z.string().max(40),
     entityId: id,
@@ -803,7 +836,10 @@ export const SCHEMAS: Record<ApiMethodName, z.ZodTypeAny> = {
   // Appointments
   'appointments.list': z.object({
     ...listQueryShape,
-    status: z.array(enumOf(valuesOf(APPOINTMENT_STATUSES))).max(10).optional(),
+    status: z
+      .array(enumOf(valuesOf(APPOINTMENT_STATUSES)))
+      .max(10)
+      .optional(),
     dentistId: nullableId.optional(),
     patientId: optionalId,
     view: enumOf(['day', 'week', 'month', 'list'] as const).optional(),
@@ -839,7 +875,10 @@ export const SCHEMAS: Record<ApiMethodName, z.ZodTypeAny> = {
   // Invoices
   'invoices.list': z.object({
     ...listQueryShape,
-    status: z.array(enumOf(valuesOf(INVOICE_STATUSES))).max(5).optional(),
+    status: z
+      .array(enumOf(valuesOf(INVOICE_STATUSES)))
+      .max(5)
+      .optional(),
     patientId: optionalId,
     hasOutstanding: enabled.optional(),
   }),
@@ -889,7 +928,10 @@ export const SCHEMAS: Record<ApiMethodName, z.ZodTypeAny> = {
   'inventory.items.options': empty,
   'inventory.movements.list': listQuery.extend({
     itemId: optionalId,
-    type: z.array(enumOf(valuesOf(STOCK_MOVEMENT_TYPES))).max(12).optional(),
+    type: z
+      .array(enumOf(valuesOf(STOCK_MOVEMENT_TYPES)))
+      .max(12)
+      .optional(),
   }),
   'inventory.movements.create': z.object({ input: stockMovementInput }),
   'inventory.movements.delete': z.object({ id, reason: z.string().min(1).max(1000) }),
@@ -901,9 +943,7 @@ export const SCHEMAS: Record<ApiMethodName, z.ZodTypeAny> = {
   'inventory.statistics': rangeQuery,
   'inventory.consumeForVisit': z.object({
     visitId: id,
-    items: z
-      .array(z.object({ itemId: id, quantityMilli: quantity, note: text }))
-      .max(80),
+    items: z.array(z.object({ itemId: id, quantityMilli: quantity, note: text })).max(80),
   }),
 
   // Accounting
@@ -924,7 +964,10 @@ export const SCHEMAS: Record<ApiMethodName, z.ZodTypeAny> = {
   'accounting.periods.reopen': z.object({ id, reason: z.string().min(1).max(1000), confirmText: shortText.optional() }),
 
   // Staff & dentists
-  'staff.list': listQuery.extend({ status: z.array(z.string().max(30)).max(6).optional(), department: z.string().max(120).nullable().optional() }),
+  'staff.list': listQuery.extend({
+    status: z.array(z.string().max(30)).max(6).optional(),
+    department: z.string().max(120).nullable().optional(),
+  }),
   'staff.get': z.object({ id }),
   'staff.save': z.object({
     id: nullableId.optional(),
@@ -965,7 +1008,10 @@ export const SCHEMAS: Record<ApiMethodName, z.ZodTypeAny> = {
     action: z.array(z.string().max(60)).max(40).optional(),
     userId: nullableId.optional(),
     entityType: z.string().max(40).optional(),
-    severity: z.array(enumOf(['info', 'warning', 'critical'] as const)).max(3).optional(),
+    severity: z
+      .array(enumOf(['info', 'warning', 'critical'] as const))
+      .max(3)
+      .optional(),
   }),
   'audit.get': z.object({ id }),
   'audit.export': z.object({ from: isoDate.optional(), to: isoDate.optional(), format: enumOf(['csv', 'pdf'] as const) }),
@@ -1040,7 +1086,7 @@ export const SCHEMAS: Record<ApiMethodName, z.ZodTypeAny> = {
   }),
   'system.logFiles': empty,
   'system.openLogFolder': empty,
-};
+} satisfies Record<ApiMethodName, z.ZodTypeAny>;
 
 /** Inputs that arrive through `resource.save`, resolved by resource name. */
 export const RESOURCE_INPUT_SCHEMAS_EXPORT = RESOURCE_INPUT_SCHEMAS;

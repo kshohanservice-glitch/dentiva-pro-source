@@ -8,12 +8,12 @@
  */
 import type { SqliteDatabase } from '../db/connection';
 import type { CoreContext } from '../context';
-import { currentUserId, currentUserName, requirePermission } from '../context';
+import { currentUserId, requirePermission } from '../context';
 import type { Paged, ToothFinding, TreatmentRecord, TreatmentRecordInput, VisitDetail, VisitInput, VisitSummary } from '@shared/types';
 import { AppError } from '@shared/errors';
 import { resolveDateRange, todayIso } from '@shared/dates';
 import { asNumber, asString, buildWhere, pageCount, paginate, parseJsonArray, toJsonArray } from '../db/sql';
-import { DentalService } from './dental-service';
+import type { DentalService } from './dental-service';
 
 interface VisitRow {
   id: number;
@@ -91,7 +91,18 @@ export class VisitService {
     };
   }
 
-  list(query: { page?: number; pageSize?: number; search?: string; sort?: string; direction?: 'asc' | 'desc'; preset?: string; from?: string; to?: string; patientId?: number; dentistId?: number | null }): Paged<VisitSummary> {
+  list(query: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    sort?: string;
+    direction?: 'asc' | 'desc';
+    preset?: string;
+    from?: string;
+    to?: string;
+    patientId?: number;
+    dentistId?: number | null;
+  }): Paged<VisitSummary> {
     requirePermission(this.context(), 'visit.view');
     const { limit, offset, page, pageSize } = paginate(query.page, query.pageSize);
     const params: unknown[] = [];
@@ -122,7 +133,11 @@ export class VisitService {
     }
     const where = buildWhere(clauses);
     const total = asNumber(
-      (this.db.prepare(`SELECT COUNT(*) AS total FROM visits v JOIN patients p ON p.id = v.patient_id${where}`).get(...params) as { total: number }).total,
+      (
+        this.db.prepare(`SELECT COUNT(*) AS total FROM visits v JOIN patients p ON p.id = v.patient_id${where}`).get(...params) as {
+          total: number;
+        }
+      ).total,
     );
     const direction = query.direction === 'asc' ? 'ASC' : 'DESC';
     const rows = this.db
@@ -149,9 +164,9 @@ export class VisitService {
     const prescriptionIds = (
       this.db.prepare(`SELECT id FROM prescriptions WHERE visit_id = ? AND deleted_at IS NULL ORDER BY id`).all(id) as Array<{ id: number }>
     ).map((entry) => entry.id);
-    const referralIds = (
-      this.db.prepare(`SELECT id FROM referrals WHERE visit_id = ? ORDER BY id`).all(id) as Array<{ id: number }>
-    ).map((entry) => entry.id);
+    const referralIds = (this.db.prepare(`SELECT id FROM referrals WHERE visit_id = ? ORDER BY id`).all(id) as Array<{ id: number }>).map(
+      (entry) => entry.id,
+    );
     const attachmentIds = (
       this.db
         .prepare(`SELECT id FROM attachments WHERE entity_type = 'visit' AND entity_id = ? AND deleted_at IS NULL ORDER BY id`)
@@ -263,13 +278,21 @@ export class VisitService {
       if (input.prescriptionId) {
         const exists = this.db.prepare(`SELECT id FROM prescriptions WHERE id = ? AND deleted_at IS NULL`).get(input.prescriptionId);
         if (!exists) throw AppError.notFound('Prescription');
-        this.db.prepare(`UPDATE prescriptions SET visit_id = ?, updated_at = ? WHERE id = ?`).run(visitId, ctx.instant(), input.prescriptionId);
+        this.db
+          .prepare(`UPDATE prescriptions SET visit_id = ?, updated_at = ? WHERE id = ?`)
+          .run(visitId, ctx.instant(), input.prescriptionId);
       }
       this.db
-        .prepare(`UPDATE queue_entries SET visit_id = ?, status = 'completed', completed_at = ? WHERE patient_id = ? AND status = 'in_consultation'`)
+        .prepare(
+          `UPDATE queue_entries SET visit_id = ?, status = 'completed',` +
+            ` completed_at = ? WHERE patient_id = ? AND status = 'in_consultation'`,
+        )
         .run(visitId, ctx.instant(), input.patientId);
       this.db
-        .prepare(`UPDATE appointments SET visit_id = ?, status = 'completed', updated_at = ? WHERE patient_id = ? AND date = ? AND status IN ('arrived','in_queue','in_treatment')`)
+        .prepare(
+          `UPDATE appointments SET visit_id = ?, status = 'completed', updated_at = ? WHERE` +
+            ` patient_id = ? AND date = ? AND status IN ('arrived','in_queue','in_treatment')`,
+        )
         .run(visitId, ctx.instant(), input.patientId, input.visitDate);
       ctx.audit.record({
         action: 'create',
@@ -289,7 +312,9 @@ export class VisitService {
     requirePermission(this.context(), 'visit.edit');
     this.validate(input);
     const ctx = this.context();
-    const before = this.db.prepare(`SELECT * FROM visits WHERE id = ? AND deleted_at IS NULL`).get(id) as Record<string, unknown> | undefined;
+    const before = this.db.prepare(`SELECT * FROM visits WHERE id` + ` = ? AND deleted_at IS NULL`).get(id) as
+      | Record<string, unknown>
+      | undefined;
     if (!before) throw AppError.notFound('Visit');
     this.db.transaction(() => {
       this.db
@@ -377,9 +402,9 @@ export class VisitService {
         notes: treatment.notes.trim(),
       };
       if (treatment.id) {
-        const invoiceItem = this.db
-          .prepare(`SELECT invoice_item_id FROM treatment_records WHERE id = ?`)
-          .get(treatment.id) as { invoice_item_id: number | null } | undefined;
+        const invoiceItem = this.db.prepare(`SELECT invoice_item_id FROM treatment_records WHERE id = ?`).get(treatment.id) as
+          | { invoice_item_id: number | null }
+          | undefined;
         if (invoiceItem?.invoice_item_id) {
           throw AppError.precondition(
             'This treatment is already on an invoice and cannot be changed from the visit. Amend the invoice instead.',
@@ -429,9 +454,9 @@ export class VisitService {
 
   delete(id: number, reason: string, confirmText?: string): void {
     requirePermission(this.context(), 'visit.delete');
-    const visit = this.db
-      .prepare(`SELECT id, patient_id, visit_date FROM visits WHERE id = ? AND deleted_at IS NULL`)
-      .get(id) as { id: number; patient_id: number; visit_date: string } | undefined;
+    const visit = this.db.prepare(`SELECT id, patient_id, visit_date FROM visits WHERE id = ? AND deleted_at IS NULL`).get(id) as
+      | { id: number; patient_id: number; visit_date: string }
+      | undefined;
     if (!visit) throw AppError.notFound('Visit');
     if (reason.trim().length < 3) {
       throw AppError.validation('Please give a reason for removing this visit.', { reason: 'Reason is required.' });
@@ -443,7 +468,9 @@ export class VisitService {
     this.db.transaction(() => {
       const now = ctx.instant();
       this.db.prepare(`UPDATE visits SET deleted_at = ?, deleted_reason = ? WHERE id = ?`).run(now, reason.trim(), id);
-      this.db.prepare(`UPDATE treatment_records SET deleted_at = ?, deleted_reason = ? WHERE visit_id = ?`).run(now, `Visit removed: ${reason.trim()}`, id);
+      this.db
+        .prepare(`UPDATE treatment_records SET deleted_at =` + ` ?, deleted_reason = ? WHERE visit_id = ?`)
+        .run(now, `Visit removed: ${reason.trim()}`, id);
       ctx.audit.record({
         action: 'delete',
         entityType: 'visit',

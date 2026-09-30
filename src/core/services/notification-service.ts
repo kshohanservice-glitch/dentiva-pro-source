@@ -11,7 +11,7 @@ import type { CoreContext } from '../context';
 import type { Notification } from '@shared/types';
 import type { NotificationCategory, NotificationSeverity } from '@shared/constants';
 import { asNumber, fromBoolInt } from '../db/sql';
-import { currentTimeIso, diffDays, nowInstant, timeToMinutes } from '@shared/dates';
+import { currentTimeIso, diffDays, timeToMinutes } from '@shared/dates';
 
 export interface NotificationInput {
   category: NotificationCategory;
@@ -191,7 +191,14 @@ export class NotificationService {
                    AND later.visit_date > v.visit_date
               )`,
         )
-        .all(today) as Array<{ id: number; follow_up_date: string; patient_id: number; code: string; first_name: string; last_name: string }>;
+        .all(today) as Array<{
+        id: number;
+        follow_up_date: string;
+        patient_id: number;
+        code: string;
+        first_name: string;
+        last_name: string;
+      }>;
       for (const row of followUps) {
         if (
           this.create({
@@ -262,7 +269,9 @@ export class NotificationService {
             category: 'inventory',
             severity: expired ? 'critical' : 'warning',
             title: expired ? 'Stock expired' : 'Stock expiring soon',
-            message: `${row.name} (${row.code}) expires on ${row.expiry_date} with ${formatQuantity(row.current_stock_milli)} ${row.unit} in stock.`,
+            message:
+              `${row.name} (${row.code}) expires on ${row.expiry_date}` +
+              ` with ${formatQuantity(row.current_stock_milli)} ${row.unit} in stock.`,
             dedupeKey: `stock-expiry:${row.id}:${row.expiry_date}`,
             entityType: 'inventory_item',
             entityId: row.id,
@@ -283,7 +292,15 @@ export class NotificationService {
               AND (i.total_paisa - i.paid_paisa) > 0 AND i.date <= ?
             ORDER BY due DESC LIMIT 50`,
         )
-        .all(addDaysIso(today, -7)) as Array<{ id: number; number: string; date: string; due: number; code: string; first_name: string; last_name: string }>;
+        .all(addDaysIso(today, -7)) as Array<{
+        id: number;
+        number: string;
+        date: string;
+        due: number;
+        code: string;
+        first_name: string;
+        last_name: string;
+      }>;
       for (const row of overdue) {
         if (
           this.create({

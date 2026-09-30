@@ -8,9 +8,16 @@
  */
 import { writeFileAtomic } from './files';
 
+/** Text for one CSV cell. Objects are never written as “[object Object]”. */
+export function csvText(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+  return '';
+}
+
 export function csvEscape(value: unknown): string {
   if (value === null || value === undefined) return '';
-  const text = String(value);
+  const text = csvText(value);
   if (text === '') return '';
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }

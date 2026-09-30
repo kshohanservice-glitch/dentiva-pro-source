@@ -307,7 +307,8 @@ export class SearchService {
         .prepare(
           `SELECT id, code, name, category, price_paisa FROM treatment_catalog
             WHERE deleted_at IS NULL
-              AND (code LIKE ? ESCAPE '\\' COLLATE NOCASE OR name LIKE ? ESCAPE '\\' COLLATE NOCASE OR category LIKE ? ESCAPE '\\' COLLATE NOCASE)
+              AND (code LIKE ? ESCAPE '\\' COLLATE NOCASE OR name LIKE ?` +
+            ` ESCAPE '\\' COLLATE NOCASE OR category LIKE ? ESCAPE '\\' COLLATE NOCASE)
             ORDER BY name LIMIT ?`,
         )
         .all(contains, contains, contains, perGroup) as Array<{
@@ -336,7 +337,8 @@ export class SearchService {
         .prepare(
           `SELECT id, name, registration_number, phone FROM dentists
             WHERE deleted_at IS NULL
-              AND (name LIKE ? ESCAPE '\\' COLLATE NOCASE OR registration_number LIKE ? ESCAPE '\\' COLLATE NOCASE OR phone LIKE ? ESCAPE '\\')
+              AND (name LIKE ? ESCAPE '\\' COLLATE NOCASE OR registration_number` +
+            ` LIKE ? ESCAPE '\\' COLLATE NOCASE OR phone LIKE ? ESCAPE '\\')
             ORDER BY name LIMIT ?`,
         )
         .all(contains, contains, contains, perGroup) as Array<{

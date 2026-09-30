@@ -25,7 +25,6 @@ import {
   Modal,
   Page,
   SearchInput,
-  Select,
   Stat,
   StatusBadge,
   Switch,
@@ -201,15 +200,7 @@ function UserDialog({
   );
 }
 
-function ResetPasswordDialog({
-  open,
-  user,
-  onClose,
-}: {
-  open: boolean;
-  user: UserAccount | null;
-  onClose(): void;
-}): JSX.Element | null {
+function ResetPasswordDialog({ open, user, onClose }: { open: boolean; user: UserAccount | null; onClose(): void }): JSX.Element | null {
   const { run, busy } = useAction();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -243,10 +234,9 @@ function ResetPasswordDialog({
             loading={busy}
             disabled={!ready}
             onClick={async () => {
-              const done = await run(
-                () => bridge.invoke('users.resetPassword', { id: user.id, newPassword: password, mustChange }),
-                { success: 'Password reset.' },
-              );
+              const done = await run(() => bridge.invoke('users.resetPassword', { id: user.id, newPassword: password, mustChange }), {
+                success: 'Password reset.',
+              });
               if (done !== undefined) onClose();
             }}
           >
@@ -455,17 +445,15 @@ export function UsersScreen(): JSX.Element {
   const removeUser = async (user: UserAccount) => {
     const answer = await confirm({
       title: `Delete ${user.username}`,
-      description:
-        'Users with recorded activity are deactivated instead of deleted, so their name stays attached to history.',
+      description: 'Users with recorded activity are deactivated instead of deleted, so their name stays attached to history.',
       confirmLabel: 'Delete user',
       tone: 'danger',
       reason: true,
     });
     if (!answer.ok || !answer.reason) return;
-    await run(
-      () => bridge.invoke('users.delete', { id: user.id, reason: answer.reason!, confirmText: user.username }),
-      { success: 'User deleted or deactivated.' },
-    );
+    await run(() => bridge.invoke('users.delete', { id: user.id, reason: answer.reason!, confirmText: user.username }), {
+      success: 'User deleted or deactivated.',
+    });
     users.reload();
   };
 
@@ -489,10 +477,9 @@ export function UsersScreen(): JSX.Element {
       reason: true,
     });
     if (!answer.ok || !answer.reason) return;
-    const done = await run(
-      () => bridge.invoke('roles.delete', { id: role.id, reason: answer.reason!, confirmText: role.name }),
-      { success: 'Role deleted.' },
-    );
+    const done = await run(() => bridge.invoke('roles.delete', { id: role.id, reason: answer.reason!, confirmText: role.name }), {
+      success: 'Role deleted.',
+    });
     if (done !== null) roles.reload();
   };
 
@@ -527,14 +514,10 @@ export function UsersScreen(): JSX.Element {
       }
     >
       <div className="stat-grid">
-        <Stat label="Accounts" value={String(userRows.length ? users.data?.total ?? 0 : 0)} icon={<UserCog size={16} />} />
+        <Stat label="Accounts" value={String(userRows.length ? (users.data?.total ?? 0) : 0)} icon={<UserCog size={16} />} />
         <Stat label="Active" value={String(userRows.filter((user) => user.isActive).length)} tone="success" />
         <Stat label="Roles" value={String(roleRows.length)} icon={<ShieldCheck size={16} />} />
-        <Stat
-          label="Must change password"
-          value={String(userRows.filter((user) => user.mustChangePassword).length)}
-          tone="warning"
-        />
+        <Stat label="Must change password" value={String(userRows.filter((user) => user.mustChangePassword).length)} tone="warning" />
       </div>
 
       <Tabs
@@ -599,26 +582,23 @@ export function UsersScreen(): JSX.Element {
               ),
               actions: (
                 <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
-                  <Button size="sm" variant="ghost" onClick={() => { setEditingUser(user); setUserOpen(true); }}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setEditingUser(user);
+                      setUserOpen(true);
+                    }}
+                  >
                     Edit
                   </Button>
                   <Button size="sm" variant="ghost" icon={<KeyRound size={13} />} onClick={() => setResetTarget(user)}>
                     Password
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={user.id === session?.id}
-                    onClick={() => void toggleActive(user)}
-                  >
+                  <Button size="sm" variant="ghost" disabled={user.id === session?.id} onClick={() => void toggleActive(user)}>
                     {user.isActive ? 'Deactivate' : 'Activate'}
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={user.id === session?.id}
-                    onClick={() => void removeUser(user)}
-                  >
+                  <Button size="sm" variant="ghost" disabled={user.id === session?.id} onClick={() => void removeUser(user)}>
                     Delete
                   </Button>
                 </div>
@@ -640,8 +620,8 @@ export function UsersScreen(): JSX.Element {
         ) : (
           <div className="stack">
             <Banner tone="info" title="Permissions are enforced twice">
-              The interface hides what a role cannot use, and the core refuses the call as well — so a permission can
-              never be bypassed by reaching the database directly.
+              The interface hides what a role cannot use, and the core refuses the call as well — so a permission can never be bypassed by
+              reaching the database directly.
             </Banner>
             <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}>
               {roleRows.map((role) => (
@@ -651,7 +631,14 @@ export function UsersScreen(): JSX.Element {
                   subtitle={`${role.permissions.length} permission(s) · ${role.userCount} user(s)`}
                   actions={
                     <div className="row" style={{ gap: 6 }}>
-                      <Button size="sm" variant="ghost" onClick={() => { setEditingRole(role); setRoleOpen(true); }}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditingRole(role);
+                          setRoleOpen(true);
+                        }}
+                      >
                         Edit
                       </Button>
                       <Button size="sm" variant="ghost" disabled={role.isSystem} onClick={() => void removeRole(role)}>
@@ -671,9 +658,7 @@ export function UsersScreen(): JSX.Element {
                           {permission}
                         </span>
                       ))}
-                      {role.permissions.length > 12 ? (
-                        <span className="small muted">+{role.permissions.length - 12} more</span>
-                      ) : null}
+                      {role.permissions.length > 12 ? <span className="small muted">+{role.permissions.length - 12} more</span> : null}
                     </div>
                   </div>
                 </Card>
@@ -683,13 +668,7 @@ export function UsersScreen(): JSX.Element {
         )
       ) : null}
 
-      <UserDialog
-        open={userOpen}
-        user={editingUser}
-        roles={roleRows}
-        onClose={() => setUserOpen(false)}
-        onSaved={() => users.reload()}
-      />
+      <UserDialog open={userOpen} user={editingUser} roles={roleRows} onClose={() => setUserOpen(false)} onSaved={() => users.reload()} />
       <ResetPasswordDialog open={resetTarget !== null} user={resetTarget} onClose={() => setResetTarget(null)} />
       <RoleDialog
         open={roleOpen}

@@ -14,18 +14,7 @@ import type { ReportColumn, ReportKey, ReportRequest, ReportResult } from '@shar
 import { useAction, useApi, useApp } from '@renderer/state/store';
 import { bridge } from '@renderer/lib/bridge';
 import { fmtDate, fmtInstant, fmtMoney, fmtPercent, sharePercent } from '@renderer/lib/format';
-import {
-  Banner,
-  Button,
-  Card,
-  Empty,
-  Field,
-  LoadingBlock,
-  Page,
-  Select,
-  Stat,
-  StatusBadge,
-} from '@renderer/components/ui';
+import { Banner, Button, Card, Empty, Field, Page, Select, Stat, StatusBadge } from '@renderer/components/ui';
 import { DataTable, DateField, rangePresetOptions } from '@renderer/components/forms';
 
 interface CatalogueEntry {
@@ -89,7 +78,7 @@ export function ReportsScreen(): JSX.Element {
     return [...map.entries()];
   }, [catalogue.data]);
 
-  const selected = (catalogue.data ?? []).find((entry) => entry.key === reportKey) as CatalogueEntry | undefined;
+  const selected: CatalogueEntry | undefined = (catalogue.data ?? []).find((entry) => entry.key === reportKey);
   const canViewFinancial = permissionMatches(session?.permissions ?? [], 'report.financial.view');
 
   const request = (): ReportRequest => ({
@@ -131,7 +120,13 @@ export function ReportsScreen(): JSX.Element {
           <Button icon={<Printer size={15} />} loading={busy} disabled={!reportKey} onClick={() => void exportReport('print')}>
             Print
           </Button>
-          <Button variant="primary" icon={<Download size={15} />} loading={busy} disabled={!reportKey} onClick={() => void exportReport('pdf')}>
+          <Button
+            variant="primary"
+            icon={<Download size={15} />}
+            loading={busy}
+            disabled={!reportKey}
+            onClick={() => void exportReport('pdf')}
+          >
             Save PDF
           </Button>
         </>
@@ -153,14 +148,24 @@ export function ReportsScreen(): JSX.Element {
             />
           </Field>
           <Field label="Date range">
-            <Select
-              value={preset}
-              options={rangePresetOptions()}
-              onChange={(event) => setPreset(event.target.value)}
-            />
+            <Select value={preset} options={rangePresetOptions()} onChange={(event) => setPreset(event.target.value)} />
           </Field>
-          <DateField label="From" value={from} onChange={(value) => { setFrom(value); setPreset('custom'); }} />
-          <DateField label="To" value={to} onChange={(value) => { setTo(value); setPreset('custom'); }} />
+          <DateField
+            label="From"
+            value={from}
+            onChange={(value) => {
+              setFrom(value);
+              setPreset('custom');
+            }}
+          />
+          <DateField
+            label="To"
+            value={to}
+            onChange={(value) => {
+              setTo(value);
+              setPreset('custom');
+            }}
+          />
         </div>
         <div className="grid-3" style={{ marginTop: 'var(--space-4)' }}>
           <Field label="Group by">
@@ -198,7 +203,11 @@ export function ReportsScreen(): JSX.Element {
             ) : null}
           </div>
         </div>
-        {selected ? <p className="small muted" style={{ marginTop: 'var(--space-3)' }}>{selected.description}</p> : null}
+        {selected ? (
+          <p className="small muted" style={{ marginTop: 'var(--space-3)' }}>
+            {selected.description}
+          </p>
+        ) : null}
         {selected?.requiresFinancialPermission && !canViewFinancial ? (
           <Banner tone="warning" title="Limited report">
             This report contains financial figures. Ask an administrator for the “View financial reports” permission.

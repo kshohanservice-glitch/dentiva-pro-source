@@ -21,8 +21,18 @@ const ISO_INSTANT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\
 
 export const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
 export const MONTHS_LONG = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ] as const;
 export const WEEKDAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 export const WEEKDAYS_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
@@ -100,8 +110,7 @@ export function zonedParts(instant: IsoInstant, timeZone: string = DEFAULT_TIME_
   const date = new Date(instant);
   if (Number.isNaN(date.getTime())) throw new RangeError(`Invalid instant: ${instant}`);
   const parts = partsFormatter(timeZone).formatToParts(date);
-  const lookup = (type: Intl.DateTimeFormatPartTypes): string =>
-    parts.find((part) => part.type === type)?.value ?? '0';
+  const lookup = (type: Intl.DateTimeFormatPartTypes): string => parts.find((part) => part.type === type)?.value ?? '0';
   return {
     year: Number(lookup('year')),
     month: Number(lookup('month')),
@@ -122,12 +131,12 @@ export function toIsoDate(year: number, month: number, day: number): IsoDate {
 }
 
 export function formatIsoDate(date: IsoDate): IsoDate {
-  if (!isIsoDate(date)) throw new RangeError(`Invalid ISO date: ${date}`);
+  if (!isIsoDate(date)) throw new RangeError(`Invalid ISO date: ${String(date)}`);
   return date;
 }
 
 export function isoDateParts(date: IsoDate): { year: number; month: number; day: number } {
-  if (!isIsoDate(date)) throw new RangeError(`Invalid ISO date: ${date}`);
+  if (!isIsoDate(date)) throw new RangeError(`Invalid ISO date: ${String(date)}`);
   const [year = 0, month = 0, day = 0] = date.split('-').map(Number);
   return { year, month, day };
 }
@@ -250,8 +259,19 @@ export type DateRangePreset =
   | 'custom';
 
 export const DATE_RANGE_PRESETS: readonly DateRangePreset[] = [
-  'today', 'yesterday', 'last_7_days', 'last_30_days', 'last_90_days', 'last_365_days',
-  'this_week', 'this_month', 'last_month', 'this_quarter', 'this_year', 'all', 'custom',
+  'today',
+  'yesterday',
+  'last_7_days',
+  'last_30_days',
+  'last_90_days',
+  'last_365_days',
+  'this_week',
+  'this_month',
+  'last_month',
+  'this_quarter',
+  'this_year',
+  'all',
+  'custom',
 ];
 
 export const EPOCH_DATE: IsoDate = '1900-01-01';
@@ -262,10 +282,7 @@ export const FAR_FUTURE_DATE: IsoDate = '2999-12-31';
  * bounds. Invalid custom ranges fall back to the supplied defaults instead of
  * silently returning an empty window.
  */
-export function resolveDateRange(
-  preset: DateRangePreset,
-  options: { today?: IsoDate; custom?: Partial<DateRange> } = {},
-): DateRange {
+export function resolveDateRange(preset: DateRangePreset, options: { today?: IsoDate; custom?: Partial<DateRange> } = {}): DateRange {
   const today = options.today ?? todayIso();
   switch (preset) {
     case 'today':
@@ -386,7 +403,7 @@ export function ageText(options: { dob?: IsoDate | null; age?: number | null; on
 // ---------------------------------------------------------------------------
 
 export function timeToMinutes(time: IsoTime): number {
-  if (!isIsoTime(time)) throw new RangeError(`Invalid time: ${time}`);
+  if (!isIsoTime(time)) throw new RangeError(`Invalid time: ${String(time)}`);
   const [hours = 0, minutes = 0] = time.split(':').map(Number);
   return hours * 60 + minutes;
 }
@@ -447,12 +464,15 @@ export function formatDate(date: IsoDate, pattern = 'DD MMM YYYY'): string {
 }
 
 /** Render a UTC instant in a clinic-local pattern (date + time). */
-export function formatInstant(instant: IsoInstant, options: { datePattern?: string; timePattern?: string; timeZone?: string } = {}): string {
+export function formatInstant(
+  instant: IsoInstant,
+  options: { datePattern?: string; timePattern?: string; timeZone?: string } = {},
+): string {
   const { datePattern = 'DD MMM YYYY', timePattern = 'hh:mm A', timeZone = DEFAULT_TIME_ZONE } = options;
   if (!isIsoInstant(instant)) return '—';
   const parts = zonedParts(instant, timeZone);
   const date = toIsoDate(parts.year, parts.month, parts.day);
-  const time = `${pad(parts.hour)}:${pad(parts.minute)}` as IsoTime;
+  const time = `${pad(parts.hour)}:${pad(parts.minute)}`;
   return `${formatDate(date, datePattern)} ${formatTime(time, timePattern)}`;
 }
 
@@ -505,7 +525,7 @@ export function parseDateInput(input: string): IsoDate | null {
     return isIsoDate(candidate) ? candidate : null;
   }
 
-  const named = /^(\d{1,2})[\s\-]([A-Za-z]{3,9})\.?[\s,\-]+(\d{2,4})$/.exec(text);
+  const named = /^(\d{1,2})[\s-]([A-Za-z]{3,9})\.?[\s,-]+(\d{2,4})$/.exec(text);
   if (named) {
     const [, d = '', monthName = '', y = ''] = named;
     const monthIndex = MONTHS_LONG.findIndex((m) => m.toLowerCase().startsWith(monthName.toLowerCase().slice(0, 3)));

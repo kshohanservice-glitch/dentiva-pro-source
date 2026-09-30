@@ -63,7 +63,16 @@ const PRIMARY_POSITIONS: readonly PositionDefinition[] = [
 const ANTERIOR_SURFACES: readonly ToothSurface[] = ['mesial', 'distal', 'buccal', 'lingual', 'incisal'];
 const POSTERIOR_SURFACES: readonly ToothSurface[] = ['mesial', 'distal', 'buccal', 'lingual', 'occlusal'];
 
-const PALMER_QUADRANT: Readonly<Record<number, string>> = { 1: '\u2310', 2: '\u00AC', 3: 'L', 4: 'J', 5: '\u2310', 6: '\u00AC', 7: 'L', 8: 'J' };
+const PALMER_QUADRANT: Readonly<Record<number, string>> = {
+  1: '\u2310',
+  2: '\u00AC',
+  3: 'L',
+  4: 'J',
+  5: '\u2310',
+  6: '\u00AC',
+  7: 'L',
+  8: 'J',
+};
 
 /** Universal numbering for permanent teeth, per FDI quadrant. */
 function permanentUniversal(quadrant: number, position: number): number {
@@ -76,8 +85,26 @@ function permanentUniversal(quadrant: number, position: number): number {
 
 /** Universal letter order for primary teeth (A–T). */
 const PRIMARY_UNIVERSAL_ORDER: readonly string[] = [
-  '55', '54', '53', '52', '51', '61', '62', '63', '64', '65',
-  '75', '74', '73', '72', '71', '81', '82', '83', '84', '85',
+  '55',
+  '54',
+  '53',
+  '52',
+  '51',
+  '61',
+  '62',
+  '63',
+  '64',
+  '65',
+  '75',
+  '74',
+  '73',
+  '72',
+  '71',
+  '81',
+  '82',
+  '83',
+  '84',
+  '85',
 ];
 
 function buildPermanent(): ToothDefinition[] {
@@ -173,19 +200,20 @@ export interface QuadrantLayout {
 
 export function quadrants(dentition: DentitionType): QuadrantLayout[] {
   const teeth = dentition === 'primary' ? PRIMARY_TEETH : PERMANENT_TEETH;
-  const definitions: Array<{ quadrant: number; label: string }> = dentition === 'primary'
-    ? [
-        { quadrant: 5, label: 'Upper right (primary)' },
-        { quadrant: 6, label: 'Upper left (primary)' },
-        { quadrant: 7, label: 'Lower left (primary)' },
-        { quadrant: 8, label: 'Lower right (primary)' },
-      ]
-    : [
-        { quadrant: 1, label: 'Upper right' },
-        { quadrant: 2, label: 'Upper left' },
-        { quadrant: 3, label: 'Lower left' },
-        { quadrant: 4, label: 'Lower right' },
-      ];
+  const definitions: Array<{ quadrant: number; label: string }> =
+    dentition === 'primary'
+      ? [
+          { quadrant: 5, label: 'Upper right (primary)' },
+          { quadrant: 6, label: 'Upper left (primary)' },
+          { quadrant: 7, label: 'Lower left (primary)' },
+          { quadrant: 8, label: 'Lower right (primary)' },
+        ]
+      : [
+          { quadrant: 1, label: 'Upper right' },
+          { quadrant: 2, label: 'Upper left' },
+          { quadrant: 3, label: 'Lower left' },
+          { quadrant: 4, label: 'Lower right' },
+        ];
   return definitions.map((definition) => ({
     ...definition,
     teeth: teeth.filter((tooth) => tooth.quadrant === definition.quadrant),
@@ -195,9 +223,7 @@ export function quadrants(dentition: DentitionType): QuadrantLayout[] {
 export function formatToothCode(tooth: ToothDefinition, system: ToothNumberingSystem): string {
   switch (system) {
     case 'universal':
-      return tooth.dentition === 'primary'
-        ? String.fromCharCode(64 + tooth.universal)
-        : String(tooth.universal);
+      return tooth.dentition === 'primary' ? String.fromCharCode(64 + tooth.universal) : String(tooth.universal);
     case 'palmer':
       return tooth.palmer;
     case 'fdi':
@@ -214,7 +240,16 @@ export function numberingSample(system: ToothNumberingSystem, dentition: Dentiti
 
 /** Findings that visually mark the whole tooth rather than a single surface. */
 export const WHOLE_TOOTH_FINDINGS: readonly ToothFindingType[] = [
-  'missing', 'extracted', 'crown', 'root_canal', 'impacted', 'implant', 'mobility', 'pontic', 'bridge_abutment', 'other',
+  'missing',
+  'extracted',
+  'crown',
+  'root_canal',
+  'impacted',
+  'implant',
+  'mobility',
+  'pontic',
+  'bridge_abutment',
+  'other',
 ];
 
 export function findingAppliesToSurfaces(finding: ToothFindingType): boolean {

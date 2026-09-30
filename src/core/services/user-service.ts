@@ -19,10 +19,8 @@ import {
   isPermissionKey,
   rolePreset,
   resolveRoleGrants,
-  type PermissionGroup,
 } from '@shared/permissions';
 import { AppError } from '@shared/errors';
-import {} from '@shared/dates';
 import { hashPassword } from '../security/password';
 import { createSessionUser } from '../security/session';
 import { asNumber, buildWhere, fromBoolInt, pageCount, paginate } from '../db/sql';
@@ -113,7 +111,8 @@ export class UserService {
   async create(input: UserInput & { password: string }): Promise<{ id: number }> {
     requirePermission(this.context(), 'user.manage');
     this.validate(input);
-    if (input.password.trim().length === 0) throw AppError.validation('Set a password for the new user.', { password: 'Password is required.' });
+    if (input.password.trim().length === 0)
+      throw AppError.validation('Set a password for' + ' the new user.', { password: 'Password is required.' });
     const passwordHash = await hashPassword(input.password);
     const ctx = this.context();
     const now = ctx.instant();
@@ -155,9 +154,9 @@ export class UserService {
     requirePermission(this.context(), 'user.manage');
     this.validate(input);
     const ctx = this.context();
-    const before = this.db.prepare(`SELECT username, full_name, is_active, must_change_password FROM users WHERE id = ? AND deleted_at IS NULL`).get(id) as
-      | { username: string; full_name: string; is_active: number; must_change_password: number }
-      | undefined;
+    const before = this.db
+      .prepare(`SELECT username, full_name, is_active, must_change_password` + ` FROM users WHERE id = ? AND deleted_at IS NULL`)
+      .get(id) as { username: string; full_name: string; is_active: number; must_change_password: number } | undefined;
     if (!before) throw AppError.notFound('User');
     if (asNumber(currentUserId(ctx)) === id && !input.isActive) {
       throw AppError.precondition('You cannot deactivate your own account.');
@@ -187,7 +186,11 @@ export class UserService {
         entityId: id,
         entityLabel: input.username.trim(),
         detail: 'User account updated',
-        before: { username: before.username, roles: this.rolesForUser(id).map((role) => role.key), isActive: fromBoolInt(before.is_active) },
+        before: {
+          username: before.username,
+          roles: this.rolesForUser(id).map((role) => role.key),
+          isActive: fromBoolInt(before.is_active),
+        },
         after: { username: input.username.trim(), roles: input.roleIds, isActive: input.isActive },
       });
     })();
@@ -195,21 +198,23 @@ export class UserService {
 
   delete(id: number, reason: string, confirmText?: string): void {
     requirePermission(this.context(), 'user.manage');
-    const row = this.db.prepare(`SELECT username FROM users WHERE id = ? AND deleted_at IS NULL`).get(id) as { username: string } | undefined;
+    const row = this.db.prepare(`SELECT username FROM users WHERE id = ? AND deleted_at IS NULL`).get(id) as
+      | { username: string }
+      | undefined;
     if (!row) throw AppError.notFound('User');
     if (asNumber(currentUserId(this.context())) === id) throw AppError.precondition('You cannot delete your own account.');
     if (confirmText?.trim() !== row.username) {
-      throw AppError.validation(`Type the username (${row.username}) to confirm deletion.`, { confirmText: `Type ${row.username} to confirm.` });
+      throw AppError.validation(`Type the username (${row.username}) to confirm deletion.`, {
+        confirmText: `Type ${row.username} to confirm.`,
+      });
     }
-    if (reason.trim().length < 3) throw AppError.validation('Please give a reason for deleting this user.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Please give a reason for deleting this user.', { reason: 'Reason is required.' });
     const ctx = this.context();
     this.db.transaction(() => {
-      this.db.prepare(`UPDATE users SET deleted_at = ?, deleted_reason = ?, is_active = 0, updated_at = ? WHERE id = ?`).run(
-        ctx.instant(),
-        reason.trim(),
-        ctx.instant(),
-        id,
-      );
+      this.db
+        .prepare(`UPDATE users SET deleted_at = ?, deleted_reason = ?, is_active = 0, updated_at = ? WHERE id = ?`)
+        .run(ctx.instant(), reason.trim(), ctx.instant(), id);
       this.db.prepare(`DELETE FROM user_roles WHERE user_id = ?`).run(id);
       ctx.audit.record({
         action: 'delete',
@@ -224,7 +229,9 @@ export class UserService {
 
   async resetPassword(id: number, newPassword: string, mustChange: boolean): Promise<void> {
     requirePermission(this.context(), 'user.manage');
-    const user = this.db.prepare(`SELECT username FROM users WHERE id = ? AND deleted_at IS NULL`).get(id) as { username: string } | undefined;
+    const user = this.db.prepare(`SELECT username FROM users WHERE id = ? AND deleted_at IS NULL`).get(id) as
+      | { username: string }
+      | undefined;
     if (!user) throw AppError.notFound('User');
     const hash = await hashPassword(newPassword);
     const ctx = this.context();
@@ -295,7 +302,8 @@ export class UserService {
       fieldErrors.username = 'Use 3–32 characters: letters, numbers, dot, underscore or hyphen.';
     }
     if (input.fullName.trim().length < 2) fieldErrors.fullName = 'Enter the full name.';
-    if (input.email.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) fieldErrors.email = 'Enter a valid email address.';
+    if (input.email.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim()))
+      fieldErrors.email = 'Enter a valid email address.';
     if (input.phone.trim() !== '' && !/^[0-9+\-\s()]{6,20}$/.test(input.phone.trim())) fieldErrors.phone = 'Enter a valid phone number.';
     if (input.roleIds.length === 0) fieldErrors.roleIds = 'Select at least one role.';
     if (Object.keys(fieldErrors).length > 0) throw AppError.validation('Please correct the highlighted fields.', fieldErrors);
@@ -353,7 +361,9 @@ export class UserService {
   }
 
   permissionsForRole(roleId: number): string[] {
-    const rows = this.db.prepare(`SELECT permission_key FROM role_permissions WHERE role_id = ?`).all(roleId) as Array<{ permission_key: string }>;
+    const rows = this.db.prepare(`SELECT permission_key FROM role_permissions WHERE role_id = ?`).all(roleId) as Array<{
+      permission_key: string;
+    }>;
     return rows.map((row) => row.permission_key);
   }
 
@@ -417,7 +427,8 @@ export class UserService {
     const name = input.name.trim();
     if (name.length < 2) throw AppError.validation('Give the role a name.', { name: 'Name is required.' });
     const unknown = input.permissions.filter((permission) => !isPermissionKey(permission));
-    if (unknown.length > 0) throw AppError.validation(`Unknown permission(s): ${unknown.join(', ')}.`, { permissions: 'One or more permissions are not valid.' });
+    if (unknown.length > 0)
+      throw AppError.validation(`Unknown permission(s): ${unknown.join(', ')}.`, { permissions: 'One or more permissions are not valid.' });
     const ctx = this.context();
     const now = this.context().instant();
     if (id) {
@@ -432,7 +443,9 @@ export class UserService {
         throw AppError.validation('A built-in role must keep at least one permission.', { permissions: 'Select permissions.' });
       }
       this.db.transaction(() => {
-        this.db.prepare(`UPDATE roles SET name = ?, description = ?, updated_at = ? WHERE id = ?`).run(name, input.description.trim(), now, id);
+        this.db
+          .prepare(`UPDATE roles SET name = ?, description = ?, updated_at = ? WHERE id = ?`)
+          .run(name, input.description.trim(), now, id);
         this.db.prepare(`DELETE FROM role_permissions WHERE role_id = ?`).run(id);
         const insert = this.db.prepare(`INSERT OR IGNORE INTO role_permissions (role_id, permission_key) VALUES (?, ?)`);
         for (const permission of input.permissions) insert.run(id, permission);
@@ -481,12 +494,15 @@ export class UserService {
       | undefined;
     if (!role) throw AppError.notFound('Role');
     if (fromBoolInt(role.is_system)) throw AppError.precondition('Built-in roles cannot be deleted.');
-    const inUse = asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM user_roles WHERE role_id = ?`).get(id) as { total: number }).total);
+    const inUse = asNumber(
+      (this.db.prepare(`SELECT COUNT(*) AS total FROM user_roles WHERE role_id = ?`).get(id) as { total: number }).total,
+    );
     if (inUse > 0) throw AppError.precondition(`This role is assigned to ${inUse} user(s). Move them to another role first.`);
     if (confirmText?.trim() !== role.name) {
       throw AppError.validation(`Type the role name (${role.name}) to confirm deletion.`, { confirmText: `Type ${role.name} to confirm.` });
     }
-    if (reason.trim().length < 3) throw AppError.validation('Please give a reason for deleting this role.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Please give a reason for deleting this role.', { reason: 'Reason is required.' });
     const ctx = this.context();
     this.db.transaction(() => {
       this.db.prepare(`UPDATE roles SET deleted_at = ? WHERE id = ?`).run(ctx.instant(), id);
@@ -510,7 +526,7 @@ export class UserService {
       label: definition.label,
       description: definition.description ?? '',
       sensitive: 'sensitive' in definition ? Boolean(definition.sensitive) : false,
-      groupLabel: PERMISSION_GROUP_LABELS[definition.group as PermissionGroup] ?? definition.group,
+      groupLabel: PERMISSION_GROUP_LABELS[definition.group] ?? definition.group,
     }));
   }
 

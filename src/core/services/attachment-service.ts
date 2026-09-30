@@ -12,11 +12,7 @@ import type { CoreContext } from '../context';
 import { currentUserId, requireAnyPermission, requirePermission } from '../context';
 import type { Attachment } from '@shared/types';
 import type { AttachmentCategory } from '@shared/constants';
-import {
-  ATTACHMENT_ALLOWED_EXTENSIONS,
-  ATTACHMENT_IMAGE_EXTENSIONS,
-  ATTACHMENT_MAX_BYTES,
-} from '@shared/constants';
+import { ATTACHMENT_ALLOWED_EXTENSIONS, ATTACHMENT_IMAGE_EXTENSIONS, ATTACHMENT_MAX_BYTES } from '@shared/constants';
 import { AppError } from '@shared/errors';
 import {
   copyIntoStore,
@@ -32,7 +28,7 @@ import {
   toStoredPath,
   uniqueStoredName,
 } from '../util/files';
-import { asNumber, asString, buildWhere, fromBoolInt } from '../db/sql';
+import { asNumber, asString, buildWhere } from '../db/sql';
 
 /** Entities that may carry files, and how to prove the record exists. */
 const ENTITY_TABLES: Readonly<Record<string, { table: string; softDeleted: boolean; label: string }>> = {
@@ -109,7 +105,9 @@ export class AttachmentService {
       throw AppError.validation('Choose which record to list files for.');
     }
     const where = buildWhere(clauses);
-    const rows = this.db.prepare(`${this.select}${where} ORDER BY a.created_at DESC, a.id DESC`).all(...params) as Array<Record<string, unknown>>;
+    const rows = this.db.prepare(`${this.select}${where} ORDER BY` + ` a.created_at DESC, a.id DESC`).all(...params) as Array<
+      Record<string, unknown>
+    >;
     return rows.map((row) => this.map(row));
   }
 
@@ -161,7 +159,8 @@ export class AttachmentService {
   }): Promise<Attachment> {
     requirePermission(this.context(), 'patient.attachment.manage');
     const entity = ENTITY_TABLES[input.entityType];
-    if (!entity) throw AppError.validation(`Files cannot be attached to “${input.entityType}”.`, { entityType: 'Unsupported record type.' });
+    if (!entity)
+      throw AppError.validation(`Files cannot be attached` + ` to “${input.entityType}”.`, { entityType: 'Unsupported record type.' });
     this.assertEntityExists(input.entityType, input.entityId);
 
     const originalName = sanitiseFileName(basenameOf(input.sourcePath), 'attachment');
@@ -178,10 +177,9 @@ export class AttachmentService {
     const size = await fileSize(input.sourcePath);
     if (size <= 0) throw AppError.validation('The selected file is empty.', { file: 'File is empty.' });
     if (size > ATTACHMENT_MAX_BYTES) {
-      throw AppError.validation(
-        `Files must be ${formatBytes(ATTACHMENT_MAX_BYTES)} or smaller (this one is ${formatBytes(size)}).`,
-        { file: 'File is too large.' },
-      );
+      throw AppError.validation(`Files must be ${formatBytes(ATTACHMENT_MAX_BYTES)} or smaller (this one is ${formatBytes(size)}).`, {
+        file: 'File is too large.',
+      });
     }
 
     const ctx = this.context();
@@ -233,9 +231,9 @@ export class AttachmentService {
 
   update(id: number, patch: { fileName?: string; category?: AttachmentCategory; description?: string }): Attachment {
     requirePermission(this.context(), 'patient.attachment.manage');
-    const before = this.db.prepare(`SELECT file_name, category, description FROM attachments WHERE id = ? AND deleted_at IS NULL`).get(id) as
-      | { file_name: string; category: string; description: string }
-      | undefined;
+    const before = this.db
+      .prepare(`SELECT file_name, category, description FROM` + ` attachments WHERE id = ? AND deleted_at IS NULL`)
+      .get(id) as { file_name: string; category: string; description: string } | undefined;
     if (!before) throw AppError.notFound('File');
     const fileName = patch.fileName === undefined ? before.file_name : sanitiseFileName(patch.fileName, before.file_name);
     if (fileName.trim() === '') throw AppError.validation('Give the file a name.', { fileName: 'Name is required.' });
@@ -262,9 +260,9 @@ export class AttachmentService {
   /** Soft-delete the record and remove the stored file. */
   async delete(id: number, reason?: string): Promise<void> {
     requirePermission(this.context(), 'patient.attachment.delete');
-    const row = this.db.prepare(`SELECT file_name, relative_path, entity_type, entity_id FROM attachments WHERE id = ? AND deleted_at IS NULL`).get(id) as
-      | { file_name: string; relative_path: string; entity_type: string; entity_id: number }
-      | undefined;
+    const row = this.db
+      .prepare(`SELECT file_name, relative_path, entity_type, entity_id` + ` FROM attachments WHERE id = ? AND deleted_at IS NULL`)
+      .get(id) as { file_name: string; relative_path: string; entity_type: string; entity_id: number } | undefined;
     if (!row) throw AppError.notFound('File');
     const ctx = this.context();
     this.db.transaction(() => {
@@ -274,7 +272,9 @@ export class AttachmentService {
         entityType: 'attachment',
         entityId: id,
         entityLabel: row.file_name,
-        detail: `File deleted from ${row.entity_type} #${row.entity_id}${reason && reason.trim() !== '' ? `. Reason: ${reason.trim()}` : ''}`,
+        detail:
+          `File deleted from ${row.entity_type}` +
+          ` #${row.entity_id}${reason && reason.trim() !== '' ? `. Reason: ${reason.trim()}` : ''}`,
         severity: 'warning',
         before: { fileName: row.file_name },
       });
@@ -293,12 +293,16 @@ export class AttachmentService {
   }
 
   /** Trusted variant used by the setup wizard (no session exists yet). */
-  async storeProfileImageInternal(input: { sourcePath: string; kind: 'staff' | 'dentist' | 'dentist_signature' | 'clinic_logo' }): Promise<string> {
+  async storeProfileImageInternal(input: {
+    sourcePath: string;
+    kind: 'staff' | 'dentist' | 'dentist_signature' | 'clinic_logo';
+  }): Promise<string> {
     const extension = fileExtension(input.sourcePath);
     if (!ATTACHMENT_IMAGE_EXTENSIONS.includes(extension)) {
       throw AppError.validation('Choose a PNG, JPEG, WEBP, BMP or TIFF image.', { file: 'Unsupported image type.' });
     }
-    if (!(await pathExists(input.sourcePath))) throw AppError.validation('The selected image could not be read.', { file: 'Image not found.' });
+    if (!(await pathExists(input.sourcePath)))
+      throw AppError.validation('The selected image could not be read.', { file: 'Image not found.' });
     const size = await fileSize(input.sourcePath);
     if (size > ATTACHMENT_MAX_BYTES) {
       throw AppError.validation(`Images must be ${formatBytes(ATTACHMENT_MAX_BYTES)} or smaller.`, { file: 'Image is too large.' });
@@ -338,7 +342,9 @@ export class AttachmentService {
     const row = this.db
       .prepare(`SELECT COUNT(*) AS total, COALESCE(SUM(size_bytes), 0) AS total_bytes FROM attachments WHERE deleted_at IS NULL`)
       .get() as { total: number; total_bytes: number };
-    const rows = this.db.prepare(`SELECT relative_path FROM attachments WHERE deleted_at IS NULL`).all() as Array<{ relative_path: string }>;
+    const rows = this.db.prepare(`SELECT relative_path FROM attachments WHERE deleted_at IS NULL`).all() as Array<{
+      relative_path: string;
+    }>;
     let missing = 0;
     for (const entry of rows) {
       if (resolveStoredPathSafe(this.root(), entry.relative_path) === null) missing += 1;
@@ -347,10 +353,13 @@ export class AttachmentService {
   }
 
   /** Copies every stored file into the backup staging folder. */
-  async stageForBackup(stagingDir: string, progress?: (copied: number, total: number) => void): Promise<{ copied: number; skipped: number }> {
-    const rows = this.db
-      .prepare(`SELECT relative_path FROM attachments WHERE deleted_at IS NULL`)
-      .all() as Array<{ relative_path: string }>;
+  async stageForBackup(
+    stagingDir: string,
+    progress?: (copied: number, total: number) => void,
+  ): Promise<{ copied: number; skipped: number }> {
+    const rows = this.db.prepare(`SELECT relative_path FROM attachments WHERE deleted_at IS NULL`).all() as Array<{
+      relative_path: string;
+    }>;
     let copied = 0;
     let skipped = 0;
     for (const [index, entry] of rows.entries()) {

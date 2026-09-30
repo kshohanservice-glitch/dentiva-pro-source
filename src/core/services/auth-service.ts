@@ -13,7 +13,6 @@ import type { SessionUser } from '@shared/types';
 import type { LockReason } from '../security/session';
 import { AppError } from '@shared/errors';
 import { hashPassword, validatePassword, verifyPassword } from '../security/password';
-import {} from '@shared/dates';
 import type { UserService } from './user-service';
 import type { SettingsService } from './settings-service';
 
@@ -49,9 +48,7 @@ export class AuthService {
       throw AppError.validation('Enter your username and password.', fieldErrors);
     }
 
-    const row = this.db
-      .prepare(`SELECT * FROM users WHERE lower(username) = lower(?) AND deleted_at IS NULL`)
-      .get(cleanUsername) as
+    const row = this.db.prepare(`SELECT * FROM users WHERE lower(username) = lower(?) AND deleted_at IS NULL`).get(cleanUsername) as
       | {
           id: number;
           username: string;
@@ -217,7 +214,8 @@ export class AuthService {
       throw AppError.validation(message, { newPassword: message });
     }
     const sameAsOld = await verifyPassword(newPassword, row.password_hash);
-    if (sameAsOld) throw AppError.validation('Choose a password you have not used before.', { newPassword: 'This is your current password.' });
+    if (sameAsOld)
+      throw AppError.validation('Choose a password you' + ' have not used before.', { newPassword: 'This is your current password.' });
     const hash = await hashPassword(newPassword);
     this.db
       .prepare(`UPDATE users SET password_hash = ?, must_change_password = 0, last_password_change_at = ?, updated_at = ? WHERE id = ?`)
@@ -265,7 +263,9 @@ export class AuthService {
 
   /** Is there at least one active user account? (setup wizard + bootstrap) */
   hasAnyUser(): boolean {
-    const row = this.db.prepare(`SELECT COUNT(*) AS total FROM users WHERE deleted_at IS NULL AND is_active = 1`).get() as { total: number };
+    const row = this.db.prepare(`SELECT COUNT(*) AS total FROM users WHERE` + ` deleted_at IS NULL AND is_active = 1`).get() as {
+      total: number;
+    };
     return Number(row.total) > 0;
   }
 
@@ -285,9 +285,9 @@ export class AuthService {
 
   /** Small helper for the login screen: remembers the last signed-in name. */
   lastUsername(): string | null {
-    const row = this.db
-      .prepare(`SELECT username FROM login_attempts WHERE success = 1 ORDER BY attempted_at DESC LIMIT 1`)
-      .get() as { username: string } | undefined;
+    const row = this.db.prepare(`SELECT username FROM login_attempts WHERE success = 1 ORDER BY attempted_at DESC LIMIT 1`).get() as
+      | { username: string }
+      | undefined;
     return row?.username ?? null;
   }
 

@@ -10,10 +10,18 @@
 import type { SqliteDatabase } from '../db/connection';
 import type { CoreContext } from '../context';
 import { currentUserId, requirePermission } from '../context';
-import type { AccountingCategory, AccountingSummary, AccountingTransaction, AccountingTransactionInput, DaybookRow, FinancialPeriod, Paged } from '@shared/types';
+import type {
+  AccountingCategory,
+  AccountingSummary,
+  AccountingTransaction,
+  AccountingTransactionInput,
+  DaybookRow,
+  FinancialPeriod,
+  Paged,
+} from '@shared/types';
 import type { AccountingDirection } from '@shared/constants';
 import { AppError } from '@shared/errors';
-import { addDays, addMonths, endOfMonth, nowInstant, resolveDateRange, startOfMonth } from '@shared/dates';
+import { addDays, addMonths, endOfMonth, resolveDateRange, startOfMonth } from '@shared/dates';
 import { formatMoney } from '@shared/money';
 import { asNumber, asString, buildWhere, fromBoolInt, pageCount, paginate } from '../db/sql';
 import { deriveIncomeCategoryName } from './accounting-categories';
@@ -38,10 +46,12 @@ interface TransactionRow {
   void_reason: string;
 }
 
-const SELECT = `
+const SELECT =
+  `
   SELECT t.*, c.name AS category_name, m.name AS method_name,
          (SELECT full_name FROM users u WHERE u.id = t.created_by) AS created_by_name,
-         (SELECT COUNT(*) FROM attachments a WHERE a.entity_type = 'accounting_transaction' AND a.entity_id = t.id AND a.deleted_at IS NULL) AS attachment_count
+         (SELECT COUNT(*) FROM attachments a WHERE a.entity_type = 'accounting_transaction'` +
+  ` AND a.entity_id = t.id AND a.deleted_at IS NULL) AS attachment_count
     FROM accounting_transactions t
     JOIN accounting_categories c ON c.id = t.category_id
     LEFT JOIN payment_methods m ON m.id = t.payment_method_id
@@ -119,7 +129,13 @@ export class AccountingService {
         .prepare(`UPDATE accounting_categories SET name = ?, direction = ?, is_active = ?, updated_at = ? WHERE id = ?`)
         .run(name, input.direction, input.isActive ? 1 : 0, now, id);
       if (result.changes === 0) throw AppError.notFound('Category');
-      this.context().audit.record({ action: 'update', entityType: 'accounting_category', entityId: id, entityLabel: name, detail: 'Category updated' });
+      this.context().audit.record({
+        action: 'update',
+        entityType: 'accounting_category',
+        entityId: id,
+        entityLabel: name,
+        detail: 'Category updated',
+      });
       return { id };
     }
     const duplicate = this.db
@@ -127,10 +143,18 @@ export class AccountingService {
       .get(name, input.direction) as { id: number } | undefined;
     if (duplicate) throw AppError.conflict('That category already exists for this direction.');
     const result = this.db
-      .prepare(`INSERT INTO accounting_categories (name, direction, is_active, is_system, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)`)
+      .prepare(
+        `INSERT INTO accounting_categories (name, direction, is_active,` + ` is_system, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)`,
+      )
       .run(name, input.direction, input.isActive ? 1 : 0, now, now);
     const newId = Number(result.lastInsertRowid);
-    this.context().audit.record({ action: 'create', entityType: 'accounting_category', entityId: newId, entityLabel: name, detail: 'Category created' });
+    this.context().audit.record({
+      action: 'create',
+      entityType: 'accounting_category',
+      entityId: newId,
+      entityLabel: name,
+      detail: 'Category created',
+    });
     return { id: newId };
   }
 
@@ -160,7 +184,13 @@ export class AccountingService {
       return;
     }
     this.db.prepare(`UPDATE accounting_categories SET deleted_at = ? WHERE id = ?`).run(this.context().instant(), id);
-    ctx.audit.record({ action: 'delete', entityType: 'accounting_category', entityId: id, entityLabel: category.name, detail: 'Category deleted' });
+    ctx.audit.record({
+      action: 'delete',
+      entityType: 'accounting_category',
+      entityId: id,
+      entityLabel: category.name,
+      detail: 'Category deleted',
+    });
   }
 
   /** Find or create the category used for a given income/expense label. */
@@ -171,14 +201,29 @@ export class AccountingService {
     if (existing) return existing.id;
     const now = this.context().instant();
     const result = this.db
-      .prepare(`INSERT INTO accounting_categories (name, direction, is_active, is_system, created_at, updated_at) VALUES (?, ?, 1, 0, ?, ?)`)
+      .prepare(
+        `INSERT INTO accounting_categories (name, direction, is_active,` + ` is_system, created_at, updated_at) VALUES (?, ?, 1, 0, ?, ?)`,
+      )
       .run(name, direction, now, now);
     return Number(result.lastInsertRowid);
   }
 
   // --- Transactions -------------------------------------------------------
 
-  list(query: { page?: number; pageSize?: number; search?: string; preset?: string; from?: string; to?: string; direction?: AccountingDirection; categoryId?: number | null; methodId?: number | null; includeVoid?: boolean } = {}): Paged<AccountingTransaction> {
+  list(
+    query: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
+      preset?: string;
+      from?: string;
+      to?: string;
+      direction?: AccountingDirection;
+      categoryId?: number | null;
+      methodId?: number | null;
+      includeVoid?: boolean;
+    } = {},
+  ): Paged<AccountingTransaction> {
     requirePermission(this.context(), 'accounting.view');
     const { limit, offset, page, pageSize } = paginate(query.page, query.pageSize);
     const clauses: string[] = [];
@@ -212,9 +257,9 @@ export class AccountingService {
       params.push(term, term, term);
     }
     const where = buildWhere(clauses);
-    const total = asNumber(
-      (this.db.prepare(`SELECT COUNT(*) AS total FROM accounting_transactions t JOIN accounting_categories c ON c.id = t.category_id${where}`).get(...params) as { total: number }).total,
-    );
+    const totalSql =
+      `SELECT COUNT(*) AS total FROM accounting_transactions t JOIN` + ` accounting_categories c ON c.id = t.category_id${where}`;
+    const total = asNumber((this.db.prepare(totalSql).get(...params) as { total: number }).total);
     const rows = this.db
       .prepare(`${SELECT}${where} ORDER BY t.date DESC, t.id DESC LIMIT ? OFFSET ?`)
       .all(...params, limit, offset) as TransactionRow[];
@@ -231,7 +276,8 @@ export class AccountingService {
         .prepare(
           `INSERT INTO accounting_transactions (direction, date, category_id, amount_paisa, payment_method_id, reference, note,
              source_type, source_id, created_by, created_at, updated_at)
-           VALUES (@direction, @date, @categoryId, @amount, @methodId, @reference, @note, 'manual', NULL, @createdBy, @createdAt, @updatedAt)`,
+           VALUES (@direction, @date, @categoryId, @amount, @methodId,` +
+            ` @reference, @note, 'manual', NULL, @createdBy, @createdAt, @updatedAt)`,
         )
         .run({
           direction: input.direction,
@@ -251,7 +297,9 @@ export class AccountingService {
         entityType: 'accounting_transaction',
         entityId: id,
         entityLabel: `${input.direction === 'income' ? 'Income' : 'Expense'} ${formatMoney(input.amountPaisa)}`,
-        detail: `${input.direction === 'income' ? 'Income' : 'Expense'} recorded: ${input.note.trim() || input.reference.trim() || 'no description'}`,
+        detail: `${input.direction === 'income' ? 'Income' : 'Expense'} recorded: ${
+          input.note.trim() || input.reference.trim() || 'no description'
+        }`,
         after: { direction: input.direction, amount: input.amountPaisa, date: input.date },
       });
       return id;
@@ -263,7 +311,16 @@ export class AccountingService {
   update(id: number, input: AccountingTransactionInput): void {
     requirePermission(this.context(), 'accounting.manage');
     const existing = this.db.prepare(`SELECT * FROM accounting_transactions WHERE id = ?`).get(id) as
-      | { date: string; amount_paisa: number; direction: string; source_type: string; is_void: number; category_id: number; note: string; reference: string }
+      | {
+          date: string;
+          amount_paisa: number;
+          direction: string;
+          source_type: string;
+          is_void: number;
+          category_id: number;
+          note: string;
+          reference: string;
+        }
       | undefined;
     if (!existing) throw AppError.notFound('Entry');
     if (fromBoolInt(existing.is_void)) throw AppError.precondition('A voided entry cannot be edited.');
@@ -309,9 +366,9 @@ export class AccountingService {
   void(id: number, reason: string): void {
     requirePermission(this.context(), 'accounting.manage');
     if (reason.trim().length < 3) throw AppError.validation('Explain why the entry is being voided.', { reason: 'Reason is required.' });
-    const existing = this.db.prepare(`SELECT date, amount_paisa, is_void, source_type FROM accounting_transactions WHERE id = ?`).get(id) as
-      | { date: string; amount_paisa: number; is_void: number; source_type: string }
-      | undefined;
+    const existing = this.db
+      .prepare(`SELECT date, amount_paisa, is_void, source_type FROM accounting_transactions WHERE id = ?`)
+      .get(id) as { date: string; amount_paisa: number; is_void: number; source_type: string } | undefined;
     if (!existing) throw AppError.notFound('Entry');
     if (fromBoolInt(existing.is_void)) throw AppError.precondition('This entry is already void.');
     if (existing.source_type !== 'manual') {
@@ -321,7 +378,9 @@ export class AccountingService {
     const ctx = this.context();
     this.db.transaction(() => {
       this.db
-        .prepare(`UPDATE accounting_transactions SET is_void = 1, void_reason = ?, voided_at = ?, voided_by = ?, updated_at = ? WHERE id = ?`)
+        .prepare(
+          `UPDATE accounting_transactions SET is_void = 1, void_reason =` + ` ?, voided_at = ?, voided_by = ?, updated_at = ? WHERE id = ?`,
+        )
         .run(reason.trim(), ctx.instant(), currentUserId(ctx), ctx.instant(), id);
       ctx.audit.record({
         action: 'update',
@@ -367,9 +426,9 @@ export class AccountingService {
     if (!Number.isFinite(input.amountPaisa) || Math.round(input.amountPaisa) <= 0) {
       fieldErrors.amountPaisa = 'Amount must be greater than zero.';
     }
-    const category = this.db.prepare(`SELECT id, direction, is_active FROM accounting_categories WHERE id = ? AND deleted_at IS NULL`).get(input.categoryId) as
-      | { id: number; direction: string; is_active: number }
-      | undefined;
+    const category = this.db
+      .prepare(`SELECT id, direction, is_active FROM accounting_categories` + ` WHERE id = ? AND deleted_at IS NULL`)
+      .get(input.categoryId) as { id: number; direction: string; is_active: number } | undefined;
     if (!category) fieldErrors.categoryId = 'Select a category.';
     else if (category.direction !== input.direction) fieldErrors.categoryId = 'This category belongs to the other direction.';
     if (input.note.trim() === '' && input.reference.trim() === '') {
@@ -380,7 +439,14 @@ export class AccountingService {
 
   // --- Automatic postings (called by payments and inventory) ---------------
 
-  recordPaymentIncome(input: { paymentId: number; date: string; amountPaisa: number; methodId: number | null; reference: string; note: string }): void {
+  recordPaymentIncome(input: {
+    paymentId: number;
+    date: string;
+    amountPaisa: number;
+    methodId: number | null;
+    reference: string;
+    note: string;
+  }): void {
     const categoryId = this.ensureCategory(deriveIncomeCategoryName('payment'), 'income');
     const existing = this.db
       .prepare(`SELECT id FROM accounting_transactions WHERE source_type = 'payment' AND source_id = ?`)
@@ -435,7 +501,15 @@ export class AccountingService {
   }
 
   /** Purchase expenses posted from the inventory module. */
-  recordPurchaseExpense(input: { purchaseId: number; date: string; amountPaisa: number; methodId: number | null; reference: string; note: string; categoryName: string }): number {
+  recordPurchaseExpense(input: {
+    purchaseId: number;
+    date: string;
+    amountPaisa: number;
+    methodId: number | null;
+    reference: string;
+    note: string;
+    categoryName: string;
+  }): number {
     const categoryId = this.ensureCategory(input.categoryName, 'expense');
     const existing = this.db
       .prepare(`SELECT id FROM accounting_transactions WHERE source_type = 'purchase' AND source_id = ?`)
@@ -512,7 +586,10 @@ export class AccountingService {
     const outstanding = asNumber(
       (
         this.db
-          .prepare(`SELECT COALESCE(SUM(total_paisa - paid_paisa),0) AS due FROM invoices WHERE deleted_at IS NULL AND is_void = 0 AND total_paisa > paid_paisa`)
+          .prepare(
+            `SELECT COALESCE(SUM(total_paisa - paid_paisa),0) AS due FROM invoices` +
+              ` WHERE deleted_at IS NULL AND is_void = 0 AND total_paisa > paid_paisa`,
+          )
           .get() as { due: number }
       ).due,
     );
@@ -524,7 +601,13 @@ export class AccountingService {
             WHERE t.is_void = 0 AND t.date BETWEEN ? AND ?
             GROUP BY t.category_id ORDER BY amount DESC`,
         )
-        .all(range.from, range.to) as Array<{ category_id: number; category_name: string; direction: string; amount: number; count: number }>
+        .all(range.from, range.to) as Array<{
+        category_id: number;
+        category_name: string;
+        direction: string;
+        amount: number;
+        count: number;
+      }>
     ).map((row) => ({
       categoryId: row.category_id,
       categoryName: row.category_name,
@@ -620,7 +703,8 @@ export class AccountingService {
                 COALESCE((SELECT SUM(t.amount_paisa) FROM accounting_transactions t
                            WHERE t.is_void = 0 AND t.direction = 'income' AND t.date BETWEEN p.period_start AND p.period_end), 0) AS income,
                 COALESCE((SELECT SUM(t.amount_paisa) FROM accounting_transactions t
-                           WHERE t.is_void = 0 AND t.direction = 'expense' AND t.date BETWEEN p.period_start AND p.period_end), 0) AS expense
+                           WHERE t.is_void = 0 AND t.direction = 'expense'` +
+          ` AND t.date BETWEEN p.period_start AND p.period_end), 0) AS expense
            FROM financial_periods p ORDER BY p.period_start DESC LIMIT 60`,
       )
       .all() as Array<Record<string, unknown>>;
@@ -675,7 +759,8 @@ export class AccountingService {
     if (confirmText?.trim() !== 'REOPEN') {
       throw AppError.validation('Type REOPEN to confirm reopening a closed financial period.', { confirmText: 'Type REOPEN to confirm.' });
     }
-    if (reason.trim().length < 3) throw AppError.validation('Please give a reason for reopening the period.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Please give a reason for reopening the period.', { reason: 'Reason is required.' });
     const ctx = this.context();
     this.db
       .prepare(`UPDATE financial_periods SET is_closed = 0, notes = trim(notes || ?) WHERE id = ?`)
@@ -696,7 +781,8 @@ export class AccountingService {
       .get(date) as { label: string } | undefined;
     if (period) {
       throw AppError.precondition(
-        `The financial period ${period.label} is closed. Reopen it (with the permission to do so) before you ${action} an entry in that period.`,
+        `The financial period ${period.label} is closed. Reopen it (with the` +
+          ` permission to do so) before you ${action} an entry in that period.`,
       );
     }
   }

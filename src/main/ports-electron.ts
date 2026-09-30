@@ -6,7 +6,8 @@
  * are restricted to http/https, and a file dialog suspends the idle clock so a
  * receptionist reading a long dialog is never locked out mid-task.
  */
-import { BrowserWindow, app, dialog, nativeImage, shell } from 'electron';
+import type { BrowserWindow, OpenDialogOptions } from 'electron';
+import { app, dialog, nativeImage, shell } from 'electron';
 import { AppError } from '@shared/errors';
 import type { MainPorts } from './ipc/handlers';
 
@@ -61,11 +62,14 @@ export function createElectronPorts(options: ElectronPortsOptions): MainPorts {
       setDialog(true);
       try {
         const window = options.window();
-        const result = await dialog.showOpenDialog(window ?? undefined!, {
+        const optionsForDialog: OpenDialogOptions = {
           title: input.title,
           properties: input.multi ? ['openFile', 'multiSelections'] : ['openFile'],
           filters: input.filters ? input.filters.map((filter) => ({ ...filter })) : undefined,
-        });
+        };
+        // Anchor the sheet to the window when there is one; otherwise Electron
+        // opens a standalone dialog.
+        const result = window ? await dialog.showOpenDialog(window, optionsForDialog) : await dialog.showOpenDialog(optionsForDialog);
         return result.canceled ? [] : result.filePaths;
       } finally {
         setDialog(false);
@@ -76,10 +80,8 @@ export function createElectronPorts(options: ElectronPortsOptions): MainPorts {
       setDialog(true);
       try {
         const window = options.window();
-        const result = await dialog.showOpenDialog(window ?? undefined!, {
-          title,
-          properties: ['openDirectory', 'createDirectory'],
-        });
+        const optionsForDialog: OpenDialogOptions = { title, properties: ['openDirectory', 'createDirectory'] };
+        const result = window ? await dialog.showOpenDialog(window, optionsForDialog) : await dialog.showOpenDialog(optionsForDialog);
         return result.canceled ? null : (result.filePaths[0] ?? null);
       } finally {
         setDialog(false);
@@ -92,6 +94,9 @@ export function createElectronPorts(options: ElectronPortsOptions): MainPorts {
 
     async thumbnail(path, maxPixels) {
       const limit = Math.min(2048, Math.max(32, Math.round(maxPixels)));
+      // Decoding happens on the main thread; yield first so a large radiograph
+      // never blocks the window while it is being read.
+      await Promise.resolve();
       const image = nativeImage.createFromPath(path);
       if (image.isEmpty()) return null;
       const size = image.getSize();

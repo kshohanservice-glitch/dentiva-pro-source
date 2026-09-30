@@ -1,0 +1,13 @@
+node_modules/
+dist/
+release/
+coverage/
+.dentiva-dev/
+.dentiva-stress/
+build/icons/
+build/icon-source.png
+src/renderer/styles/*.css
+src/generated/
+THIRD-PARTY-NOTICES.md
+docs/LICENSE-AUDIT.md
+package-lock.json

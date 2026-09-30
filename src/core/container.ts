@@ -13,7 +13,7 @@ import type { CoreContext, CorePaths } from './context';
 import { toInstant, todayIso } from '@shared/dates';
 import { APP_BUILD_NUMBER, APP_VERSION } from '@shared/app-info';
 import type { Logger } from './util/logger';
-import { createLogger, createNullLogger } from './util/logger';
+import { createNullLogger } from './util/logger';
 import { SessionManager } from './security/session';
 import { seedReferenceData, type SeedResult } from './seed';
 import { AppService, type RuntimeInfo } from './services/app-service';
@@ -151,12 +151,7 @@ export function createCoreContainer(options: CoreContainerOptions): CoreContaine
   const dentists = new DentistService(db, () => context ?? missingContext(), attachments);
   const inventory = new InventoryService(db, () => context ?? missingContext(), accounting, settings);
   const auth = new AuthService(db, () => context ?? missingContext(), users, settings);
-  const backups = new BackupService(
-    db,
-    () => context ?? missingContext(),
-    settings,
-    options.onBackupProgress,
-  );
+  const backups = new BackupService(db, () => context ?? missingContext(), settings, options.onBackupProgress);
   const search = new SearchService(db, () => context ?? missingContext());
   const resources = new ResourceService(db, () => context ?? missingContext(), prescriptions, patients);
   const setup = new SetupService(db, () => context ?? missingContext(), settings, dentists, attachments, users);

@@ -42,8 +42,11 @@ function draftFrom(findings: readonly ToothFinding[]): Draft {
   return {
     findings: active.map((finding) => finding.finding),
     surfaces: [...new Set(active.flatMap((finding) => finding.surfaces))],
-    mobility: (active.find((finding) => finding.mobilityGrade > 0)?.mobilityGrade ?? 0) as MobilityGrade,
-    note: active.map((finding) => finding.note).filter(Boolean).join(' '),
+    mobility: active.find((finding) => finding.mobilityGrade > 0)?.mobilityGrade ?? 0,
+    note: active
+      .map((finding) => finding.note)
+      .filter(Boolean)
+      .join(' '),
   };
 }
 
@@ -90,7 +93,8 @@ export function DentalChartView({
   }, [patientId, dentition, numbering]);
 
   const arches = useMemo(() => archLayout(dentition), [dentition]);
-  const findings = chart?.findings.filter((finding) => finding.isActive) ?? [];
+  const findings = useMemo(() => (chart?.findings ?? []).filter((finding) => finding.isActive), [chart]);
+  const perioRecords = useMemo(() => chart?.perio ?? [], [chart]);
   const byTooth = useMemo(() => {
     const map = new Map<string, ToothFinding[]>();
     for (const finding of findings) {
@@ -103,13 +107,13 @@ export function DentalChartView({
 
   const perioByTooth = useMemo(() => {
     const map = new Map<string, Map<string, number>>();
-    for (const record of chart?.perio ?? []) {
+    for (const record of perioRecords) {
       const sites = map.get(record.toothFdi) ?? new Map<string, number>();
       sites.set(record.site, record.depthMm);
       map.set(record.toothFdi, sites);
     }
     return map;
-  }, [chart]);
+  }, [perioRecords]);
 
   useEffect(() => {
     if (!selected) return;
@@ -126,8 +130,19 @@ export function DentalChartView({
     const list = byTooth.get(fdi);
     if (!list || list.length === 0) return undefined;
     const priority: ToothFindingType[] = [
-      'missing', 'extracted', 'implant', 'caries', 'root_canal', 'crown', 'filled', 'fracture', 'mobility',
-      'impacted', 'bridge_abutment', 'pontic', 'sealant',
+      'missing',
+      'extracted',
+      'implant',
+      'caries',
+      'root_canal',
+      'crown',
+      'filled',
+      'fracture',
+      'mobility',
+      'impacted',
+      'bridge_abutment',
+      'pontic',
+      'sealant',
     ];
     for (const type of priority) {
       if (list.some((finding) => finding.finding === type)) return TOOTH_FINDING_COLOURS[type];
@@ -148,9 +163,7 @@ export function DentalChartView({
   const toggleSurface = (surface: ToothSurface) => {
     setDraft((current) => ({
       ...current,
-      surfaces: current.surfaces.includes(surface)
-        ? current.surfaces.filter((value) => value !== surface)
-        : [...current.surfaces, surface],
+      surfaces: current.surfaces.includes(surface) ? current.surfaces.filter((value) => value !== surface) : [...current.surfaces, surface],
     }));
   };
 
@@ -199,9 +212,7 @@ export function DentalChartView({
   };
 
   const clearChart = async () => {
-    const confirmed = await run(() =>
-      bridge.invoke('dental.clear', { patientId, dentition, confirmText: 'CLEAR' }),
-    );
+    const confirmed = await run(() => bridge.invoke('dental.clear', { patientId, dentition, confirmText: 'CLEAR' }));
     if (confirmed) {
       setChart(confirmed);
       toast('warning', 'Chart cleared', 'The previous findings remain in the audit history.');
@@ -247,8 +258,8 @@ export function DentalChartView({
           <div className="banner banner--info">
             <Info size={16} />
             <div className="grow">
-              Six sites per tooth (mesio-buccal, buccal, disto-buccal, mesio-lingual, lingual, disto-lingual) in
-              millimetres, 1–{MAX_POCKET_DEPTH_MM}. Rows left empty are ignored.
+              Six sites per tooth (mesio-buccal, buccal, disto-buccal, mesio-lingual, lingual, disto-lingual) in millimetres, 1–
+              {MAX_POCKET_DEPTH_MM}. Rows left empty are ignored.
             </div>
           </div>
           <div className="table-wrap">
@@ -275,10 +286,8 @@ export function DentalChartView({
                             className="input--numeric"
                             inputMode="numeric"
                             style={{ width: 64 }}
-                            value={perio[`${tooth.fdi}:${site.site}`] ?? (recorded?.get(site.site)?.toString() ?? '')}
-                            onChange={(event) =>
-                              setPerio((current) => ({ ...current, [`${tooth.fdi}:${site.site}`]: event.target.value }))
-                            }
+                            value={perio[`${tooth.fdi}:${site.site}`] ?? recorded?.get(site.site)?.toString() ?? ''}
+                            onChange={(event) => setPerio((current) => ({ ...current, [`${tooth.fdi}:${site.site}`]: event.target.value }))}
                           />
                         </td>
                       ))}
@@ -309,7 +318,9 @@ export function DentalChartView({
                       type="button"
                       className={`tooth ${isSelected ? 'is-selected' : ''}`}
                       style={colour ? { borderColor: colour, background: `${colour}22` } : undefined}
-                      title={`${tooth.name} — ${findingsForTooth.map((finding) => TOOTH_FINDING_LABELS[finding.finding]).join(', ') || 'no findings'}`}
+                      title={`${tooth.name} — ${
+                        findingsForTooth.map((finding) => TOOTH_FINDING_LABELS[finding.finding]).join(', ') || 'no findings'
+                      }`}
                       aria-pressed={isSelected}
                       onMouseDown={() => setSelected(tooth.fdi)}
                       onKeyDown={(event) => {
@@ -317,7 +328,8 @@ export function DentalChartView({
                         const index = list.findIndex((entry) => entry.fdi === tooth.fdi);
                         if (event.key === 'ArrowRight') setSelected(list[Math.min(list.length - 1, index + 1)]?.fdi ?? tooth.fdi);
                         if (event.key === 'ArrowLeft') setSelected(list[Math.max(0, index - 1)]?.fdi ?? tooth.fdi);
-                        if (event.key === 'ArrowDown') setSelected((arch === 'upper' ? arches.lower : arches.upper)[index]?.fdi ?? tooth.fdi);
+                        if (event.key === 'ArrowDown')
+                          setSelected((arch === 'upper' ? arches.lower : arches.upper)[index]?.fdi ?? tooth.fdi);
                         if (event.key === 'ArrowUp') setSelected((arch === 'lower' ? arches.upper : arches.lower)[index]?.fdi ?? tooth.fdi);
                       }}
                     >
@@ -325,7 +337,10 @@ export function DentalChartView({
                       <span className="tooth__mark" style={colour ? { background: colour } : undefined} aria-hidden />
                       <span className="tooth__surfaces" aria-hidden>
                         {findingsForTooth.some((finding) => finding.surfaces.length > 0)
-                          ? findingsForTooth.flatMap((finding) => finding.surfaces).slice(0, 4).join('·')
+                          ? findingsForTooth
+                              .flatMap((finding) => finding.surfaces)
+                              .slice(0, 4)
+                              .join('·')
                           : ''}
                       </span>
                     </button>
@@ -357,15 +372,10 @@ export function DentalChartView({
               <div className="card__header">
                 <div>
                   <h3 className="card__title">
-                    Tooth {formatToothCode(
-                      [...arches.upper, ...arches.lower].find((tooth) => tooth.fdi === selected)!,
-                      numbering,
-                    )}
+                    Tooth {formatToothCode([...arches.upper, ...arches.lower].find((tooth) => tooth.fdi === selected)!, numbering)}
                     <span className="small muted"> ({selected})</span>
                   </h3>
-                  <p className="card__subtitle">
-                    {[...arches.upper, ...arches.lower].find((tooth) => tooth.fdi === selected)?.name}
-                  </p>
+                  <p className="card__subtitle">{[...arches.upper, ...arches.lower].find((tooth) => tooth.fdi === selected)?.name}</p>
                 </div>
                 <div className="row" style={{ gap: 8 }}>
                   <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>

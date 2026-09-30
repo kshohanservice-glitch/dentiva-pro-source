@@ -8,7 +8,15 @@
  * returns an unsubscribe function.
  */
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { ApiMethodName, ApiRequest, ApiResponse, BridgeEventName, BridgeEventPayloads, BridgeInvokeResult, DentivaBridge } from '@shared/api';
+import type {
+  ApiMethodName,
+  ApiRequest,
+  ApiResponse,
+  BridgeEventName,
+  BridgeEventPayloads,
+  BridgeInvokeResult,
+  DentivaBridge,
+} from '@shared/api';
 
 const INVOKE_CHANNEL = 'dentiva:invoke';
 const EVENT_CHANNEL = 'dentiva:event';
@@ -27,19 +35,17 @@ const bridge: DentivaBridge & { pathForFile(file: File): string } = {
     node: process.versions.node ?? '',
   },
   invoke<K extends ApiMethodName>(method: K, payload?: ApiRequest<K>): Promise<ApiResponse<K>> {
-    return ipcRenderer
-      .invoke(INVOKE_CHANNEL, method, payload)
-      .then((result: BridgeInvokeResult<ApiResponse<K>>) => {
-        if (!result || typeof result !== 'object') {
-          throw Object.assign(new Error('The application did not answer.'), { code: 'UNKNOWN' });
-        }
-        if (result.ok) return result.data;
-        const error = Object.assign(new Error(result.error.message), {
-          code: result.error.code,
-          fieldErrors: result.error.fieldErrors,
-        });
-        throw error;
+    return ipcRenderer.invoke(INVOKE_CHANNEL, method, payload).then((result: BridgeInvokeResult<ApiResponse<K>>) => {
+      if (!result || typeof result !== 'object') {
+        throw Object.assign(new Error('The application did not answer.'), { code: 'UNKNOWN' });
+      }
+      if (result.ok) return result.data;
+      const error = Object.assign(new Error(result.error.message), {
+        code: result.error.code,
+        fieldErrors: result.error.fieldErrors,
       });
+      throw error;
+    });
   },
   on<E extends BridgeEventName>(event: E, listener: (payload: BridgeEventPayloads[E]) => void): () => void {
     const handler = (_event: unknown, message: EventMessage): void => {

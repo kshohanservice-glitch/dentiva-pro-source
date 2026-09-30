@@ -11,7 +11,16 @@
 import type { SqliteDatabase } from '../db/connection';
 import { checkIntegrity, databaseSizeBytes, hadAbnormalExit, markCleanShutdown, schemaVersion } from '../db/connection';
 import type { CoreContext } from '../context';
-import type { ActivationStatus, AppBootstrap, AppSettings, AppState, ClinicProfile, HealthReport, SetupStatus, SystemInfo } from '@shared/types';
+import type {
+  ActivationStatus,
+  AppBootstrap,
+  AppSettings,
+  AppState,
+  ClinicProfile,
+  HealthReport,
+  SetupStatus,
+  SystemInfo,
+} from '@shared/types';
 import { APP_BUILD_NUMBER, APP_VERSION } from '@shared/app-info';
 import type { SettingsService } from './settings-service';
 import type { SetupService } from './setup-service';

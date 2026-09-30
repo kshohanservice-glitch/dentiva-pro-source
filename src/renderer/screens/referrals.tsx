@@ -10,20 +10,8 @@ import type { DateRangePreset } from '@shared/dates';
 import type { PatientSummary, Referral, ReferralInput } from '@shared/types';
 import { useAction, useApi, useApp } from '@renderer/state/store';
 import { bridge } from '@renderer/lib/bridge';
-import { fmtDate } from '@renderer/lib/format';
-import {
-  Button,
-  Card,
-  Empty,
-  Field,
-  Modal,
-  Page,
-  SearchInput,
-  Select,
-  Stat,
-  StatusBadge,
-  TextArea,
-} from '@renderer/components/ui';
+import { fmtDate, text } from '@renderer/lib/format';
+import { Button, Card, Empty, Field, Modal, Page, SearchInput, Select, Stat, StatusBadge, TextArea } from '@renderer/components/ui';
 import { DataTable, DateField, PatientPicker, PagedFooter, TextField, rangePresetOptions, useListState } from '@renderer/components/forms';
 
 const EMPTY: ReferralInput = {
@@ -98,7 +86,7 @@ function ReferralDialog({
     const rows = (doctors.data?.items ?? []) as unknown as Array<Record<string, unknown>>;
     setDoctorOptions(
       rows.map((row) => ({
-        label: String(row['name'] ?? ''),
+        label: text(row['name']),
         value: Number(row['id']),
         meta: [row['specialty'], row['organisation']].filter(Boolean).join(' · '),
       })),
@@ -166,10 +154,10 @@ function ReferralDialog({
                 const match = chosen.find((row) => Number(row['id']) === id);
                 patch({
                   referralDoctorId: id,
-                  doctorName: match ? String(match['name'] ?? '') : form.doctorName,
-                  specialty: match && !form.specialty ? String(match['specialty'] ?? '') : form.specialty,
-                  organisation: match && !form.organisation ? String(match['organisation'] ?? '') : form.organisation,
-                  contact: match && !form.contact ? String(match['phone'] ?? '') : form.contact,
+                  doctorName: match ? text(match['name']) : form.doctorName,
+                  specialty: match && !form.specialty ? text(match['specialty']) : form.specialty,
+                  organisation: match && !form.organisation ? text(match['organisation']) : form.organisation,
+                  contact: match && !form.contact ? text(match['phone']) : form.contact,
                 });
               }}
             />
@@ -275,7 +263,11 @@ export function ReferralsScreen(): JSX.Element {
       <div className="stat-grid">
         <Stat label="Referrals" value={String(statistics.data?.total ?? 0)} />
         {(statistics.data?.byStatus ?? []).map((entry) => (
-          <Stat key={entry.label} label={REFERRAL_STATUS_LABELS[entry.label as ReferralStatus] ?? entry.label} value={String(entry.value)} />
+          <Stat
+            key={entry.label}
+            label={REFERRAL_STATUS_LABELS[entry.label as ReferralStatus] ?? entry.label}
+            value={String(entry.value)}
+          />
         ))}
       </div>
 
@@ -335,7 +327,14 @@ export function ReferralsScreen(): JSX.Element {
             status: <StatusBadge status={referral.status} label={REFERRAL_STATUS_LABELS[referral.status]} />,
             actions: (
               <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
-                <Button size="sm" variant="ghost" onClick={() => { setEditing(referral); setDialogOpen(true); }}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setEditing(referral);
+                    setDialogOpen(true);
+                  }}
+                >
                   Edit
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => void remove(referral)}>
@@ -354,7 +353,13 @@ export function ReferralsScreen(): JSX.Element {
               text="Send a patient summary to a specialist and keep the follow-up here."
               icon={<Share2 size={24} />}
               action={
-                <Button variant="primary" onClick={() => { setEditing(null); setDialogOpen(true); }}>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    setEditing(null);
+                    setDialogOpen(true);
+                  }}
+                >
                   New referral
                 </Button>
               }

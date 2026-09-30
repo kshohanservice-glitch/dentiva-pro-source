@@ -26,7 +26,7 @@ import type {
 import type { InventoryUnit, StockMovementType } from '@shared/constants';
 import { STOCK_DECREASE_TYPES, STOCK_INCREASE_TYPES } from '@shared/constants';
 import { AppError } from '@shared/errors';
-import { resolveDateRange, todayIso } from '@shared/dates';
+import { resolveDateRange } from '@shared/dates';
 import { formatMoney } from '@shared/money';
 import { asNumber, asString, buildWhere, fromBoolInt, pageCount, paginate } from '../db/sql';
 import { nextItemCode, nextPurchaseReference } from '../util/ids';
@@ -91,9 +91,15 @@ export class InventoryService {
   // --- Formatting helpers -------------------------------------------------
 
   /** 1500 → "1.5 pieces". */
-  formatQuantity(milli: number, unit: InventoryUnit | string): string {
+  formatQuantity(milli: number, unit: string): string {
     const value = milli / 1000;
-    const rounded = Math.abs(value) >= 100 ? Math.round(value).toString() : value.toFixed(value % 1 === 0 ? 0 : 3).replace(/0+$/, '').replace(/\.$/, '');
+    const rounded =
+      Math.abs(value) >= 100
+        ? Math.round(value).toString()
+        : value
+            .toFixed(value % 1 === 0 ? 0 : 3)
+            .replace(/0+$/, '')
+            .replace(/\.$/, '');
     const unitLabel = rounded === '1' || rounded === '-1' ? unit : `${unit}${unit.endsWith('s') ? '' : 's'}`;
     return `${rounded} ${unitLabel}`;
   }
@@ -150,16 +156,18 @@ export class InventoryService {
     };
   }
 
-  list(query: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    categoryId?: number | null;
-    supplierId?: number | null;
-    lowStockOnly?: boolean;
-    expiringOnly?: boolean;
-    includeInactive?: boolean;
-  } = {}): Paged<InventoryItem> {
+  list(
+    query: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
+      categoryId?: number | null;
+      supplierId?: number | null;
+      lowStockOnly?: boolean;
+      expiringOnly?: boolean;
+      includeInactive?: boolean;
+    } = {},
+  ): Paged<InventoryItem> {
     requirePermission(this.context(), 'inventory.view');
     const { limit, offset, page, pageSize } = paginate(query.page, query.pageSize ?? 50);
     const settings = this.settings.getSettings();
@@ -183,11 +191,16 @@ export class InventoryService {
     }
     if (query.search && query.search.trim() !== '') {
       const term = `%${query.search.trim().replace(/[%_]/g, (match) => `\\${match}`)}%`;
-      clauses.push(`(i.name LIKE ? ESCAPE '\\' OR i.code LIKE ? ESCAPE '\\' OR i.batch_number LIKE ? ESCAPE '\\' OR i.storage_location LIKE ? ESCAPE '\\')`);
+      clauses.push(
+        `(i.name LIKE ? ESCAPE '\\' OR i.code LIKE ? ESCAPE '\\' OR i.batch_number` +
+          ` LIKE ? ESCAPE '\\' OR i.storage_location LIKE ? ESCAPE '\\')`,
+      );
       params.push(term, term, term, term);
     }
     const where = buildWhere(clauses);
-    const total = asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM inventory_items i${where}`).get(...params) as { total: number }).total);
+    const total = asNumber(
+      (this.db.prepare(`SELECT COUNT(*) AS total FROM` + ` inventory_items i${where}`).get(...params) as { total: number }).total,
+    );
     const rows = this.db
       .prepare(`${ITEM_SELECT}${where} ORDER BY (i.current_stock_milli <= i.minimum_stock_milli) DESC, i.name LIMIT ? OFFSET ?`)
       .all(...params, limit, offset) as ItemRow[];
@@ -310,7 +323,8 @@ export class InventoryService {
     if (confirmText?.trim() !== row.code) {
       throw AppError.validation(`Type the item code (${row.code}) to confirm deletion.`, { confirmText: `Type ${row.code} to confirm.` });
     }
-    if (reason.trim().length < 3) throw AppError.validation('Please give a reason for removing this item.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Please give a reason for' + ' removing this item.', { reason: 'Reason is required.' });
     const movements = asNumber(
       (this.db.prepare(`SELECT COUNT(*) AS total FROM stock_movements WHERE item_id = ?`).get(id) as { total: number }).total,
     );
@@ -351,7 +365,9 @@ export class InventoryService {
     return rows.map((row) => ({
       value: row.id,
       label: row.name,
-      meta: `${row.code} · ${this.formatQuantity(asNumber(row.current_stock_milli), row.unit)} · ${formatMoney(asNumber(row.purchase_price_paisa))}`,
+      meta:
+        `${row.code} · ${this.formatQuantity(asNumber(row.current_stock_milli), row.unit)}` +
+        ` · ${formatMoney(asNumber(row.purchase_price_paisa))}`,
     }));
   }
 
@@ -382,7 +398,18 @@ export class InventoryService {
     };
   }
 
-  movements(query: { page?: number; pageSize?: number; search?: string; itemId?: number; type?: string[]; preset?: string; from?: string; to?: string } = {}): Paged<StockMovement> {
+  movements(
+    query: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
+      itemId?: number;
+      type?: string[];
+      preset?: string;
+      from?: string;
+      to?: string;
+    } = {},
+  ): Paged<StockMovement> {
     requirePermission(this.context(), 'inventory.view');
     const { limit, offset, page, pageSize } = paginate(query.page, query.pageSize ?? 50);
     const clauses: string[] = ['m.is_reversed = 0'];
@@ -397,7 +424,9 @@ export class InventoryService {
     }
     if (query.search && query.search.trim() !== '') {
       const term = `%${query.search.trim().replace(/[%_]/g, (match) => `\\${match}`)}%`;
-      clauses.push(`(i.name LIKE ? ESCAPE '\\' OR i.code LIKE ? ESCAPE '\\' OR m.reason LIKE ? ESCAPE '\\' OR m.reference LIKE ? ESCAPE '\\')`);
+      clauses.push(
+        `(i.name LIKE ? ESCAPE '\\' OR i.code LIKE ? ESCAPE '\\' OR` + ` m.reason LIKE ? ESCAPE '\\' OR m.reference LIKE ? ESCAPE '\\')`,
+      );
       params.push(term, term, term, term);
     }
     const preset = query.preset && query.preset !== 'all' ? (query.preset as Parameters<typeof resolveDateRange>[0]) : undefined;
@@ -440,7 +469,8 @@ export class InventoryService {
    */
   deleteMovement(id: number, reason: string): void {
     requireAnyPermission(this.context(), ['inventory.adjust', 'inventory.manage']);
-    if (reason.trim().length < 3) throw AppError.validation('Please give a reason for reversing this movement.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Please give a reason for' + ' reversing this movement.', { reason: 'Reason is required.' });
     const movement = this.db.prepare(`SELECT * FROM stock_movements WHERE id = ?`).get(id) as
       | {
           id: number;
@@ -458,7 +488,9 @@ export class InventoryService {
       throw AppError.precondition('Opening stock cannot be reversed — correct the item instead.');
     }
     if (movement.related_purchase_id !== null) {
-      throw AppError.precondition('This movement came from a purchase. Reverse the purchase instead so the supplier record stays consistent.');
+      throw AppError.precondition(
+        'This movement came from a purchase. Reverse the purchase' + ' instead so the supplier record stays consistent.',
+      );
     }
     const ctx = this.context();
     this.db.transaction(() => {
@@ -489,12 +521,13 @@ export class InventoryService {
     input: StockMovementInput | InternalMovementInput,
   ): { id: number; balanceAfterMilli: number } {
     const ctx = this.context();
-    const item = this.db.prepare(`SELECT id, name, code, unit, current_stock_milli FROM inventory_items WHERE id = ? AND deleted_at IS NULL`).get(itemId) as
-      | { id: number; name: string; code: string; unit: string; current_stock_milli: number }
-      | undefined;
+    const item = this.db
+      .prepare(`SELECT id, name, code, unit, current_stock_milli FROM` + ` inventory_items WHERE id = ? AND deleted_at IS NULL`)
+      .get(itemId) as { id: number; name: string; code: string; unit: string; current_stock_milli: number } | undefined;
     if (!item) throw AppError.notFound('Inventory item');
     const delta = this.signedQuantity(input.type, input.quantityMilli);
-    if (delta === 0) throw AppError.validation('Enter a quantity greater than zero.', { quantityMilli: 'Quantity must be greater than zero.' });
+    if (delta === 0)
+      throw AppError.validation('Enter a quantity' + ' greater than zero.', { quantityMilli: 'Quantity must be greater than zero.' });
     if (input.type === 'adjustment_in' || input.type === 'adjustment_out') {
       if ((input.reason ?? '').trim().length < 3) {
         throw AppError.validation('Stock adjustments need a reason.', { reason: 'Reason is required.' });
@@ -541,7 +574,9 @@ export class InventoryService {
       entityType: 'stock_movement',
       entityId: id,
       entityLabel: `${item.code} ${item.name}`,
-      detail: `Stock ${delta > 0 ? 'increased' : 'decreased'} by ${this.formatQuantity(Math.abs(delta), item.unit)} (${input.type})${(input.reason ?? '').trim() ? `: ${(input.reason ?? '').trim()}` : ''}`,
+      detail:
+        `Stock ${delta > 0 ? 'increased' : 'decreased'} by ${this.formatQuantity(Math.abs(delta), item.unit)}` +
+        ` (${input.type})${(input.reason ?? '').trim() ? `: ${(input.reason ?? '').trim()}` : ''}`,
       after: { balanceAfterMilli: balanceAfter, type: input.type, quantityMilli: Math.abs(Math.round(input.quantityMilli)) },
     });
     return { id, balanceAfterMilli: balanceAfter };
@@ -602,7 +637,17 @@ export class InventoryService {
     };
   }
 
-  purchases(query: { page?: number; pageSize?: number; search?: string; supplierId?: number | null; preset?: string; from?: string; to?: string } = {}): Paged<InventoryPurchase> {
+  purchases(
+    query: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
+      supplierId?: number | null;
+      preset?: string;
+      from?: string;
+      to?: string;
+    } = {},
+  ): Paged<InventoryPurchase> {
     requirePermission(this.context(), 'inventory.view');
     const { limit, offset, page, pageSize } = paginate(query.page, query.pageSize ?? 50);
     const clauses: string[] = ['p.deleted_at IS NULL'];
@@ -653,9 +698,9 @@ export class InventoryService {
   }
 
   private purchaseItems(purchaseId: number): InventoryPurchaseItem[] {
-    const rows = this.db
-      .prepare(`SELECT * FROM inventory_purchase_items WHERE purchase_id = ? ORDER BY id`)
-      .all(purchaseId) as Array<Record<string, unknown>>;
+    const rows = this.db.prepare(`SELECT * FROM inventory_purchase_items WHERE purchase_id = ? ORDER BY id`).all(purchaseId) as Array<
+      Record<string, unknown>
+    >;
     return rows.map((row) => {
       const itemId = row['item_id'] === null ? null : asNumber(row['item_id']);
       const unit = itemId ? this.itemUnit(itemId) : 'piece';
@@ -711,7 +756,8 @@ export class InventoryService {
         .prepare(
           `INSERT INTO inventory_purchases (reference, supplier_id, date, invoice_number, subtotal_paisa, discount_paisa,
              total_paisa, paid_paisa, payment_method_id, notes, created_by, created_at, updated_at)
-           VALUES (@reference, @supplierId, @date, @invoiceNumber, @subtotal, @discount, @total, @paid, @methodId, @notes, @createdBy, @now, @now)`,
+           VALUES (@reference, @supplierId, @date, @invoiceNumber, @subtotal,` +
+            ` @discount, @total, @paid, @methodId, @notes, @createdBy, @now, @now)`,
         )
         .run({
           reference,
@@ -730,7 +776,8 @@ export class InventoryService {
       const purchaseId = Number(inserted.lastInsertRowid);
 
       const insertItem = this.db.prepare(
-        `INSERT INTO inventory_purchase_items (purchase_id, item_id, item_name, quantity_milli, unit_price_paisa, total_paisa, batch_number, expiry_date)
+        `INSERT INTO inventory_purchase_items (purchase_id, item_id, item_name,` +
+          ` quantity_milli, unit_price_paisa, total_paisa, batch_number, expiry_date)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       for (const line of input.items) {
@@ -792,7 +839,10 @@ export class InventoryService {
         });
         this.db.prepare(`UPDATE stock_movements SET related_purchase_id = ? WHERE id = ?`).run(purchaseId, applied.id);
         this.db
-          .prepare(`UPDATE inventory_items SET purchase_price_paisa = ?, purchase_date = ?, supplier_id = COALESCE(supplier_id, ?), updated_at = ? WHERE id = ?`)
+          .prepare(
+            `UPDATE inventory_items SET purchase_price_paisa = ?, purchase_date = ?,` +
+              ` supplier_id = COALESCE(supplier_id, ?), updated_at = ? WHERE id = ?`,
+          )
           .run(Math.round(line.unitPricePaisa), input.date, input.supplierId, ctx.instant(), itemId);
       }
 
@@ -831,9 +881,12 @@ export class InventoryService {
       | undefined;
     if (!purchase) throw AppError.notFound('Purchase');
     if (confirmText?.trim() !== purchase.reference) {
-      throw AppError.validation(`Type the reference (${purchase.reference}) to confirm.`, { confirmText: `Type ${purchase.reference} to confirm.` });
+      throw AppError.validation(`Type the reference (${purchase.reference}) to confirm.`, {
+        confirmText: `Type ${purchase.reference} to confirm.`,
+      });
     }
-    if (reason.trim().length < 3) throw AppError.validation('Please give a reason for deleting this purchase.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Please give a reason for deleting this purchase.', { reason: 'Reason is required.' });
     const ctx = this.context();
     this.db.transaction(() => {
       const movements = this.db
@@ -858,9 +911,21 @@ export class InventoryService {
              SELECT item_id, 'return_out', quantity_milli, ?, unit_cost_paisa, ?, reference, related_purchase_id, batch_number,
                     expiry_date, ?, ?, ?, ?, 0 FROM stock_movements WHERE id = ?`,
           )
-          .run(balanceAfter, `Reversal of purchase ${purchase.reference}: ${reason.trim()}`, ctx.instant(), ctx.today(), currentUserId(ctx), ctx.instant(), movement.id);
-        this.db.prepare(`UPDATE stock_movements SET is_reversed = 1, reversed_by_id = ? WHERE id = ?`).run(Number(reversal.lastInsertRowid), movement.id);
-        this.db.prepare(`UPDATE inventory_items SET current_stock_milli = ?, updated_at = ? WHERE id = ?`).run(balanceAfter, ctx.instant(), movement.item_id);
+          .run(
+            balanceAfter,
+            `Reversal of purchase ${purchase.reference}: ${reason.trim()}`,
+            ctx.instant(),
+            ctx.today(),
+            currentUserId(ctx),
+            ctx.instant(),
+            movement.id,
+          );
+        this.db
+          .prepare(`UPDATE stock_movements SET is_reversed` + ` = 1, reversed_by_id = ? WHERE id = ?`)
+          .run(Number(reversal.lastInsertRowid), movement.id);
+        this.db
+          .prepare(`UPDATE inventory_items SET current_stock_milli = ?, updated_at = ? WHERE id = ?`)
+          .run(balanceAfter, ctx.instant(), movement.item_id);
       }
       this.accounting.voidPurchaseExpense(id, `Purchase ${purchase.reference} deleted: ${reason.trim()}`);
       this.db.prepare(`UPDATE inventory_purchases SET deleted_at = ?, updated_at = ? WHERE id = ?`).run(ctx.instant(), ctx.instant(), id);
@@ -882,12 +947,15 @@ export class InventoryService {
     if (input.code.trim() !== '' && !/^[A-Za-z0-9._-]{2,24}$/.test(input.code.trim())) {
       fieldErrors['code'] = 'Use 2–24 letters, numbers, dots, hyphens or underscores.';
     }
-    if (!Number.isFinite(input.purchasePricePaisa) || input.purchasePricePaisa < 0) fieldErrors['purchasePricePaisa'] = 'Enter a valid purchase price.';
+    if (!Number.isFinite(input.purchasePricePaisa) || input.purchasePricePaisa < 0)
+      fieldErrors['purchasePricePaisa'] = 'Enter a valid purchase price.';
     if (input.sellingPricePaisa !== null && (input.sellingPricePaisa < 0 || !Number.isFinite(input.sellingPricePaisa))) {
       fieldErrors['sellingPricePaisa'] = 'Enter a valid selling price.';
     }
-    if (input.minimumStockMilli < 0 || !Number.isFinite(input.minimumStockMilli)) fieldErrors['minimumStockMilli'] = 'Minimum stock cannot be negative.';
-    if (input.reorderLevelMilli < 0 || !Number.isFinite(input.reorderLevelMilli)) fieldErrors['reorderLevelMilli'] = 'Reorder level cannot be negative.';
+    if (input.minimumStockMilli < 0 || !Number.isFinite(input.minimumStockMilli))
+      fieldErrors['minimumStockMilli'] = 'Minimum stock cannot be negative.';
+    if (input.reorderLevelMilli < 0 || !Number.isFinite(input.reorderLevelMilli))
+      fieldErrors['reorderLevelMilli'] = 'Reorder level cannot be negative.';
     if (input.expiryDate && input.purchaseDate && input.expiryDate < input.purchaseDate) {
       fieldErrors['expiryDate'] = 'Expiry cannot be before the purchase date.';
     }
@@ -915,8 +983,10 @@ export class InventoryService {
     if (input.items.length === 0) fieldErrors['items'] = 'Add at least one line.';
     input.items.forEach((line, index) => {
       if (line.itemId === null && line.itemName.trim() === '') fieldErrors[`item-${index}`] = 'Choose an item or type its name.';
-      if (!Number.isFinite(line.quantityMilli) || Math.round(line.quantityMilli) <= 0) fieldErrors[`item-${index}`] = 'Quantity must be greater than zero.';
-      if (!Number.isFinite(line.unitPricePaisa) || Math.round(line.unitPricePaisa) < 0) fieldErrors[`item-${index}`] = 'Enter a valid unit price.';
+      if (!Number.isFinite(line.quantityMilli) || Math.round(line.quantityMilli) <= 0)
+        fieldErrors[`item-${index}`] = 'Quantity must be greater than zero.';
+      if (!Number.isFinite(line.unitPricePaisa) || Math.round(line.unitPricePaisa) < 0)
+        fieldErrors[`item-${index}`] = 'Enter a valid unit price.';
     });
     if (input.discountPaisa < 0) fieldErrors['discountPaisa'] = 'Discount cannot be negative.';
     if (input.paidPaisa < 0) fieldErrors['paidPaisa'] = 'Paid amount cannot be negative.';
@@ -996,7 +1066,10 @@ export class InventoryService {
     const limit = new Date(`${today}T00:00:00Z`);
     limit.setUTCDate(limit.getUTCDate() + Math.max(1, days));
     const rows = this.db
-      .prepare(`${ITEM_SELECT} WHERE i.deleted_at IS NULL AND i.is_active = 1 AND i.expiry_date IS NOT NULL AND i.expiry_date <= ? ORDER BY i.expiry_date`)
+      .prepare(
+        `${ITEM_SELECT} WHERE i.deleted_at IS NULL AND i.is_active = 1 AND` +
+          ` i.expiry_date IS NOT NULL AND i.expiry_date <= ? ORDER BY i.expiry_date`,
+      )
       .all(limit.toISOString().slice(0, 10)) as ItemRow[];
     return rows.map((row) => this.mapItem(row));
   }
@@ -1004,7 +1077,10 @@ export class InventoryService {
   /** Total stock value for the dashboard tile. */
   totalStockValuePaisa(): number {
     const row = this.db
-      .prepare(`SELECT COALESCE(SUM(current_stock_milli * purchase_price_paisa / 1000), 0) AS value FROM inventory_items WHERE deleted_at IS NULL AND is_active = 1`)
+      .prepare(
+        `SELECT COALESCE(SUM(current_stock_milli * purchase_price_paisa / 1000), 0)` +
+          ` AS value FROM inventory_items WHERE deleted_at IS NULL AND is_active = 1`,
+      )
       .get() as { value: number };
     return Math.round(asNumber(row.value));
   }
@@ -1051,7 +1127,7 @@ export class InventoryService {
       | { current_stock_milli: number; unit: string }
       | undefined;
     if (!row) return '—';
-    return this.formatQuantity(asNumber(row.current_stock_milli), row.unit as InventoryUnit);
+    return this.formatQuantity(asNumber(row.current_stock_milli), row.unit);
   }
 
   /** Moves recorded for a visit (shown on the visit detail). */
@@ -1112,5 +1188,4 @@ export class InventoryService {
       categories: count('inventory_categories'),
     };
   }
-
 }

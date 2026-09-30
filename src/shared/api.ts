@@ -16,7 +16,6 @@ import type {
   AppointmentListQuery,
   AppSettings,
   Attachment,
-  AttachmentInput,
   AuditEntry,
   AuditEntryDetail,
   AuditListQuery,
@@ -66,7 +65,6 @@ import type {
   PaymentMethodInput,
   PaymentStats,
   PaymentSummary,
-  PerioRecord,
   PrescriptionDetail,
   PrescriptionInput,
   PrescriptionSummary,
@@ -107,7 +105,6 @@ import type {
   TreatmentListQuery,
   TreatmentPlan,
   TreatmentPlanInput,
-  TreatmentPlanItem,
   TreatmentPlanItemInput,
   TreatmentRecord,
   UserAccount,
@@ -174,7 +171,10 @@ export interface ApiMethods {
   'activation.activate': { req: { code: string }; res: ActivationStatus };
 
   'setup.status': { req: undefined; res: SetupStatus };
-  'setup.saveClinic': { req: { name: string; address: string; phone: string; email: string; website: string; logoSourcePath?: string | null }; res: undefined };
+  'setup.saveClinic': {
+    req: { name: string; address: string; phone: string; email: string; website: string; logoSourcePath?: string | null };
+    res: undefined;
+  };
   'setup.saveDentists': { req: { dentists: DentistInput[] }; res: undefined };
   'setup.savePreferences': {
     req: {
@@ -190,11 +190,28 @@ export interface ApiMethods {
     res: undefined;
   };
   'setup.createAdministrator': { req: { username: string; fullName: string; password: string }; res: undefined };
-  'setup.review': { req: undefined; res: { clinic: ClinicProfile | null; dentists: Dentist[]; preferences: AppSettings | null; administrator: string | null } };
+  'setup.review': {
+    req: undefined;
+    res: { clinic: ClinicProfile | null; dentists: Dentist[]; preferences: AppSettings | null; administrator: string | null };
+  };
   'setup.complete': { req: undefined; res: undefined };
 
   'clinic.get': { req: undefined; res: ClinicProfile };
-  'clinic.update': { req: { name: string; address: string; phone: string; email: string; website: string; clinicMessage: string; visitingHours: string; registrationNumber: string; logoSourcePath?: string | null; removeLogo?: boolean }; res: ClinicProfile };
+  'clinic.update': {
+    req: {
+      name: string;
+      address: string;
+      phone: string;
+      email: string;
+      website: string;
+      clinicMessage: string;
+      visitingHours: string;
+      registrationNumber: string;
+      logoSourcePath?: string | null;
+      removeLogo?: boolean;
+    };
+    res: ClinicProfile;
+  };
   'settings.get': { req: undefined; res: AppSettings };
   'settings.update': { req: { patch: Partial<AppSettings> }; res: AppSettings };
 
@@ -215,16 +232,45 @@ export interface ApiMethods {
   'patients.restore': { req: { id: number }; res: undefined };
   'patients.timeline': { req: { id: number; types?: string[]; from?: IsoDate; to?: IsoDate; limit?: number }; res: TimelineEvent[] };
   'patients.financialSummary': { req: { id: number }; res: PatientFinancialSummary };
-  'patients.checkDuplicate': { req: { name?: string; phone?: string; excludeId?: number }; res: { matches: Array<{ id: number; code: string; name: string; phone: string; registeredAt: IsoDate }> } };
-  'patients.statistics': { req: { preset?: string; from?: IsoDate; to?: IsoDate }; res: { total: number; active: number; newInRange: number; byGender: Array<{ label: string; value: number }>; byStatus: Array<{ label: string; value: number }>; registrations: Array<{ date: IsoDate; count: number }> } };
+  'patients.checkDuplicate': {
+    req: { name?: string; phone?: string; excludeId?: number };
+    res: { matches: Array<{ id: number; code: string; name: string; phone: string; registeredAt: IsoDate }> };
+  };
+  'patients.statistics': {
+    req: { preset?: string; from?: IsoDate; to?: IsoDate };
+    res: {
+      total: number;
+      active: number;
+      newInRange: number;
+      byGender: Array<{ label: string; value: number }>;
+      byStatus: Array<{ label: string; value: number }>;
+      registrations: Array<{
+        date: IsoDate;
+        count: number;
+      }>;
+    };
+  };
   'patients.tags.save': { req: { id?: number | null; name: string; colour: string }; res: { id: number } };
   'patients.setTags': { req: { id: number; tagIds: number[] }; res: undefined };
   'patients.quickSearch': { req: { query: string; limit?: number }; res: PatientSummary[] };
 
   // --- Attachments --------------------------------------------------------
   'attachments.list': { req: { entityType: string; entityId: number } | { patientId: number }; res: Attachment[] };
-  'attachments.pickAndAdd': { req: { entityType: string; entityId: number; patientId: number | null; category: Attachment['category']; description: string; copyFromPath?: string | null }; res: Attachment[] };
-  'attachments.update': { req: { id: number; fileName?: string; category?: Attachment['category']; description?: string }; res: Attachment };
+  'attachments.pickAndAdd': {
+    req: {
+      entityType: string;
+      entityId: number;
+      patientId: number | null;
+      category: Attachment['category'];
+      description: string;
+      copyFromPath?: string | null;
+    };
+    res: Attachment[];
+  };
+  'attachments.update': {
+    req: { id: number; fileName?: string; category?: Attachment['category']; description?: string };
+    res: Attachment;
+  };
   'attachments.delete': { req: { id: number; reason?: string }; res: undefined };
   'attachments.open': { req: { id: number }; res: undefined };
   'attachments.revealInFolder': { req: { id: number }; res: undefined };
@@ -237,17 +283,40 @@ export interface ApiMethods {
   'visits.update': { req: { id: number; input: VisitInput }; res: undefined };
   'visits.delete': { req: { id: number; reason: string; confirmText?: string }; res: undefined };
   'visits.byPatient': { req: { patientId: number; limit?: number }; res: VisitSummary[] };
-  'visits.statistics': { req: { preset?: string; from?: IsoDate; to?: IsoDate; dentistId?: number | null }; res: { total: number; byDentist: Array<{ dentistId: number | null; dentistName: string; count: number }>; byDay: Array<{ date: IsoDate; count: number }>; topDiagnoses: Array<{ label: string; value: number }> } };
+  'visits.statistics': {
+    req: { preset?: string; from?: IsoDate; to?: IsoDate; dentistId?: number | null };
+    res: {
+      total: number;
+      byDentist: Array<{ dentistId: number | null; dentistName: string; count: number }>;
+      byDay: Array<{ date: IsoDate; count: number }>;
+      topDiagnoses: Array<{ label: string; value: number }>;
+    };
+  };
 
   // --- Dental chart -------------------------------------------------------
-  'dental.getChart': { req: { patientId: number; dentition?: 'permanent' | 'primary'; numberingSystem?: 'fdi' | 'universal' | 'palmer' }; res: DentalChart };
-  'dental.saveFindings': { req: { patientId: number; dentition: 'permanent' | 'primary'; findings: ToothFindingInput[]; visitId?: number | null; clearTeeth?: string[] }; res: DentalChart };
+  'dental.getChart': {
+    req: { patientId: number; dentition?: 'permanent' | 'primary'; numberingSystem?: 'fdi' | 'universal' | 'palmer' };
+    res: DentalChart;
+  };
+  'dental.saveFindings': {
+    req: {
+      patientId: number;
+      dentition: 'permanent' | 'primary';
+      findings: ToothFindingInput[];
+      visitId?: number | null;
+      clearTeeth?: string[];
+    };
+    res: DentalChart;
+  };
   'dental.history': { req: { patientId: number; toothFdi: string }; res: ToothFinding[] };
   'dental.savePerio': { req: { patientId: number; records: Array<{ toothFdi: string; site: string; depthMm: number }> }; res: DentalChart };
   'dental.clear': { req: { patientId: number; dentition: 'permanent' | 'primary'; confirmText?: string }; res: DentalChart };
 
   // --- Prescriptions ------------------------------------------------------
-  'prescriptions.list': { req: ListQuery & { patientId?: number; dentistId?: number | null; includeVoid?: boolean }; res: Paged<PrescriptionSummary> };
+  'prescriptions.list': {
+    req: ListQuery & { patientId?: number; dentistId?: number | null; includeVoid?: boolean };
+    res: Paged<PrescriptionSummary>;
+  };
   'prescriptions.get': { req: { id: number }; res: PrescriptionDetail };
   'prescriptions.create': { req: { input: PrescriptionInput }; res: { id: number; number: string } };
   'prescriptions.update': { req: { id: number; input: PrescriptionInput }; res: undefined };
@@ -270,12 +339,18 @@ export interface ApiMethods {
   'treatmentRecords.delete': { req: { id: number; reason: string }; res: undefined };
 
   // --- Referrals ----------------------------------------------------------
-  'referrals.list': { req: { page?: number; pageSize?: number; patientId?: number; status?: string; search?: string; from?: IsoDate; to?: IsoDate }; res: Paged<Referral> };
+  'referrals.list': {
+    req: { page?: number; pageSize?: number; patientId?: number; status?: string; search?: string; from?: IsoDate; to?: IsoDate };
+    res: Paged<Referral>;
+  };
   'referrals.get': { req: { id: number }; res: Referral };
   'referrals.save': { req: { id?: number | null; input: ReferralInput }; res: { id: number } };
   'referrals.delete': { req: { id: number; reason: string }; res: undefined };
   'referrals.byPatient': { req: { patientId: number }; res: Referral[] };
-  'referrals.statistics': { req: { from: IsoDate; to: IsoDate }; res: { total: number; byStatus: Array<{ label: string; value: number }>; bySpecialty: Array<{ label: string; value: number }> } };
+  'referrals.statistics': {
+    req: { from: IsoDate; to: IsoDate };
+    res: { total: number; byStatus: Array<{ label: string; value: number }>; bySpecialty: Array<{ label: string; value: number }> };
+  };
 
   // --- Appointments -------------------------------------------------------
   'appointments.list': { req: AppointmentListQuery; res: Paged<Appointment> };
@@ -286,8 +361,22 @@ export interface ApiMethods {
   'appointments.setStatus': { req: { id: number; status: Appointment['status']; note?: string }; res: undefined };
   'appointments.byRange': { req: { from: IsoDate; to: IsoDate; dentistId?: number | null; statuses?: string[] }; res: Appointment[] };
   'appointments.byPatient': { req: { patientId: number; limit?: number }; res: Appointment[] };
-  'appointments.availability': { req: { dentistId: number | null; date: IsoDate; excludeId?: number | null }; res: Array<{ startTime: string; endTime: string; appointmentId: number; patientName: string; status: string }> };
-  'appointments.statistics': { req: { preset?: string; from?: IsoDate; to?: IsoDate; dentistId?: number | null }; res: { total: number; completed: number; cancelled: number; noShow: number; byStatus: Array<{ label: string; value: number }>; byDay: Array<{ date: IsoDate; count: number }>; byDentist: Array<{ dentistId: number | null; dentistName: string; count: number }> } };
+  'appointments.availability': {
+    req: { dentistId: number | null; date: IsoDate; excludeId?: number | null };
+    res: Array<{ startTime: string; endTime: string; appointmentId: number; patientName: string; status: string }>;
+  };
+  'appointments.statistics': {
+    req: { preset?: string; from?: IsoDate; to?: IsoDate; dentistId?: number | null };
+    res: {
+      total: number;
+      completed: number;
+      cancelled: number;
+      noShow: number;
+      byStatus: Array<{ label: string; value: number }>;
+      byDay: Array<{ date: IsoDate; count: number }>;
+      byDentist: Array<{ dentistId: number | null; dentistName: string; count: number }>;
+    };
+  };
 
   // --- Queue --------------------------------------------------------------
   'queue.list': { req: { date?: IsoDate; includeClosed?: boolean }; res: QueueEntry[] };
@@ -295,7 +384,18 @@ export interface ApiMethods {
   'queue.setStatus': { req: { id: number; status: QueueEntry['status']; note?: string }; res: QueueEntry };
   'queue.move': { req: { id: number; direction: 'up' | 'down' }; res: QueueEntry[] };
   'queue.remove': { req: { id: number; reason?: string }; res: undefined };
-  'queue.statistics': { req: { date?: IsoDate }; res: { waiting: number; called: number; inConsultation: number; completed: number; cancelled: number; averageWaitMinutes: number | null; longestWaitMinutes: number | null } };
+  'queue.statistics': {
+    req: { date?: IsoDate };
+    res: {
+      waiting: number;
+      called: number;
+      inConsultation: number;
+      completed: number;
+      cancelled: number;
+      averageWaitMinutes: number | null;
+      longestWaitMinutes: number | null;
+    };
+  };
 
   // --- Invoices -----------------------------------------------------------
   'invoices.list': { req: InvoiceListQuery; res: Paged<InvoiceSummary> };
@@ -305,11 +405,40 @@ export interface ApiMethods {
   'invoices.void': { req: { id: number; reason: string }; res: undefined };
   'invoices.delete': { req: { id: number; reason: string; confirmText?: string }; res: undefined };
   'invoices.byPatient': { req: { patientId: number; limit?: number }; res: InvoiceSummary[] };
-  'invoices.outstanding': { req: { page?: number; pageSize?: number; search?: string }; res: Paged<{ patientId: number; patientCode: string; patientName: string; phone: string; invoiceCount: number; totalPaisa: Paisa; paidPaisa: Paisa; duePaisa: Paisa; oldestDueDate: IsoDate; lastPaymentAt: string | null }> };
-  'invoices.statistics': { req: { preset?: string; from?: IsoDate; to?: IsoDate }; res: { invoiceCount: number; invoicedPaisa: Paisa; collectedPaisa: Paisa; outstandingPaisa: Paisa; discountPaisa: Paisa; byStatus: Array<{ label: string; value: number }>; byDay: Array<{ date: IsoDate; invoicedPaisa: Paisa; collectedPaisa: Paisa }>; topTreatments: Array<{ label: string; value: number; amountPaisa: Paisa }> } };
+  'invoices.outstanding': {
+    req: { page?: number; pageSize?: number; search?: string };
+    res: Paged<{
+      patientId: number;
+      patientCode: string;
+      patientName: string;
+      phone: string;
+      invoiceCount: number;
+      totalPaisa: Paisa;
+      paidPaisa: Paisa;
+      duePaisa: Paisa;
+      oldestDueDate: IsoDate;
+      lastPaymentAt: string | null;
+    }>;
+  };
+  'invoices.statistics': {
+    req: { preset?: string; from?: IsoDate; to?: IsoDate };
+    res: {
+      invoiceCount: number;
+      invoicedPaisa: Paisa;
+      collectedPaisa: Paisa;
+      outstandingPaisa: Paisa;
+      discountPaisa: Paisa;
+      byStatus: Array<{ label: string; value: number }>;
+      byDay: Array<{ date: IsoDate; invoicedPaisa: Paisa; collectedPaisa: Paisa }>;
+      topTreatments: Array<{ label: string; value: number; amountPaisa: Paisa }>;
+    };
+  };
 
   // --- Payments -----------------------------------------------------------
-  'payments.list': { req: ListQuery & { patientId?: number; invoiceId?: number; methodId?: number | null; includeVoid?: boolean }; res: Paged<PaymentSummary> };
+  'payments.list': {
+    req: ListQuery & { patientId?: number; invoiceId?: number; methodId?: number | null; includeVoid?: boolean };
+    res: Paged<PaymentSummary>;
+  };
   'payments.get': { req: { id: number }; res: PaymentSummary };
   'payments.create': { req: { input: PaymentInput }; res: { id: number; receiptNumber: string } };
   'payments.update': { req: { id: number; input: PaymentInput }; res: undefined };
@@ -319,7 +448,16 @@ export interface ApiMethods {
   'payments.statistics': { req: { preset?: string; from?: IsoDate; to?: IsoDate }; res: PaymentStats };
 
   // --- Inventory ----------------------------------------------------------
-  'inventory.items.list': { req: ListQuery & { categoryId?: number | null; supplierId?: number | null; lowStockOnly?: boolean; expiringOnly?: boolean; includeInactive?: boolean }; res: Paged<InventoryItem> };
+  'inventory.items.list': {
+    req: ListQuery & {
+      categoryId?: number | null;
+      supplierId?: number | null;
+      lowStockOnly?: boolean;
+      expiringOnly?: boolean;
+      includeInactive?: boolean;
+    };
+    res: Paged<InventoryItem>;
+  };
   'inventory.items.get': { req: { id: number }; res: InventoryItem };
   'inventory.items.save': { req: { id?: number | null; input: InventoryItemInput; openingStockMilli?: number }; res: { id: number } };
   'inventory.items.delete': { req: { id: number; reason: string; confirmText?: string }; res: undefined };
@@ -333,10 +471,21 @@ export interface ApiMethods {
   'inventory.purchases.delete': { req: { id: number; reason: string; confirmText?: string }; res: undefined };
   'inventory.alerts': { req: undefined; res: InventoryAlerts };
   'inventory.statistics': { req: { preset?: string; from?: IsoDate; to?: IsoDate }; res: InventoryStats };
-  'inventory.consumeForVisit': { req: { visitId: number; items: Array<{ itemId: number; quantityMilli: number; note: string }> }; res: undefined };
+  'inventory.consumeForVisit': {
+    req: { visitId: number; items: Array<{ itemId: number; quantityMilli: number; note: string }> };
+    res: undefined;
+  };
 
   // --- Accounting ---------------------------------------------------------
-  'accounting.transactions.list': { req: Omit<ListQuery, 'direction'> & { direction?: AccountingDirection; categoryId?: number | null; methodId?: number | null; includeVoid?: boolean }; res: Paged<AccountingTransaction> };
+  'accounting.transactions.list': {
+    req: Omit<ListQuery, 'direction'> & {
+      direction?: AccountingDirection;
+      categoryId?: number | null;
+      methodId?: number | null;
+      includeVoid?: boolean;
+    };
+    res: Paged<AccountingTransaction>;
+  };
   'accounting.transactions.create': { req: { input: AccountingTransactionInput }; res: { id: number } };
   'accounting.transactions.update': { req: { id: number; input: AccountingTransactionInput }; res: undefined };
   'accounting.transactions.void': { req: { id: number; reason: string }; res: undefined };
@@ -353,13 +502,37 @@ export interface ApiMethods {
   'staff.save': { req: { id?: number | null; input: StaffInput; photoSourcePath?: string | null }; res: { id: number } };
   'staff.delete': { req: { id: number; reason: string; confirmText?: string }; res: undefined };
   'staff.departments': { req: undefined; res: string[] };
-  'staff.statistics': { req: undefined; res: { total: number; active: number; byDepartment: Array<{ label: string; value: number }>; byStatus: Array<{ label: string; value: number }> } };
+  'staff.statistics': {
+    req: undefined;
+    res: {
+      total: number;
+      active: number;
+      byDepartment: Array<{ label: string; value: number }>;
+      byStatus: Array<{ label: string; value: number }>;
+    };
+  };
 
   'dentists.list': { req: { includeInactive?: boolean } | undefined; res: Dentist[] };
   'dentists.get': { req: { id: number }; res: Dentist };
-  'dentists.save': { req: { id?: number | null; input: DentistInput; photoSourcePath?: string | null; signatureSourcePath?: string | null }; res: { id: number } };
+  'dentists.save': {
+    req: { id?: number | null; input: DentistInput; photoSourcePath?: string | null; signatureSourcePath?: string | null };
+    res: { id: number };
+  };
   'dentists.delete': { req: { id: number; reason: string; confirmText?: string }; res: undefined };
-  'dentists.statistics': { req: { preset?: string; from?: IsoDate; to?: IsoDate }; res: Array<{ dentistId: number; dentistName: string; appointments: number; completed: number; noShows: number; visits: number; prescriptions: number; treatments: number; revenuePaisa: Paisa | null }> };
+  'dentists.statistics': {
+    req: { preset?: string; from?: IsoDate; to?: IsoDate };
+    res: Array<{
+      dentistId: number;
+      dentistName: string;
+      appointments: number;
+      completed: number;
+      noShows: number;
+      visits: number;
+      prescriptions: number;
+      treatments: number;
+      revenuePaisa: Paisa | null;
+    }>;
+  };
 
   // --- Users & roles ------------------------------------------------------
   'users.list': { req: ListQuery & { isActive?: boolean }; res: Paged<UserAccount> };
@@ -372,7 +545,10 @@ export interface ApiMethods {
   'roles.list': { req: undefined; res: Role[] };
   'roles.save': { req: { id?: number | null; input: RoleInput }; res: { id: number } };
   'roles.delete': { req: { id: number; reason: string; confirmText?: string }; res: undefined };
-  'roles.permissionCatalogue': { req: undefined; res: Array<{ key: string; group: string; label: string; description: string; sensitive: boolean; groupLabel: string }> };
+  'roles.permissionCatalogue': {
+    req: undefined;
+    res: Array<{ key: string; group: string; label: string; description: string; sensitive: boolean; groupLabel: string }>;
+  };
 
   // --- Audit --------------------------------------------------------------
   'audit.list': { req: AuditListQuery; res: Paged<AuditEntry> };
@@ -397,8 +573,14 @@ export interface ApiMethods {
 
   // --- Reports ------------------------------------------------------------
   'reports.run': { req: ReportRequest; res: ReportResult };
-  'reports.export': { req: { request: ReportRequest; format: 'csv' | 'pdf' | 'print' }; res: { path: string | null; printed: boolean; rowCount: number } };
-  'reports.catalogue': { req: undefined; res: Array<{ key: string; title: string; description: string; group: string; requiresFinancialPermission: boolean }> };
+  'reports.export': {
+    req: { request: ReportRequest; format: 'csv' | 'pdf' | 'print' };
+    res: { path: string | null; printed: boolean; rowCount: number };
+  };
+  'reports.catalogue': {
+    req: undefined;
+    res: Array<{ key: string; title: string; description: string; group: string; requiresFinancialPermission: boolean }>;
+  };
 
   // --- Printing -----------------------------------------------------------
   'print.systemPrinters': { req: undefined; res: SystemPrinter[] };
@@ -420,10 +602,34 @@ export interface ApiMethods {
   'system.dataSummary': { req: undefined; res: DataSummary };
   'system.integrityCheck': { req: undefined; res: IntegrityReport };
   'system.vacuum': { req: undefined; res: { beforeBytes: number; afterBytes: number } };
-  'system.exportCsv': { req: { what: 'patients' | 'invoices' | 'payments' | 'inventory' | 'accounting' | 'appointments' | 'visits' | 'prescriptions'; from?: IsoDate; to?: IsoDate }; res: { path: string; rowCount: number } };
-  'system.importPatients': { req: { filePath?: string | null; commit: boolean }; res: { imported: number; skipped: number; errors: Array<{ row: number; message: string }>; preview: Array<Record<string, string>> } };
-  'system.resetData': { req: { scope: 'clinical' | 'financial' | 'all'; confirmText: string; backupFirst: boolean }; res: { backupPath: string | null; deletedCounts: Record<string, number> } };
-  'system.deleteBusiness': { req: { password: string; confirmText: string; backupFirst: boolean }; res: { deleted: boolean; backupPath: string | null } };
+  'system.exportCsv': {
+    req: {
+      what: 'patients' | 'invoices' | 'payments' | 'inventory' | 'accounting' | 'appointments' | 'visits' | 'prescriptions';
+      from?: IsoDate;
+      to?: IsoDate;
+    };
+    res: { path: string; rowCount: number };
+  };
+  'system.importPatients': {
+    req: { filePath?: string | null; commit: boolean };
+    res: {
+      imported: number;
+      skipped: number;
+      errors: Array<{
+        row: number;
+        message: string;
+      }>;
+      preview: Array<Record<string, string>>;
+    };
+  };
+  'system.resetData': {
+    req: { scope: 'clinical' | 'financial' | 'all'; confirmText: string; backupFirst: boolean };
+    res: { backupPath: string | null; deletedCounts: Record<string, number> };
+  };
+  'system.deleteBusiness': {
+    req: { password: string; confirmText: string; backupFirst: boolean };
+    res: { deleted: boolean; backupPath: string | null };
+  };
   'system.logFiles': { req: undefined; res: Array<{ name: string; path: string; sizeBytes: number; modifiedAt: string }> };
   'system.openLogFolder': { req: undefined; res: undefined };
 }
@@ -433,42 +639,211 @@ export type ApiRequest<K extends ApiMethodName> = ApiMethods[K]['req'];
 export type ApiResponse<K extends ApiMethodName> = ApiMethods[K]['res'];
 
 export const API_METHOD_NAMES: readonly ApiMethodName[] = [
-  'app.bootstrap', 'app.health', 'app.systemInfo', 'app.relaunch', 'app.openPath', 'app.openExternal',
-  'auth.login', 'auth.logout', 'auth.lock', 'auth.unlock', 'auth.changePassword', 'auth.session',
-  'activation.status', 'activation.activate',
-  'setup.status', 'setup.saveClinic', 'setup.saveDentists', 'setup.savePreferences', 'setup.createAdministrator', 'setup.review', 'setup.complete',
-  'clinic.get', 'clinic.update', 'settings.get', 'settings.update',
-  'resource.list', 'resource.get', 'resource.save', 'resource.delete', 'resource.restore', 'resource.options',
-  'patients.list', 'patients.get', 'patients.create', 'patients.update', 'patients.delete', 'patients.restore',
-  'patients.timeline', 'patients.financialSummary', 'patients.checkDuplicate', 'patients.statistics', 'patients.tags.save', 'patients.setTags', 'patients.quickSearch',
-  'attachments.list', 'attachments.pickAndAdd', 'attachments.update', 'attachments.delete', 'attachments.open', 'attachments.revealInFolder', 'attachments.thumbnail',
-  'visits.list', 'visits.get', 'visits.create', 'visits.update', 'visits.delete', 'visits.byPatient', 'visits.statistics',
-  'dental.getChart', 'dental.saveFindings', 'dental.history', 'dental.savePerio', 'dental.clear',
-  'prescriptions.list', 'prescriptions.get', 'prescriptions.create', 'prescriptions.update', 'prescriptions.void', 'prescriptions.delete', 'prescriptions.byPatient', 'prescriptions.supersede',
-  'treatmentPlans.list', 'treatmentPlans.get', 'treatmentPlans.create', 'treatmentPlans.update', 'treatmentPlans.delete', 'treatmentPlans.saveItem', 'treatmentPlans.deleteItem', 'treatmentPlans.completeItem',
-  'treatmentRecords.byPatient', 'treatmentRecords.byVisit', 'treatmentRecords.delete',
-  'referrals.list', 'referrals.get', 'referrals.save', 'referrals.delete', 'referrals.byPatient', 'referrals.statistics',
-  'appointments.list', 'appointments.get', 'appointments.create', 'appointments.update', 'appointments.delete', 'appointments.setStatus', 'appointments.byRange', 'appointments.byPatient', 'appointments.availability', 'appointments.statistics',
-  'queue.list', 'queue.add', 'queue.setStatus', 'queue.move', 'queue.remove', 'queue.statistics',
-  'invoices.list', 'invoices.get', 'invoices.create', 'invoices.update', 'invoices.void', 'invoices.delete', 'invoices.byPatient', 'invoices.outstanding', 'invoices.statistics',
-  'payments.list', 'payments.get', 'payments.create', 'payments.update', 'payments.void', 'payments.byInvoice', 'payments.byPatient', 'payments.statistics',
-  'inventory.items.list', 'inventory.items.get', 'inventory.items.save', 'inventory.items.delete', 'inventory.items.options',
-  'inventory.movements.list', 'inventory.movements.create', 'inventory.movements.delete',
-  'inventory.purchases.list', 'inventory.purchases.get', 'inventory.purchases.create', 'inventory.purchases.delete',
-  'inventory.alerts', 'inventory.statistics', 'inventory.consumeForVisit',
-  'accounting.transactions.list', 'accounting.transactions.create', 'accounting.transactions.update', 'accounting.transactions.void', 'accounting.transactions.delete',
-  'accounting.summary', 'accounting.daybook', 'accounting.periods.list', 'accounting.periods.close', 'accounting.periods.reopen',
-  'staff.list', 'staff.get', 'staff.save', 'staff.delete', 'staff.departments', 'staff.statistics',
-  'dentists.list', 'dentists.get', 'dentists.save', 'dentists.delete', 'dentists.statistics',
-  'users.list', 'users.get', 'users.create', 'users.update', 'users.delete', 'users.resetPassword', 'users.setActive',
-  'roles.list', 'roles.save', 'roles.delete', 'roles.permissionCatalogue',
-  'audit.list', 'audit.get', 'audit.export', 'audit.actions',
-  'notifications.list', 'notifications.unreadCount', 'notifications.markRead', 'notifications.markAllRead', 'notifications.dismiss', 'notifications.clearAll', 'notifications.refresh',
-  'search.global', 'dashboard.get',
-  'reports.run', 'reports.export', 'reports.catalogue',
-  'print.systemPrinters', 'print.render', 'print.defaultProfile',
-  'backup.status', 'backup.create', 'backup.verify', 'backup.delete', 'backup.pickFolder', 'backup.setFolder', 'backup.scanFolder', 'backup.previewRestore', 'backup.restore',
-  'system.dataSummary', 'system.integrityCheck', 'system.vacuum', 'system.exportCsv', 'system.importPatients', 'system.resetData', 'system.deleteBusiness', 'system.logFiles', 'system.openLogFolder',
+  'app.bootstrap',
+  'app.health',
+  'app.systemInfo',
+  'app.relaunch',
+  'app.openPath',
+  'app.openExternal',
+  'auth.login',
+  'auth.logout',
+  'auth.lock',
+  'auth.unlock',
+  'auth.changePassword',
+  'auth.session',
+  'activation.status',
+  'activation.activate',
+  'setup.status',
+  'setup.saveClinic',
+  'setup.saveDentists',
+  'setup.savePreferences',
+  'setup.createAdministrator',
+  'setup.review',
+  'setup.complete',
+  'clinic.get',
+  'clinic.update',
+  'settings.get',
+  'settings.update',
+  'resource.list',
+  'resource.get',
+  'resource.save',
+  'resource.delete',
+  'resource.restore',
+  'resource.options',
+  'patients.list',
+  'patients.get',
+  'patients.create',
+  'patients.update',
+  'patients.delete',
+  'patients.restore',
+  'patients.timeline',
+  'patients.financialSummary',
+  'patients.checkDuplicate',
+  'patients.statistics',
+  'patients.tags.save',
+  'patients.setTags',
+  'patients.quickSearch',
+  'attachments.list',
+  'attachments.pickAndAdd',
+  'attachments.update',
+  'attachments.delete',
+  'attachments.open',
+  'attachments.revealInFolder',
+  'attachments.thumbnail',
+  'visits.list',
+  'visits.get',
+  'visits.create',
+  'visits.update',
+  'visits.delete',
+  'visits.byPatient',
+  'visits.statistics',
+  'dental.getChart',
+  'dental.saveFindings',
+  'dental.history',
+  'dental.savePerio',
+  'dental.clear',
+  'prescriptions.list',
+  'prescriptions.get',
+  'prescriptions.create',
+  'prescriptions.update',
+  'prescriptions.void',
+  'prescriptions.delete',
+  'prescriptions.byPatient',
+  'prescriptions.supersede',
+  'treatmentPlans.list',
+  'treatmentPlans.get',
+  'treatmentPlans.create',
+  'treatmentPlans.update',
+  'treatmentPlans.delete',
+  'treatmentPlans.saveItem',
+  'treatmentPlans.deleteItem',
+  'treatmentPlans.completeItem',
+  'treatmentRecords.byPatient',
+  'treatmentRecords.byVisit',
+  'treatmentRecords.delete',
+  'referrals.list',
+  'referrals.get',
+  'referrals.save',
+  'referrals.delete',
+  'referrals.byPatient',
+  'referrals.statistics',
+  'appointments.list',
+  'appointments.get',
+  'appointments.create',
+  'appointments.update',
+  'appointments.delete',
+  'appointments.setStatus',
+  'appointments.byRange',
+  'appointments.byPatient',
+  'appointments.availability',
+  'appointments.statistics',
+  'queue.list',
+  'queue.add',
+  'queue.setStatus',
+  'queue.move',
+  'queue.remove',
+  'queue.statistics',
+  'invoices.list',
+  'invoices.get',
+  'invoices.create',
+  'invoices.update',
+  'invoices.void',
+  'invoices.delete',
+  'invoices.byPatient',
+  'invoices.outstanding',
+  'invoices.statistics',
+  'payments.list',
+  'payments.get',
+  'payments.create',
+  'payments.update',
+  'payments.void',
+  'payments.byInvoice',
+  'payments.byPatient',
+  'payments.statistics',
+  'inventory.items.list',
+  'inventory.items.get',
+  'inventory.items.save',
+  'inventory.items.delete',
+  'inventory.items.options',
+  'inventory.movements.list',
+  'inventory.movements.create',
+  'inventory.movements.delete',
+  'inventory.purchases.list',
+  'inventory.purchases.get',
+  'inventory.purchases.create',
+  'inventory.purchases.delete',
+  'inventory.alerts',
+  'inventory.statistics',
+  'inventory.consumeForVisit',
+  'accounting.transactions.list',
+  'accounting.transactions.create',
+  'accounting.transactions.update',
+  'accounting.transactions.void',
+  'accounting.transactions.delete',
+  'accounting.summary',
+  'accounting.daybook',
+  'accounting.periods.list',
+  'accounting.periods.close',
+  'accounting.periods.reopen',
+  'staff.list',
+  'staff.get',
+  'staff.save',
+  'staff.delete',
+  'staff.departments',
+  'staff.statistics',
+  'dentists.list',
+  'dentists.get',
+  'dentists.save',
+  'dentists.delete',
+  'dentists.statistics',
+  'users.list',
+  'users.get',
+  'users.create',
+  'users.update',
+  'users.delete',
+  'users.resetPassword',
+  'users.setActive',
+  'roles.list',
+  'roles.save',
+  'roles.delete',
+  'roles.permissionCatalogue',
+  'audit.list',
+  'audit.get',
+  'audit.export',
+  'audit.actions',
+  'notifications.list',
+  'notifications.unreadCount',
+  'notifications.markRead',
+  'notifications.markAllRead',
+  'notifications.dismiss',
+  'notifications.clearAll',
+  'notifications.refresh',
+  'search.global',
+  'dashboard.get',
+  'reports.run',
+  'reports.export',
+  'reports.catalogue',
+  'print.systemPrinters',
+  'print.render',
+  'print.defaultProfile',
+  'backup.status',
+  'backup.create',
+  'backup.verify',
+  'backup.delete',
+  'backup.pickFolder',
+  'backup.setFolder',
+  'backup.scanFolder',
+  'backup.previewRestore',
+  'backup.restore',
+  'system.dataSummary',
+  'system.integrityCheck',
+  'system.vacuum',
+  'system.exportCsv',
+  'system.importPatients',
+  'system.resetData',
+  'system.deleteBusiness',
+  'system.logFiles',
+  'system.openLogFolder',
 ];
 
 // ---------------------------------------------------------------------------
@@ -492,8 +867,16 @@ export interface BridgeEventPayloads {
   'session.changed': { session: SessionUser | null };
   'app.state.changed': { state: AppBootstrap['state'] };
   'notifications.changed': { unread: number; critical: number; latest: Notification | null };
-  'backup.progress': { phase: 'starting' | 'database' | 'attachments' | 'manifest' | 'verifying' | 'done' | 'failed'; percent: number; message: string };
-  'print.progress': { kind: PrintRenderRequest['kind']; phase: 'rendering' | 'generating' | 'sending' | 'done' | 'failed'; message: string };
+  'backup.progress': {
+    phase: 'starting' | 'database' | 'attachments' | 'manifest' | 'verifying' | 'done' | 'failed';
+    percent: number;
+    message: string;
+  };
+  'print.progress': {
+    kind: PrintRenderRequest['kind'];
+    phase: 'rendering' | 'generating' | 'sending' | 'done' | 'failed';
+    message: string;
+  };
   'shortcut.invoke': { shortcut: 'global-search' | 'new-record' | 'save' | 'print' | 'lock' | 'escape' };
   'restore.relaunching': { message: string };
 }
@@ -507,7 +890,9 @@ export interface DentivaBridge {
 }
 
 /** Envelope returned by `invoke` before unwrapping. */
-export type BridgeInvokeResult<T> = { ok: true; data: T } | { ok: false; error: { code: string; message: string; fieldErrors?: Record<string, string> } };
+export type BridgeInvokeResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string; fieldErrors?: Record<string, string> } };
 
 // ---------------------------------------------------------------------------
 // Screen routing (used by search results, notifications and the timeline)

@@ -81,7 +81,12 @@ export function MoneyField({
   }, [valuePaisa]);
 
   return (
-    <Field label={label} required={required} hint={hint ?? 'Amount in BDT, e.g. 1500.50'} error={error ?? (invalid ? 'Enter a valid amount.' : undefined)}>
+    <Field
+      label={label}
+      required={required}
+      hint={hint ?? 'Amount in BDT, e.g. 1500.50'}
+      error={error ?? (invalid ? 'Enter a valid amount.' : undefined)}
+    >
       <Input
         className="input--money"
         inputMode="decimal"

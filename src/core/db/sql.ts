@@ -120,7 +120,10 @@ export function resolveSort(
   return { column: resolved, direction: direction ?? 'desc' };
 }
 
-export function paginate(page: number | undefined, pageSize: number | undefined): { limit: number; offset: number; page: number; pageSize: number } {
+export function paginate(
+  page: number | undefined,
+  pageSize: number | undefined,
+): { limit: number; offset: number; page: number; pageSize: number } {
   const safePageSize = Math.min(Math.max(Math.trunc(pageSize ?? 50), 1), 500);
   const safePage = Math.max(Math.trunc(page ?? 1), 1);
   return { limit: safePageSize, offset: (safePage - 1) * safePageSize, page: safePage, pageSize: safePageSize };
@@ -132,12 +135,7 @@ export function pageCount(total: number, pageSize: number): number {
 }
 
 /** Compose an optional date-range filter fragment. */
-export function dateRangeClause(
-  column: string,
-  from: string | undefined,
-  to: string | undefined,
-  params: unknown[],
-): string {
+export function dateRangeClause(column: string, from: string | undefined, to: string | undefined, params: unknown[]): string {
   const clauses: string[] = [];
   if (from) {
     clauses.push(`${column} >= ?`);
@@ -168,7 +166,11 @@ export function decodeBooleans<T extends Record<string, unknown>>(row: T, keys: 
   return clone as T;
 }
 
-export function sumColumn(db: { prepare: (sql: string) => { get: (...params: unknown[]) => unknown } }, sql: string, params: unknown[] = []): number {
+export function sumColumn(
+  db: { prepare: (sql: string) => { get: (...params: unknown[]) => unknown } },
+  sql: string,
+  params: unknown[] = [],
+): number {
   const row = db.prepare(sql).get(...params) as { total?: number | null } | undefined;
   return asNumber(row?.total ?? 0, 0);
 }

@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { applyDiscount, formatMoney, lineTotalPaisa, outstandingPaisa, overpaidPaisa, parseMoney, percentOfPaisa, sumPaisa } from '@shared/money';
+import {
+  applyDiscount,
+  formatMoney,
+  lineTotalPaisa,
+  outstandingPaisa,
+  overpaidPaisa,
+  parseMoney,
+  percentOfPaisa,
+  sumPaisa,
+} from '@shared/money';
 
 describe('money', () => {
   it('keeps every amount in integer paisa', () => {

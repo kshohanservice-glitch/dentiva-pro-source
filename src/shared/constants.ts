@@ -91,7 +91,12 @@ export const APPOINTMENT_STATUS_LABELS = labelMap(APPOINTMENT_STATUSES);
 
 /** Statuses that still occupy a time slot on the calendar. */
 export const ACTIVE_APPOINTMENT_STATUSES: readonly AppointmentStatus[] = [
-  'scheduled', 'confirmed', 'arrived', 'in_queue', 'in_treatment', 'rescheduled',
+  'scheduled',
+  'confirmed',
+  'arrived',
+  'in_queue',
+  'in_treatment',
+  'rescheduled',
 ];
 /** Statuses that mean the appointment will not happen. */
 export const CLOSED_APPOINTMENT_STATUSES: readonly AppointmentStatus[] = ['completed', 'cancelled', 'no_show'];
@@ -147,7 +152,12 @@ export const INVOICE_STATUS_TONES: Readonly<Record<InvoiceStatus, AppointmentSta
 };
 
 /** Payment methods seeded on setup; fully editable afterwards. */
-export const DEFAULT_PAYMENT_METHODS: ReadonlyArray<{ code: string; name: string; category: PaymentMethodCategory; requiresReference: boolean }> = [
+export const DEFAULT_PAYMENT_METHODS: ReadonlyArray<{
+  code: string;
+  name: string;
+  category: PaymentMethodCategory;
+  requiresReference: boolean;
+}> = [
   { code: 'cash', name: 'Cash', category: 'cash', requiresReference: false },
   { code: 'bank', name: 'Bank transfer', category: 'bank', requiresReference: true },
   { code: 'card', name: 'Card', category: 'card', requiresReference: true },
@@ -199,11 +209,16 @@ export const STOCK_MOVEMENT_LABELS = labelMap(STOCK_MOVEMENT_TYPES);
 
 /** Movements that increase stock (used by the integrity checks and reports). */
 export const STOCK_INCREASE_TYPES: readonly StockMovementType[] = ['opening', 'purchase', 'adjustment_in', 'return_in', 'transfer_in'];
-export const STOCK_DECREASE_TYPES: readonly StockMovementType[] = ['consumption', 'adjustment_out', 'return_out', 'expired', 'damaged', 'transfer_out'];
+export const STOCK_DECREASE_TYPES: readonly StockMovementType[] = [
+  'consumption',
+  'adjustment_out',
+  'return_out',
+  'expired',
+  'damaged',
+  'transfer_out',
+];
 
-export const INVENTORY_UNITS = [
-  'piece', 'pack', 'box', 'bottle', 'tube', 'syringe', 'set', 'ml', 'gram', 'kg', 'roll', 'sachet',
-] as const;
+export const INVENTORY_UNITS = ['piece', 'pack', 'box', 'bottle', 'tube', 'syringe', 'set', 'ml', 'gram', 'kg', 'roll', 'sachet'] as const;
 export type InventoryUnit = (typeof INVENTORY_UNITS)[number];
 
 export const DEFAULT_INVENTORY_CATEGORIES = [
@@ -348,13 +363,34 @@ export const CLINICAL_OPTION_CATEGORIES = options<ClinicalOptionCategory>([
 export const DEFAULT_CLINICAL_OPTIONS: Readonly<Record<ClinicalOptionCategory, readonly string[]>> = {
   cc: ['Pain', 'Swelling', 'Gum bleeding', 'Bad breath', 'Sensitivity', 'Broken tooth', 'Ulcer', 'Check-up', 'Other'],
   oe: [
-    'Caries', 'Generalised caries', 'BDR', 'BDC', 'Gingivitis', 'Periodontal pocket', 'Periodontitis', 'Pulpitis',
-    'Impacted teeth', 'Dry socket', 'Attrition', 'Erosion', 'Abscess', 'Fractured tooth', 'Missing teeth', 'Other',
+    'Caries',
+    'Generalised caries',
+    'BDR',
+    'BDC',
+    'Gingivitis',
+    'Periodontal pocket',
+    'Periodontitis',
+    'Pulpitis',
+    'Impacted teeth',
+    'Dry socket',
+    'Attrition',
+    'Erosion',
+    'Abscess',
+    'Fractured tooth',
+    'Missing teeth',
+    'Other',
   ],
   re: ['No periapical change', 'Periapical radiolucency', 'Widened PDL space', 'Impacted tooth', 'Bone loss', 'Retained root', 'Other'],
   advice: [
-    'Maintain oral hygiene', 'Brush twice daily', 'Warm saline rinse', 'Avoid hard food', 'Complete the full antibiotic course',
-    'Follow-up after 7 days', 'Follow-up after 1 month', 'Avoid smoking', 'Soft diet advised',
+    'Maintain oral hygiene',
+    'Brush twice daily',
+    'Warm saline rinse',
+    'Avoid hard food',
+    'Complete the full antibiotic course',
+    'Follow-up after 7 days',
+    'Follow-up after 1 month',
+    'Avoid smoking',
+    'Soft diet advised',
   ],
 };
 
@@ -404,7 +440,13 @@ export const MAX_MEDICATIONS_PER_PRESCRIPTION = 60;
 export const MAX_DURATION_DAYS = 365;
 
 /** Seeded medication catalog: common dental prescriptions in Bangladesh. */
-export const DEFAULT_MEDICATIONS: ReadonlyArray<{ name: string; form: MedicationForm; strength?: string; defaultDose?: string; defaultDurationDays?: number }> = [
+export const DEFAULT_MEDICATIONS: ReadonlyArray<{
+  name: string;
+  form: MedicationForm;
+  strength?: string;
+  defaultDose?: string;
+  defaultDurationDays?: number;
+}> = [
   { name: 'Amoxicillin', form: 'capsule', strength: '500 mg', defaultDose: '1+0+1', defaultDurationDays: 5 },
   { name: 'Amoxicillin + Clavulanic acid', form: 'tablet', strength: '625 mg', defaultDose: '1+0+1', defaultDurationDays: 5 },
   { name: 'Metronidazole', form: 'tablet', strength: '400 mg', defaultDose: '1+1+1', defaultDurationDays: 5 },
@@ -426,7 +468,13 @@ export const DEFAULT_MEDICATIONS: ReadonlyArray<{ name: string; form: Medication
 ];
 
 /** Default treatment catalog seeded on setup (names, categories and indicative BDT prices). */
-export const DEFAULT_TREATMENTS: ReadonlyArray<{ code: string; name: string; category: string; pricePaisa: number; durationMinutes: number }> = [
+export const DEFAULT_TREATMENTS: ReadonlyArray<{
+  code: string;
+  name: string;
+  category: string;
+  pricePaisa: number;
+  durationMinutes: number;
+}> = [
   { code: 'CONS', name: 'Consultation', category: 'Diagnostics', pricePaisa: 50000, durationMinutes: 15 },
   { code: 'XRAY-IOPA', name: 'X-ray — Intraoral periapical', category: 'Diagnostics', pricePaisa: 40000, durationMinutes: 15 },
   { code: 'XRAY-OPG', name: 'X-ray — OPG (panoramic)', category: 'Diagnostics', pricePaisa: 120000, durationMinutes: 20 },
@@ -446,7 +494,13 @@ export const DEFAULT_TREATMENTS: ReadonlyArray<{ code: string; name: string; cat
   { code: 'BRIDGE-3', name: 'Bridge — 3 unit', category: 'Prosthodontics', pricePaisa: 1500000, durationMinutes: 90 },
   { code: 'DENT-PART', name: 'Denture — Partial (acrylic)', category: 'Prosthodontics', pricePaisa: 800000, durationMinutes: 60 },
   { code: 'DENT-FULL', name: 'Denture — Complete (acrylic)', category: 'Prosthodontics', pricePaisa: 1500000, durationMinutes: 90 },
-  { code: 'ORTHO-1', name: 'Orthodontic treatment — Starting (per phase)', category: 'Orthodontics', pricePaisa: 3000000, durationMinutes: 90 },
+  {
+    code: 'ORTHO-1',
+    name: 'Orthodontic treatment — Starting (per phase)',
+    category: 'Orthodontics',
+    pricePaisa: 3000000,
+    durationMinutes: 90,
+  },
   { code: 'ORTHO-REV', name: 'Orthodontic review', category: 'Orthodontics', pricePaisa: 100000, durationMinutes: 30 },
   { code: 'IMP-1', name: 'Dental implant — Single unit', category: 'Implantology', pricePaisa: 5000000, durationMinutes: 120 },
   { code: 'WHITE', name: 'Teeth whitening (per arch)', category: 'Cosmetic', pricePaisa: 1200000, durationMinutes: 60 },
@@ -488,7 +542,19 @@ export const ATTACHMENT_CATEGORIES = options<AttachmentCategory>([
 ]);
 export const ATTACHMENT_CATEGORY_LABELS = labelMap(ATTACHMENT_CATEGORIES);
 
-export const ATTACHMENT_ALLOWED_EXTENSIONS: readonly string[] = ['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tif', '.tiff', '.doc', '.docx', '.txt'];
+export const ATTACHMENT_ALLOWED_EXTENSIONS: readonly string[] = [
+  '.pdf',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.bmp',
+  '.tif',
+  '.tiff',
+  '.doc',
+  '.docx',
+  '.txt',
+];
 export const ATTACHMENT_MAX_BYTES = 64 * 1024 * 1024; // 64 MB
 export const ATTACHMENT_IMAGE_EXTENSIONS: readonly string[] = ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tif', '.tiff'];
 
@@ -501,13 +567,7 @@ export const NOTIFICATION_SEVERITIES = options<NotificationSeverity>([
   ['critical', 'Critical'],
 ]);
 
-export type NotificationCategory =
-  | 'appointment'
-  | 'payment'
-  | 'inventory'
-  | 'backup'
-  | 'security'
-  | 'system';
+export type NotificationCategory = 'appointment' | 'payment' | 'inventory' | 'backup' | 'security' | 'system';
 
 export const NOTIFICATION_CATEGORIES = options<NotificationCategory>([
   ['appointment', 'Appointments'],
@@ -553,10 +613,37 @@ export type AuditAction =
   | 'system';
 
 export const AUDIT_ACTIONS: readonly AuditAction[] = [
-  'login', 'login_failed', 'logout', 'lock', 'unlock', 'password_change', 'create', 'update', 'delete', 'restore',
-  'soft_delete', 'print', 'export', 'import', 'backup', 'backup_failed', 'restore_started', 'restore_completed',
-  'restore_failed', 'activation', 'setup', 'settings_change', 'permission_change', 'role_change', 'user_manage',
-  'db_integrity', 'destructive', 'app_start', 'app_stop', 'abnormal_exit', 'system',
+  'login',
+  'login_failed',
+  'logout',
+  'lock',
+  'unlock',
+  'password_change',
+  'create',
+  'update',
+  'delete',
+  'restore',
+  'soft_delete',
+  'print',
+  'export',
+  'import',
+  'backup',
+  'backup_failed',
+  'restore_started',
+  'restore_completed',
+  'restore_failed',
+  'activation',
+  'setup',
+  'settings_change',
+  'permission_change',
+  'role_change',
+  'user_manage',
+  'db_integrity',
+  'destructive',
+  'app_start',
+  'app_stop',
+  'abnormal_exit',
+  'system',
 ];
 
 export const AUDIT_ACTION_LABELS: Readonly<Record<AuditAction, string>> = {

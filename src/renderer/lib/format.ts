@@ -25,6 +25,26 @@ const state: FormatterState = {
   grouping: 'international',
 };
 
+/**
+ * Display text for a value read out of an untyped row (master-data screens hand
+ * back `Record<string, unknown>`). Objects never leak as “[object Object]”.
+ */
+export function text(value: unknown, fallback = ''): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+  return fallback;
+}
+
+/** The same idea for counts and other numbers. */
+export function num(value: unknown, fallback = 0): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
 export function configureFormatters(patch: Partial<FormatterState>): void {
   if (patch.datePattern) state.datePattern = patch.datePattern;
   if (patch.timePattern) state.timePattern = patch.timePattern;
@@ -142,7 +162,7 @@ export function truncate(value: string, max = 80): string {
 }
 
 export function plural(count: number, singular: string, pluralForm?: string): string {
-  return `${count} ${count === 1 ? singular : pluralForm ?? `${singular}s`}`;
+  return `${count} ${count === 1 ? singular : (pluralForm ?? `${singular}s`)}`;
 }
 
 export function fileName(path: string): string {

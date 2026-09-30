@@ -12,7 +12,6 @@ import { currentUserId, requirePermission } from '../context';
 import type { QueueEntry, QueueInput } from '@shared/types';
 import type { QueuePriority, QueueStatus } from '@shared/constants';
 import { AppError } from '@shared/errors';
-import {} from '@shared/dates';
 import { nextQueueNumber } from '../util/ids';
 import { asNumber, buildWhere } from '../db/sql';
 
@@ -142,15 +141,18 @@ export class QueueService {
     const result = this.db.transaction(() => {
       const existing = this.db
         .prepare(
-          `SELECT id, queue_number FROM queue_entries WHERE date = ? AND patient_id = ? AND status IN ('waiting','called','in_consultation')`,
+          `SELECT id, queue_number FROM queue_entries WHERE date = ? AND` +
+            ` patient_id = ? AND status IN ('waiting','called','in_consultation')`,
         )
         .get(date, input.patientId) as { id: number; queue_number: number } | undefined;
       if (existing) throw AppError.conflict(`This patient is already in the queue as number ${existing.queue_number}.`);
       const queueNumber = nextQueueNumber(this.db, date);
       const inserted = this.db
         .prepare(
-          `INSERT INTO queue_entries (date, queue_number, patient_id, appointment_id, dentist_id, arrival_time, status, priority, notes, created_by, created_at)
-           VALUES (@date, @queueNumber, @patientId, @appointmentId, @dentistId, @arrivalTime, 'waiting', @priority, @notes, @createdBy, @createdAt)`,
+          `INSERT INTO queue_entries (date, queue_number, patient_id, appointment_id,` +
+            ` dentist_id, arrival_time, status, priority, notes, created_by, created_at)
+           VALUES (@date, @queueNumber, @patientId, @appointmentId, @dentistId,` +
+            ` @arrivalTime, 'waiting', @priority, @notes, @createdBy, @createdAt)`,
         )
         .run({
           date,
@@ -198,7 +200,8 @@ export class QueueService {
     const now = this.context().instant();
     const ctx = this.context();
     this.db.transaction(() => {
-      const column = status === 'called' ? 'called_at' : status === 'in_consultation' ? 'started_at' : status === 'completed' ? 'completed_at' : null;
+      const column =
+        status === 'called' ? 'called_at' : status === 'in_consultation' ? 'started_at' : status === 'completed' ? 'completed_at' : null;
       const assignments = ['status = @status'];
       const params: Record<string, unknown> = { id, status };
       if (column) assignments.push(`${column} = @now`);
@@ -244,13 +247,9 @@ export class QueueService {
               WHERE date = ? AND status = 'waiting' AND priority = ?
                 AND (queue_number > ? OR (queue_number = ? AND id > ?))
               ORDER BY queue_number ASC, id ASC LIMIT 1`;
-      const neighbour = this.db.prepare(neighbourSql).get(
-        entry.date,
-        entry.priority,
-        entry.queue_number,
-        entry.queue_number,
-        entry.id,
-      ) as { id: number; queue_number: number } | undefined;
+      const neighbour = this.db.prepare(neighbourSql).get(entry.date, entry.priority, entry.queue_number, entry.queue_number, entry.id) as
+        | { id: number; queue_number: number }
+        | undefined;
       if (!neighbour) return;
       this.db.prepare(`UPDATE queue_entries SET queue_number = -? WHERE id = ?`).run(entry.queue_number, entry.id);
       this.db.prepare(`UPDATE queue_entries SET queue_number = ? WHERE id = ?`).run(entry.queue_number, neighbour.id);
@@ -367,9 +366,10 @@ export class QueueService {
   } {
     requirePermission(this.context(), 'queue.view');
     this.assertDate(date);
-    const rows = this.db
-      .prepare(`SELECT status, COUNT(*) AS count FROM queue_entries WHERE date = ? GROUP BY status`)
-      .all(date) as Array<{ status: string; count: number }>;
+    const rows = this.db.prepare(`SELECT status, COUNT(*) AS count FROM queue_entries WHERE date = ? GROUP BY status`).all(date) as Array<{
+      status: string;
+      count: number;
+    }>;
     const countFor = (status: string): number => asNumber(rows.find((row) => row.status === status)?.count);
     const waitRow = this.db
       .prepare(
@@ -379,7 +379,8 @@ export class QueueService {
       )
       .get(date) as { avg_wait: number | null; max_wait: number | null };
     const average = waitRow.avg_wait === null || !Number.isFinite(waitRow.avg_wait) ? null : Math.max(0, Math.round(waitRow.avg_wait));
-    const longestClosed = waitRow.max_wait === null || !Number.isFinite(waitRow.max_wait) ? null : Math.max(0, Math.round(waitRow.max_wait));
+    const longestClosed =
+      waitRow.max_wait === null || !Number.isFinite(waitRow.max_wait) ? null : Math.max(0, Math.round(waitRow.max_wait));
     const stillWaiting = this.db
       .prepare(
         `SELECT MAX(CAST((julianday('now') - julianday(date || ' ' || arrival_time)) * 24 * 60 AS INTEGER)) AS minutes
@@ -436,7 +437,9 @@ export class QueueService {
   }
 
   countForPatient(patientId: number): number {
-    return asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM queue_entries WHERE patient_id = ?`).get(patientId) as { total: number }).total);
+    return asNumber(
+      (this.db.prepare(`SELECT COUNT(*) AS total FROM queue_entries WHERE patient_id = ?`).get(patientId) as { total: number }).total,
+    );
   }
 
   /**

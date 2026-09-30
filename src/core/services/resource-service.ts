@@ -29,16 +29,66 @@ interface ResourceDefinition {
 
 const DEFINITIONS: Record<ResourceName, ResourceDefinition> = {
   'patient-tags': { singular: 'tag', viewPermission: 'patient.view', managePermission: 'patient.edit', requiresTypedConfirmation: false },
-  medications: { singular: 'medication', viewPermission: 'prescription.view', managePermission: 'prescription.create', requiresTypedConfirmation: false },
-  'clinical-options': { singular: 'clinical option', viewPermission: 'prescription.view', managePermission: 'clinical_option.manage', requiresTypedConfirmation: false },
-  'payment-methods': { singular: 'payment method', viewPermission: 'payment.view', managePermission: 'payment_method.manage', requiresTypedConfirmation: false },
-  'inventory-categories': { singular: 'inventory category', viewPermission: 'inventory.view', managePermission: 'inventory.manage', requiresTypedConfirmation: false },
-  suppliers: { singular: 'supplier', viewPermission: 'inventory.view', managePermission: 'inventory.manage', requiresTypedConfirmation: false },
-  'accounting-categories': { singular: 'accounting category', viewPermission: 'accounting.view', managePermission: 'accounting.category.manage', requiresTypedConfirmation: false },
-  'referral-doctors': { singular: 'referral doctor', viewPermission: 'patient.view', managePermission: 'visit.create', requiresTypedConfirmation: false },
-  'printer-profiles': { singular: 'printer profile', viewPermission: 'settings.view', managePermission: 'printer.manage', requiresTypedConfirmation: false },
-  'print-templates': { singular: 'print template', viewPermission: 'settings.view', managePermission: 'printer.manage', requiresTypedConfirmation: false },
-  treatments: { singular: 'treatment', viewPermission: 'treatment.view', managePermission: 'treatment.manage', requiresTypedConfirmation: true },
+  medications: {
+    singular: 'medication',
+    viewPermission: 'prescription.view',
+    managePermission: 'prescription.create',
+    requiresTypedConfirmation: false,
+  },
+  'clinical-options': {
+    singular: 'clinical option',
+    viewPermission: 'prescription.view',
+    managePermission: 'clinical_option.manage',
+    requiresTypedConfirmation: false,
+  },
+  'payment-methods': {
+    singular: 'payment method',
+    viewPermission: 'payment.view',
+    managePermission: 'payment_method.manage',
+    requiresTypedConfirmation: false,
+  },
+  'inventory-categories': {
+    singular: 'inventory category',
+    viewPermission: 'inventory.view',
+    managePermission: 'inventory.manage',
+    requiresTypedConfirmation: false,
+  },
+  suppliers: {
+    singular: 'supplier',
+    viewPermission: 'inventory.view',
+    managePermission: 'inventory.manage',
+    requiresTypedConfirmation: false,
+  },
+  'accounting-categories': {
+    singular: 'accounting category',
+    viewPermission: 'accounting.view',
+    managePermission: 'accounting.category.manage',
+    requiresTypedConfirmation: false,
+  },
+  'referral-doctors': {
+    singular: 'referral doctor',
+    viewPermission: 'patient.view',
+    managePermission: 'visit.create',
+    requiresTypedConfirmation: false,
+  },
+  'printer-profiles': {
+    singular: 'printer profile',
+    viewPermission: 'settings.view',
+    managePermission: 'printer.manage',
+    requiresTypedConfirmation: false,
+  },
+  'print-templates': {
+    singular: 'print template',
+    viewPermission: 'settings.view',
+    managePermission: 'printer.manage',
+    requiresTypedConfirmation: false,
+  },
+  treatments: {
+    singular: 'treatment',
+    viewPermission: 'treatment.view',
+    managePermission: 'treatment.manage',
+    requiresTypedConfirmation: true,
+  },
 };
 
 export class ResourceService {
@@ -69,7 +119,10 @@ export class ResourceService {
 
   // --- Reads --------------------------------------------------------------
 
-  list(resource: ResourceName, query: { page?: number; pageSize?: number; search?: string; includeInactive?: boolean } = {}): Paged<unknown> {
+  list(
+    resource: ResourceName,
+    query: { page?: number; pageSize?: number; search?: string; includeInactive?: boolean } = {},
+  ): Paged<unknown> {
     this.requireView(resource);
     const search = query.search?.trim() ?? '';
     const includeInactive = query.includeInactive === true;
@@ -88,13 +141,13 @@ export class ResourceService {
         const rows = this.db
           .prepare(
             `SELECT * FROM clinical_options WHERE deleted_at IS NULL${includeInactive ? '' : ' AND is_active = 1'}
-              ${search === '' ? '' : 'AND label LIKE ? ESCAPE \'\\\' COLLATE NOCASE'} ORDER BY category, sort_order, id`,
+              ${search === '' ? '' : "AND label LIKE ? ESCAPE '\\' COLLATE NOCASE"} ORDER BY category, sort_order, id`,
           )
           .all(...(search === '' ? [] : [likeTerm(search)])) as Array<Record<string, unknown>>;
         return this.slice(
           rows.map((row) => ({
             id: asNumber(row['id']),
-            category: asString(row['category']) as ResourceListItemExtension,
+            category: asString(row['category']),
             label: asString(row['label']),
             sortOrder: asNumber(row['sort_order']),
             isActive: asNumber(row['is_active']) === 1,
@@ -112,9 +165,7 @@ export class ResourceService {
         ]);
         const params: unknown[] = search === '' ? [] : [likeTerm(search), likeTerm(search)];
         const total = asNumber(
-          (
-            this.db.prepare(`SELECT COUNT(*) AS total FROM payment_methods m ${where}`).get(...params) as { total: number }
-          ).total,
+          (this.db.prepare(`SELECT COUNT(*) AS total FROM payment_methods m ${where}`).get(...params) as { total: number }).total,
         );
         const rows = this.db
           .prepare(
@@ -141,7 +192,13 @@ export class ResourceService {
       case 'inventory-categories': {
         const where = buildWhere(['c.deleted_at IS NULL', search === '' ? null : `c.name LIKE ? ESCAPE '\\' COLLATE NOCASE`]);
         const params: unknown[] = search === '' ? [] : [likeTerm(search)];
-        const total = asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM inventory_categories c ${where}`).get(...params) as { total: number }).total);
+        const total = asNumber(
+          (
+            this.db.prepare(`SELECT COUNT(*) AS total FROM inventory_categories c ${where}`).get(...params) as {
+              total: number;
+            }
+          ).total,
+        );
         const rows = this.db
           .prepare(
             `SELECT c.*, (SELECT COUNT(*) FROM inventory_items i WHERE i.category_id = c.id AND i.deleted_at IS NULL) AS item_count
@@ -164,10 +221,15 @@ export class ResourceService {
         const where = buildWhere([
           's.deleted_at IS NULL',
           includeInactive ? null : 's.is_active = 1',
-          search === '' ? null : `(s.name LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.contact_person LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.phone LIKE ? ESCAPE '\\')`,
+          search === ''
+            ? null
+            : `(s.name LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.contact_person` +
+              ` LIKE ? ESCAPE '\\' COLLATE NOCASE OR s.phone LIKE ? ESCAPE '\\')`,
         ]);
         const params: unknown[] = search === '' ? [] : [likeTerm(search), likeTerm(search), likeTerm(search)];
-        const total = asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM suppliers s ${where}`).get(...params) as { total: number }).total);
+        const total = asNumber(
+          (this.db.prepare(`SELECT COUNT(*) AS total` + ` FROM suppliers s ${where}`).get(...params) as { total: number }).total,
+        );
         const rows = this.db
           .prepare(
             `SELECT s.*,
@@ -203,7 +265,10 @@ export class ResourceService {
           search === '' ? null : `c.name LIKE ? ESCAPE '\\' COLLATE NOCASE`,
         ]);
         const params: unknown[] = search === '' ? [] : [likeTerm(search)];
-        const total = asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM accounting_categories c ${where}`).get(...params) as { total: number }).total);
+        const total = asNumber(
+          (this.db.prepare(`SELECT COUNT(*) AS total FROM` + ` accounting_categories c ${where}`).get(...params) as { total: number })
+            .total,
+        );
         const rows = this.db
           .prepare(
             `SELECT c.*, (SELECT COUNT(*) FROM accounting_transactions t WHERE t.category_id = c.id AND t.is_void = 0) AS usage_count
@@ -228,10 +293,15 @@ export class ResourceService {
         const where = buildWhere([
           'd.deleted_at IS NULL',
           includeInactive ? null : 'd.is_active = 1',
-          search === '' ? null : `(d.name LIKE ? ESCAPE '\\' COLLATE NOCASE OR d.specialty LIKE ? ESCAPE '\\' COLLATE NOCASE OR d.organisation LIKE ? ESCAPE '\\' COLLATE NOCASE)`,
+          search === ''
+            ? null
+            : `(d.name LIKE ? ESCAPE '\\' COLLATE NOCASE OR d.specialty LIKE ? ESCAPE` +
+              ` '\\' COLLATE NOCASE OR d.organisation LIKE ? ESCAPE '\\' COLLATE NOCASE)`,
         ]);
         const params: unknown[] = search === '' ? [] : [likeTerm(search), likeTerm(search), likeTerm(search)];
-        const total = asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM referral_doctors d ${where}`).get(...params) as { total: number }).total);
+        const total = asNumber(
+          (this.db.prepare(`SELECT COUNT(*) AS total FROM` + ` referral_doctors d ${where}`).get(...params) as { total: number }).total,
+        );
         const rows = this.db
           .prepare(
             `SELECT d.*, (SELECT COUNT(*) FROM referrals r WHERE r.referral_doctor_id = d.id) AS referral_count
@@ -257,9 +327,15 @@ export class ResourceService {
         );
       }
       case 'printer-profiles': {
-        const where = buildWhere(['p.deleted_at IS NULL', includeInactive ? null : 'p.is_active = 1', search === '' ? null : `p.name LIKE ? ESCAPE '\\' COLLATE NOCASE`]);
+        const where = buildWhere([
+          'p.deleted_at' + ' IS NULL',
+          includeInactive ? null : 'p.is_active = 1',
+          search === '' ? null : `p.name LIKE ? ESCAPE '\\' COLLATE NOCASE`,
+        ]);
         const params: unknown[] = search === '' ? [] : [likeTerm(search)];
-        const total = asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM printer_profiles p ${where}`).get(...params) as { total: number }).total);
+        const total = asNumber(
+          (this.db.prepare(`SELECT COUNT(*) AS total FROM` + ` printer_profiles p ${where}`).get(...params) as { total: number }).total,
+        );
         const rows = this.db
           .prepare(`SELECT p.* FROM printer_profiles p ${where} ORDER BY p.kind, p.name LIMIT ? OFFSET ?`)
           .all(...params, limit, offset) as Array<Record<string, unknown>>;
@@ -268,7 +344,9 @@ export class ResourceService {
       case 'print-templates': {
         const where = buildWhere(['t.deleted_at IS NULL', search === '' ? null : `t.name LIKE ? ESCAPE '\\' COLLATE NOCASE`]);
         const params: unknown[] = search === '' ? [] : [likeTerm(search)];
-        const total = asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM print_templates t ${where}`).get(...params) as { total: number }).total);
+        const total = asNumber(
+          (this.db.prepare(`SELECT COUNT(*) AS total FROM` + ` print_templates t ${where}`).get(...params) as { total: number }).total,
+        );
         const rows = this.db
           .prepare(`SELECT t.* FROM print_templates t ${where} ORDER BY t.kind, t.name LIMIT ? OFFSET ?`)
           .all(...params, limit, offset) as Array<Record<string, unknown>>;
@@ -278,10 +356,15 @@ export class ResourceService {
         const where = buildWhere([
           't.deleted_at IS NULL',
           includeInactive ? null : 't.is_active = 1',
-          search === '' ? null : `(t.code LIKE ? ESCAPE '\\' COLLATE NOCASE OR t.name LIKE ? ESCAPE '\\' COLLATE NOCASE OR t.category LIKE ? ESCAPE '\\' COLLATE NOCASE)`,
+          search === ''
+            ? null
+            : `(t.code LIKE ? ESCAPE '\\' COLLATE NOCASE OR t.name LIKE ? ESCAPE` +
+              ` '\\' COLLATE NOCASE OR t.category LIKE ? ESCAPE '\\' COLLATE NOCASE)`,
         ]);
         const params: unknown[] = search === '' ? [] : [likeTerm(search), likeTerm(search), likeTerm(search)];
-        const total = asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM treatment_catalog t ${where}`).get(...params) as { total: number }).total);
+        const total = asNumber(
+          (this.db.prepare(`SELECT COUNT(*) AS total FROM` + ` treatment_catalog t ${where}`).get(...params) as { total: number }).total,
+        );
         const rows = this.db
           .prepare(`SELECT t.* FROM treatment_catalog t ${where} ORDER BY t.category, t.name LIMIT ? OFFSET ?`)
           .all(...params, limit, offset) as Array<Record<string, unknown>>;
@@ -373,14 +456,23 @@ export class ResourceService {
         return this.prescriptions.saveClinicalOption(id, input as never);
       }
       case 'treatments': {
-        const payload = input as { code: string; name: string; category: string; description: string; pricePaisa: number; durationMinutes: number; isActive: boolean };
+        const payload = input as {
+          code: string;
+          name: string;
+          category: string;
+          description: string;
+          pricePaisa: number;
+          durationMinutes: number;
+          isActive: boolean;
+        };
         const fieldErrors: Record<string, string> = {};
         if (payload.name.trim().length < 2) fieldErrors['name'] = 'Enter the treatment name.';
         if (payload.code.trim() !== '' && !/^[A-Za-z0-9._-]{2,16}$/.test(payload.code.trim())) {
           fieldErrors['code'] = 'Use 2–16 letters, numbers, dots, hyphens or underscores.';
         }
         if (!Number.isFinite(payload.pricePaisa) || payload.pricePaisa < 0) fieldErrors['pricePaisa'] = 'Enter a valid price.';
-        if (!Number.isFinite(payload.durationMinutes) || payload.durationMinutes < 0) fieldErrors['durationMinutes'] = 'Enter a valid duration.';
+        if (!Number.isFinite(payload.durationMinutes) || payload.durationMinutes < 0)
+          fieldErrors['durationMinutes'] = 'Enter a valid duration.';
         if (Object.keys(fieldErrors).length > 0) throw AppError.validation('Please correct the highlighted fields.', fieldErrors);
         const code = payload.code.trim() === '' ? this.suggestTreatmentCode(payload.name) : payload.code.trim().toUpperCase();
         const duplicate = this.db
@@ -395,14 +487,35 @@ export class ResourceService {
                 `UPDATE treatment_catalog SET code = ?, name = ?, category = ?, description = ?, price_paisa = ?,
                    duration_minutes = ?, is_active = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
               )
-              .run(code, payload.name.trim(), payload.category.trim(), payload.description.trim(), Math.round(payload.pricePaisa), Math.round(payload.durationMinutes), payload.isActive ? 1 : 0, now, targetId);
+              .run(
+                code,
+                payload.name.trim(),
+                payload.category.trim(),
+                payload.description.trim(),
+                Math.round(payload.pricePaisa),
+                Math.round(payload.durationMinutes),
+                payload.isActive ? 1 : 0,
+                now,
+                targetId,
+              );
           } else {
             const result = this.db
               .prepare(
-                `INSERT INTO treatment_catalog (code, name, category, description, price_paisa, duration_minutes, is_active, created_at, updated_at)
+                `INSERT INTO treatment_catalog (code, name, category, description,` +
+                  ` price_paisa, duration_minutes, is_active, created_at, updated_at)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               )
-              .run(code, payload.name.trim(), payload.category.trim(), payload.description.trim(), Math.round(payload.pricePaisa), Math.round(payload.durationMinutes), payload.isActive ? 1 : 0, now, now);
+              .run(
+                code,
+                payload.name.trim(),
+                payload.category.trim(),
+                payload.description.trim(),
+                Math.round(payload.pricePaisa),
+                Math.round(payload.durationMinutes),
+                payload.isActive ? 1 : 0,
+                now,
+                now,
+              );
             targetId = Number(result.lastInsertRowid);
           }
           this.syncTreatmentFts(targetId);
@@ -419,19 +532,42 @@ export class ResourceService {
       case 'payment-methods': {
         const payload = input as { code: string; name: string; category: string; requiresReference: boolean; isActive: boolean };
         if (payload.name.trim().length < 2) throw AppError.validation('Enter the method name.', { name: 'Name is required.' });
-        const code = payload.code.trim() === '' ? payload.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 24) : payload.code.trim().toLowerCase();
+        const code =
+          payload.code.trim() === ''
+            ? payload.name
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '_')
+                .slice(0, 24)
+            : payload.code.trim().toLowerCase();
         const duplicate = this.db
           .prepare(`SELECT id FROM payment_methods WHERE lower(code) = lower(?)${id ? ' AND id <> ?' : ''}`)
           .get(...(id ? [code, id] : [code])) as { id: number } | undefined;
         if (duplicate) throw AppError.validation('That method code is already in use.', { code: 'Code already used.' });
         const sortOrder = id
-          ? asNumber((this.db.prepare(`SELECT sort_order FROM payment_methods WHERE id = ?`).get(id) as { sort_order: number } | undefined)?.sort_order ?? 0, 0)
-          : asNumber((this.db.prepare(`SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM payment_methods`).get() as { next: number }).next, 1);
+          ? asNumber(
+              (this.db.prepare(`SELECT sort_order FROM payment_methods WHERE id = ?`).get(id) as { sort_order: number } | undefined)
+                ?.sort_order ?? 0,
+              0,
+            )
+          : asNumber(
+              (this.db.prepare(`SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM payment_methods`).get() as { next: number }).next,
+              1,
+            );
         if (id) {
           this.db
-            .prepare(`UPDATE payment_methods SET code = ?, name = ?, category = ?, requires_reference = ?, is_active = ?, updated_at = ? WHERE id = ?`)
+            .prepare(
+              `UPDATE payment_methods SET code = ?, name = ?, category = ?,` +
+                ` requires_reference = ?, is_active = ?, updated_at = ? WHERE id = ?`,
+            )
             .run(code, payload.name.trim(), payload.category, payload.requiresReference ? 1 : 0, payload.isActive ? 1 : 0, now, id);
-          ctx.audit.record({ action: 'update', entityType: 'payment_method', entityId: id, entityLabel: payload.name.trim(), detail: 'Payment method updated' });
+          ctx.audit.record({
+            action: 'update',
+            entityType: 'payment_method',
+            entityId: id,
+            entityLabel: payload.name.trim(),
+            detail: 'Payment method updated',
+          });
           return { id };
         }
         const result = this.db
@@ -439,9 +575,24 @@ export class ResourceService {
             `INSERT INTO payment_methods (code, name, category, requires_reference, is_active, sort_order, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           )
-          .run(code, payload.name.trim(), payload.category, payload.requiresReference ? 1 : 0, payload.isActive ? 1 : 0, sortOrder, now, now);
+          .run(
+            code,
+            payload.name.trim(),
+            payload.category,
+            payload.requiresReference ? 1 : 0,
+            payload.isActive ? 1 : 0,
+            sortOrder,
+            now,
+            now,
+          );
         const newId = Number(result.lastInsertRowid);
-        ctx.audit.record({ action: 'create', entityType: 'payment_method', entityId: newId, entityLabel: payload.name.trim(), detail: 'Payment method created' });
+        ctx.audit.record({
+          action: 'create',
+          entityType: 'payment_method',
+          entityId: newId,
+          entityLabel: payload.name.trim(),
+          detail: 'Payment method created',
+        });
         return { id: newId };
       }
       case 'inventory-categories':
@@ -487,14 +638,26 @@ export class ResourceService {
           this.db
             .prepare(`UPDATE inventory_categories SET name = ?, description = ?, updated_at = ? WHERE id = ?`)
             .run(name, description, now, id);
-          ctx.audit.record({ action: 'update', entityType: 'inventory_category', entityId: id, entityLabel: name, detail: 'Inventory category updated' });
+          ctx.audit.record({
+            action: 'update',
+            entityType: 'inventory_category',
+            entityId: id,
+            entityLabel: name,
+            detail: 'Inventory category updated',
+          });
           return { id };
         }
         const result = this.db
           .prepare(`INSERT INTO inventory_categories (name, description, created_at, updated_at) VALUES (?, ?, ?, ?)`)
           .run(name, description, now, now);
         const newId = Number(result.lastInsertRowid);
-        ctx.audit.record({ action: 'create', entityType: 'inventory_category', entityId: newId, entityLabel: name, detail: 'Inventory category created' });
+        ctx.audit.record({
+          action: 'create',
+          entityType: 'inventory_category',
+          entityId: newId,
+          entityLabel: name,
+          detail: 'Inventory category created',
+        });
         return { id: newId };
       }
       case 'suppliers': {
@@ -502,9 +665,20 @@ export class ResourceService {
         if (id) {
           this.db
             .prepare(
-              `UPDATE suppliers SET name = ?, contact_person = ?, phone = ?, email = ?, address = ?, notes = ?, is_active = ?, updated_at = ? WHERE id = ?`,
+              `UPDATE suppliers SET name = ?, contact_person = ?, phone = ?, email =` +
+                ` ?, address = ?, notes = ?, is_active = ?, updated_at = ? WHERE id = ?`,
             )
-            .run(name, asString(payload['contactPerson']).trim(), asString(payload['phone']).trim(), asString(payload['email']).trim(), asString(payload['address']).trim(), asString(payload['notes']).trim(), active, now, id);
+            .run(
+              name,
+              asString(payload['contactPerson']).trim(),
+              asString(payload['phone']).trim(),
+              asString(payload['email']).trim(),
+              asString(payload['address']).trim(),
+              asString(payload['notes']).trim(),
+              active,
+              now,
+              id,
+            );
           ctx.audit.record({ action: 'update', entityType: 'supplier', entityId: id, entityLabel: name, detail: 'Supplier updated' });
           return { id };
         }
@@ -513,7 +687,17 @@ export class ResourceService {
             `INSERT INTO suppliers (name, contact_person, phone, email, address, notes, is_active, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
-          .run(name, asString(payload['contactPerson']).trim(), asString(payload['phone']).trim(), asString(payload['email']).trim(), asString(payload['address']).trim(), asString(payload['notes']).trim(), active, now, now);
+          .run(
+            name,
+            asString(payload['contactPerson']).trim(),
+            asString(payload['phone']).trim(),
+            asString(payload['email']).trim(),
+            asString(payload['address']).trim(),
+            asString(payload['notes']).trim(),
+            active,
+            now,
+            now,
+          );
         const newId = Number(result.lastInsertRowid);
         ctx.audit.record({ action: 'create', entityType: 'supplier', entityId: newId, entityLabel: name, detail: 'Supplier created' });
         return { id: newId };
@@ -522,11 +706,17 @@ export class ResourceService {
         const direction = asString(payload['direction'], 'expense') === 'income' ? 'income' : 'expense';
         const active = payload['isActive'] === false ? 0 : 1;
         const clash = this.db
-          .prepare(`SELECT id FROM accounting_categories WHERE direction = ? AND lower(name) = lower(?) AND deleted_at IS NULL${id ? ' AND id <> ?' : ''}`)
+          .prepare(
+            `SELECT id FROM accounting_categories WHERE direction = ? AND lower(name) = lower(?) AND deleted_at IS NULL${
+              id ? ' AND id <> ?' : ''
+            }`,
+          )
           .get(...(id ? [direction, name, id] : [direction, name])) as { id: number } | undefined;
         if (clash) throw AppError.validation('That category already exists for this direction.', { name: 'Duplicate category.' });
         if (id) {
-          const row = this.db.prepare(`SELECT is_system FROM accounting_categories WHERE id = ?`).get(id) as { is_system: number } | undefined;
+          const row = this.db.prepare(`SELECT is_system FROM accounting_categories WHERE id = ?`).get(id) as
+            | { is_system: number }
+            | undefined;
           if (!row) throw AppError.notFound('Accounting category');
           if (row.is_system === 1 && active === 0) {
             throw AppError.precondition('System categories cannot be deactivated because reports rely on them.');
@@ -534,14 +724,29 @@ export class ResourceService {
           this.db
             .prepare(`UPDATE accounting_categories SET name = ?, direction = ?, is_active = ?, updated_at = ? WHERE id = ?`)
             .run(name, direction, active, now, id);
-          ctx.audit.record({ action: 'update', entityType: 'accounting_category', entityId: id, entityLabel: name, detail: 'Accounting category updated' });
+          ctx.audit.record({
+            action: 'update',
+            entityType: 'accounting_category',
+            entityId: id,
+            entityLabel: name,
+            detail: 'Accounting category updated',
+          });
           return { id };
         }
         const result = this.db
-          .prepare(`INSERT INTO accounting_categories (name, direction, is_active, is_system, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)`)
+          .prepare(
+            `INSERT INTO accounting_categories (name, direction, is_active,` +
+              ` is_system, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)`,
+          )
           .run(name, direction, active, now, now);
         const newId = Number(result.lastInsertRowid);
-        ctx.audit.record({ action: 'create', entityType: 'accounting_category', entityId: newId, entityLabel: name, detail: 'Accounting category created' });
+        ctx.audit.record({
+          action: 'create',
+          entityType: 'accounting_category',
+          entityId: newId,
+          entityLabel: name,
+          detail: 'Accounting category created',
+        });
         return { id: newId };
       }
       case 'referral-doctors': {
@@ -549,10 +754,28 @@ export class ResourceService {
         if (id) {
           this.db
             .prepare(
-              `UPDATE referral_doctors SET name = ?, specialty = ?, organisation = ?, phone = ?, email = ?, address = ?, notes = ?, is_active = ?, updated_at = ? WHERE id = ?`,
+              `UPDATE referral_doctors SET name = ?, specialty = ?, organisation = ?, phone = ?,` +
+                ` email = ?, address = ?, notes = ?, is_active = ?, updated_at = ? WHERE id = ?`,
             )
-            .run(name, asString(payload['specialty']).trim(), asString(payload['organisation']).trim(), asString(payload['phone']).trim(), asString(payload['email']).trim(), asString(payload['address']).trim(), asString(payload['notes']).trim(), active, now, id);
-          ctx.audit.record({ action: 'update', entityType: 'referral_doctor', entityId: id, entityLabel: name, detail: 'Referral doctor updated' });
+            .run(
+              name,
+              asString(payload['specialty']).trim(),
+              asString(payload['organisation']).trim(),
+              asString(payload['phone']).trim(),
+              asString(payload['email']).trim(),
+              asString(payload['address']).trim(),
+              asString(payload['notes']).trim(),
+              active,
+              now,
+              id,
+            );
+          ctx.audit.record({
+            action: 'update',
+            entityType: 'referral_doctor',
+            entityId: id,
+            entityLabel: name,
+            detail: 'Referral doctor updated',
+          });
           return { id };
         }
         const result = this.db
@@ -560,9 +783,26 @@ export class ResourceService {
             `INSERT INTO referral_doctors (name, specialty, organisation, phone, email, address, notes, is_active, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
-          .run(name, asString(payload['specialty']).trim(), asString(payload['organisation']).trim(), asString(payload['phone']).trim(), asString(payload['email']).trim(), asString(payload['address']).trim(), asString(payload['notes']).trim(), active, now, now);
+          .run(
+            name,
+            asString(payload['specialty']).trim(),
+            asString(payload['organisation']).trim(),
+            asString(payload['phone']).trim(),
+            asString(payload['email']).trim(),
+            asString(payload['address']).trim(),
+            asString(payload['notes']).trim(),
+            active,
+            now,
+            now,
+          );
         const newId = Number(result.lastInsertRowid);
-        ctx.audit.record({ action: 'create', entityType: 'referral_doctor', entityId: newId, entityLabel: name, detail: 'Referral doctor created' });
+        ctx.audit.record({
+          action: 'create',
+          entityType: 'referral_doctor',
+          entityId: newId,
+          entityLabel: name,
+          detail: 'Referral doctor created',
+        });
         return { id: newId };
       }
       case 'printer-profiles': {
@@ -790,7 +1030,10 @@ export class ResourceService {
       case 'print-templates':
         return 0;
       case 'treatments':
-        return count(`SELECT COUNT(*) AS total FROM treatment_records WHERE treatment_id = ?`) + count(`SELECT COUNT(*) AS total FROM invoice_items WHERE treatment_id = ?`);
+        return (
+          count(`SELECT COUNT(*) AS total FROM treatment_records WHERE treatment_id = ?`) +
+          count(`SELECT COUNT(*) AS total FROM invoice_items WHERE treatment_id = ?`)
+        );
       default:
         void table;
         return 0;
@@ -820,17 +1063,26 @@ export class ResourceService {
                       : resource === 'print-templates'
                         ? 'print_templates'
                         : 'treatment_catalog';
-    const result = this.db.prepare(`UPDATE ${table} SET deleted_at = NULL, is_active = 1, updated_at = ? WHERE id = ?`).run(this.context().instant(), id);
+    const result = this.db
+      .prepare(`UPDATE ${table} SET deleted_at = NULL, is_active = 1, updated_at = ? WHERE id = ?`)
+      .run(this.context().instant(), id);
     if (result.changes === 0) throw AppError.notFound(this.definition(resource).singular);
     if (resource === 'treatments') this.syncTreatmentFts(id);
-    this.context().audit.record({ action: 'restore', entityType: this.definition(resource).singular, entityId: id, detail: 'Catalog entry restored' });
+    this.context().audit.record({
+      action: 'restore',
+      entityType: this.definition(resource).singular,
+      entityId: id,
+      detail: 'Catalog entry restored',
+    });
   }
 
   private syncTreatmentFts(treatmentId: number): void {
     this.db.prepare(`DELETE FROM treatments_fts WHERE rowid = ?`).run(treatmentId);
     const row = this.db
       .prepare(`SELECT id, code, name, category, description, deleted_at FROM treatment_catalog WHERE id = ?`)
-      .get(treatmentId) as { id: number; code: string; name: string; category: string; description: string; deleted_at: string | null } | undefined;
+      .get(treatmentId) as
+      | { id: number; code: string; name: string; category: string; description: string; deleted_at: string | null }
+      | undefined;
     if (!row || row.deleted_at) return;
     this.db
       .prepare(`INSERT INTO treatments_fts (rowid, code, name, category, description) VALUES (?, ?, ?, ?, ?)`)
@@ -848,14 +1100,14 @@ export class ResourceService {
     let suffix = 0;
     for (;;) {
       const code = suffix === 0 ? candidate : `${candidate}-${suffix}`;
-      const clash = this.db.prepare(`SELECT 1 AS present FROM treatment_catalog WHERE lower(code) = lower(?) AND deleted_at IS NULL`).get(code);
+      const clash = this.db
+        .prepare(`SELECT 1 AS present FROM treatment_catalog WHERE lower(code) = lower(?) AND deleted_at IS NULL`)
+        .get(code);
       if (!clash) return code;
       suffix += 1;
     }
   }
 }
-
-type ResourceListItemExtension = string;
 
 function mapPrinterProfile(row: Record<string, unknown>): Record<string, unknown> {
   return {

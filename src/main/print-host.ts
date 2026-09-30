@@ -30,9 +30,7 @@ export class ElectronPrintHost implements PrintHostPort {
       const printers = await window.webContents.getPrintersAsync();
       return printers
         .map((printer) => {
-          const options = Object.fromEntries(
-            Object.entries(printer.options ?? {}).map(([key, value]) => [key, String(value)]),
-          );
+          const options = Object.fromEntries(Object.entries(printer.options ?? {}).map(([key, value]) => [key, String(value)]));
           return {
             name: printer.name,
             displayName: printer.displayName || printer.name,
@@ -116,8 +114,9 @@ export class ElectronPrintHost implements PrintHostPort {
     }
   }
 
-  async reveal(path: string): Promise<void> {
+  reveal(path: string): Promise<void> {
     shell.showItemInFolder(path);
+    return Promise.resolve();
   }
 
   // -- internals -----------------------------------------------------------
@@ -152,10 +151,7 @@ export class ElectronPrintHost implements PrintHostPort {
     const usableMm = Math.max(20, options.heightMm - options.marginTopMm - options.marginBottomMm);
     const usablePx = (usableMm * 96) / 25.4 / clampScale(options.scalePercent);
     try {
-      const height = (await window.webContents.executeJavaScript(
-        'document.body ? document.body.scrollHeight : 0',
-        true,
-      )) as number;
+      const height = (await window.webContents.executeJavaScript('document.body ? document.body.scrollHeight : 0', true)) as number;
       if (!Number.isFinite(height) || height <= 0) return 1;
       return Math.max(1, Math.ceil(height / Math.max(1, usablePx)));
     } catch {

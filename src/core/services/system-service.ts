@@ -9,7 +9,7 @@
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { readFile, rm, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import type { SqliteDatabase } from '../db/connection';
 import { checkIntegrity, databaseSizeBytes, rebuildSearchIndexes } from '../db/connection';
 import type { CoreContext } from '../context';
@@ -17,7 +17,7 @@ import { currentUserId, currentUserName, requireAnyPermission, requirePermission
 import { AppError } from '@shared/errors';
 import type { DataSummary, IntegrityReport } from '@shared/types';
 import { asNumber } from '../db/sql';
-import { formatMoney } from '@shared/money';
+import { csvText } from '../util/csv';
 import { verifyPassword } from '../security/password';
 import { ensureDir, listFiles, removeDirIfExists } from '../util/files';
 import type { BackupService } from './backup-service';
@@ -52,7 +52,9 @@ export class SystemService {
   dataSummary(): DataSummary {
     requirePermission(this.context(), 'settings.view');
     const count = (table: string, where = ''): number =>
-      asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM ${table}${where ? ` WHERE ${where}` : ''}`).get() as { total: number }).total);
+      asNumber(
+        (this.db.prepare(`SELECT COUNT(*) AS total` + ` FROM ${table}${where ? ` WHERE ${where}` : ''}`).get() as { total: number }).total,
+      );
     const attachmentBytes = asNumber(
       (this.db.prepare(`SELECT COALESCE(SUM(size_bytes), 0) AS total FROM attachments WHERE deleted_at IS NULL`).get() as { total: number })
         .total,
@@ -131,7 +133,10 @@ export class SystemService {
     checks.push({
       name: 'Attachment links',
       ok: orphanAttachments === 0,
-      detail: orphanAttachments === 0 ? 'Attachments point at records that exist.' : `${orphanAttachments} attachment(s) point at removed records.`,
+      detail:
+        orphanAttachments === 0
+          ? 'Attachments point at' + ' records that exist.'
+          : `${orphanAttachments} attachment(s) point at removed records.`,
     });
 
     // The search index is derived data: it can always be rebuilt, so a stale
@@ -209,7 +214,10 @@ export class SystemService {
     requireAnyPermission(this.context(), ['report.export', 'settings.manage', 'patient.export']);
     const ctx = this.context();
     const { columns, rows, title } = this.exportData(what, from, to);
-    const csv = [columns.map(escapeCsv).join(','), ...rows.map((row) => columns.map((column) => escapeCsv(String(row[column] ?? ''))).join(','))].join('\r\n');
+    const csv = [
+      columns.map(escapeCsv).join(','),
+      ...rows.map((row) => columns.map((column) => escapeCsv(csvText(row[column]))).join(',')),
+    ].join('\r\n');
     await ensureDir(ctx.paths.exportsDir);
     const stamp = ctx.instant().replace(/[:.]/g, '-');
     const path = join(ctx.paths.exportsDir, `dentiva-${what}-${stamp}.csv`);
@@ -225,7 +233,11 @@ export class SystemService {
     return { path, rowCount: rows.length };
   }
 
-  private exportData(what: ExportTarget, from?: string, to?: string): { columns: string[]; rows: Array<Record<string, unknown>>; title: string } {
+  private exportData(
+    what: ExportTarget,
+    from?: string,
+    to?: string,
+  ): { columns: string[]; rows: Array<Record<string, unknown>>; title: string } {
     const range = (column: string): { clause: string; params: unknown[] } => {
       const parts: string[] = [];
       const params: unknown[] = [];
@@ -245,7 +257,21 @@ export class SystemService {
         const filter = range(`substr(p.created_at, 1, 10)`);
         return {
           title: 'Patient register',
-          columns: ['code', 'name', 'gender', 'dob', 'age', 'phone', 'alternate_phone', 'email', 'address', 'city', 'blood_group', 'status', 'registered_on'],
+          columns: [
+            'code',
+            'name',
+            'gender',
+            'dob',
+            'age',
+            'phone',
+            'alternate_phone',
+            'email',
+            'address',
+            'city',
+            'blood_group',
+            'status',
+            'registered_on',
+          ],
           rows: this.db
             .prepare(
               `SELECT p.code, trim(p.first_name || ' ' || p.last_name) AS name, p.gender, p.dob, p.age_years AS age,
@@ -295,13 +321,27 @@ export class SystemService {
       case 'inventory': {
         return {
           title: 'Stock on hand',
-          columns: ['code', 'name', 'category', 'supplier', 'unit', 'quantity', 'minimum', 'reorder_level', 'purchase_price', 'stock_value', 'batch', 'expiry'],
+          columns: [
+            'code',
+            'name',
+            'category',
+            'supplier',
+            'unit',
+            'quantity',
+            'minimum',
+            'reorder_level',
+            'purchase_price',
+            'stock_value',
+            'batch',
+            'expiry',
+          ],
           rows: this.db
             .prepare(
               `SELECT i.code, i.name, COALESCE(c.name, '') AS category, COALESCE(s.name, '') AS supplier, i.unit,
                       i.quantity_milli / 1000.0 AS quantity, i.minimum_stock_milli / 1000.0 AS minimum,
                       i.reorder_level_milli / 1000.0 AS reorder_level, i.purchase_price_paisa / 100.0 AS purchase_price,
-                      (i.quantity_milli * i.purchase_price_paisa) / 100000.0 AS stock_value, i.batch_number AS batch, i.expiry_date AS expiry
+                      (i.quantity_milli * i.purchase_price_paisa) /` +
+                ` 100000.0 AS stock_value, i.batch_number AS batch, i.expiry_date AS expiry
                  FROM inventory_items i
                  LEFT JOIN inventory_categories c ON c.id = i.category_id
                  LEFT JOIN suppliers s ON s.id = i.supplier_id
@@ -424,7 +464,19 @@ export class SystemService {
 
     const errors: Array<{ row: number; message: string }> = [];
     const preview: Array<Record<string, string>> = [];
-    const valid: Array<{ firstName: string; lastName: string; gender: string; ageYears: number | null; dob: string | null; phone: string; alternatePhone: string; address: string; city: string; bloodGroup: string; notes: string }> = [];
+    const valid: Array<{
+      firstName: string;
+      lastName: string;
+      gender: string;
+      ageYears: number | null;
+      dob: string | null;
+      phone: string;
+      alternatePhone: string;
+      address: string;
+      city: string;
+      bloodGroup: string;
+      notes: string;
+    }> = [];
 
     for (let rowIndex = 1; rowIndex < lines.length; rowIndex += 1) {
       const cells = splitCsvLine(lines[rowIndex] as string);
@@ -441,16 +493,16 @@ export class SystemService {
         errors.push({ row: rowIndex + 1, message: 'The name is empty.' });
         continue;
       }
-      const genderCell = (columns.gender >= 0 ? cells[columns.gender] ?? '' : '').trim().toLowerCase();
+      const genderCell = (columns.gender >= 0 ? (cells[columns.gender] ?? '') : '').trim().toLowerCase();
       const gender = genderCell.startsWith('f') ? 'female' : genderCell.startsWith('o') ? 'other' : 'male';
-      const ageCell = (columns.age >= 0 ? cells[columns.age] ?? '' : '').trim();
+      const ageCell = (columns.age >= 0 ? (cells[columns.age] ?? '') : '').trim();
       const age = ageCell === '' ? null : Number(ageCell);
       if (age !== null && (!Number.isFinite(age) || age < 0 || age > 130)) {
         errors.push({ row: rowIndex + 1, message: `The age “${ageCell}” is not a usable number.` });
         continue;
       }
-      const dobCell = (columns.dob >= 0 ? cells[columns.dob] ?? '' : '').trim();
-      const bloodCell = (columns.blood >= 0 ? cells[columns.blood] ?? '' : '').trim().toUpperCase();
+      const dobCell = (columns.dob >= 0 ? (cells[columns.dob] ?? '') : '').trim();
+      const bloodCell = (columns.blood >= 0 ? (cells[columns.blood] ?? '') : '').trim().toUpperCase();
 
       const record = {
         firstName,
@@ -458,12 +510,12 @@ export class SystemService {
         gender,
         ageYears: age === null ? null : Math.round(age),
         dob: /^\d{4}-\d{2}-\d{2}$/.test(dobCell) ? dobCell : null,
-        phone: (columns.phone >= 0 ? cells[columns.phone] ?? '' : '').trim(),
-        alternatePhone: (columns.alternate >= 0 ? cells[columns.alternate] ?? '' : '').trim(),
-        address: (columns.address >= 0 ? cells[columns.address] ?? '' : '').trim(),
-        city: (columns.city >= 0 ? cells[columns.city] ?? '' : '').trim(),
+        phone: (columns.phone >= 0 ? (cells[columns.phone] ?? '') : '').trim(),
+        alternatePhone: (columns.alternate >= 0 ? (cells[columns.alternate] ?? '') : '').trim(),
+        address: (columns.address >= 0 ? (cells[columns.address] ?? '') : '').trim(),
+        city: (columns.city >= 0 ? (cells[columns.city] ?? '') : '').trim(),
         bloodGroup: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].includes(bloodCell) ? bloodCell : 'unknown',
-        notes: (columns.notes >= 0 ? cells[columns.notes] ?? '' : '').trim(),
+        notes: (columns.notes >= 0 ? (cells[columns.notes] ?? '') : '').trim(),
       };
       valid.push(record);
       if (preview.length < 10) {
@@ -496,9 +548,9 @@ export class SystemService {
       for (const record of valid) {
         // De-duplicate on phone number when one is present.
         if (record.phone !== '') {
-          const existing = this.db
-            .prepare(`SELECT id FROM patients WHERE phone = ? AND deleted_at IS NULL`)
-            .get(record.phone) as { id: number } | undefined;
+          const existing = this.db.prepare(`SELECT id FROM patients WHERE phone = ? AND deleted_at IS NULL`).get(record.phone) as
+            | { id: number }
+            | undefined;
           if (existing) {
             skipped += 1;
             continue;
@@ -546,7 +598,11 @@ export class SystemService {
 
   // --- Destructive --------------------------------------------------------
 
-  async resetData(input: { scope: ResetScope; confirmText: string; backupFirst: boolean }): Promise<{ backupPath: string | null; deletedCounts: Record<string, number> }> {
+  async resetData(input: {
+    scope: ResetScope;
+    confirmText: string;
+    backupFirst: boolean;
+  }): Promise<{ backupPath: string | null; deletedCounts: Record<string, number> }> {
     requirePermission(this.context(), 'data.destructive');
     const expected = input.scope === 'all' ? 'RESET ALL' : input.scope === 'financial' ? 'RESET FINANCIAL' : 'RESET CLINICAL';
     if (input.confirmText.trim().toUpperCase() !== expected) {
@@ -562,16 +618,44 @@ export class SystemService {
     const deletedCounts: Record<string, number> = {};
     const tables =
       input.scope === 'clinical'
-        ? ['queue_entries', 'appointments', 'referrals', 'prescriptions', 'tooth_findings', 'perio_records', 'dental_charts', 'treatment_plan_items', 'treatment_plans', 'treatment_records', 'visits']
+        ? [
+            'queue_entries',
+            'appointments',
+            'referrals',
+            'prescriptions',
+            'tooth_findings',
+            'perio_records',
+            'dental_charts',
+            'treatment_plan_items',
+            'treatment_plans',
+            'treatment_records',
+            'visits',
+          ]
         : input.scope === 'financial'
           ? ['payments', 'invoice_items', 'invoices', 'accounting_transactions', 'financial_periods']
           : [
-              'queue_entries', 'appointments', 'referrals', 'prescriptions', 'tooth_findings', 'perio_records', 'dental_charts',
-              'treatment_plan_items', 'treatment_plans', 'treatment_records', 'visits',
-              'payments', 'invoice_items', 'invoices',
-              'stock_movements', 'inventory_purchase_items', 'inventory_purchases',
-              'accounting_transactions', 'financial_periods',
-              'patient_tag_links', 'patient_contacts', 'patients',
+              'queue_entries',
+              'appointments',
+              'referrals',
+              'prescriptions',
+              'tooth_findings',
+              'perio_records',
+              'dental_charts',
+              'treatment_plan_items',
+              'treatment_plans',
+              'treatment_records',
+              'visits',
+              'payments',
+              'invoice_items',
+              'invoices',
+              'stock_movements',
+              'inventory_purchase_items',
+              'inventory_purchases',
+              'accounting_transactions',
+              'financial_periods',
+              'patient_tag_links',
+              'patient_contacts',
+              'patients',
               'notifications',
             ];
 
@@ -596,7 +680,11 @@ export class SystemService {
     return { backupPath, deletedCounts };
   }
 
-  async deleteBusiness(input: { password: string; confirmText: string; backupFirst: boolean }): Promise<{ deleted: boolean; backupPath: string | null }> {
+  async deleteBusiness(input: {
+    password: string;
+    confirmText: string;
+    backupFirst: boolean;
+  }): Promise<{ deleted: boolean; backupPath: string | null }> {
     requirePermission(this.context(), 'business.delete');
     if (input.confirmText.trim().toUpperCase() !== 'DELETE BUSINESS') {
       throw AppError.validation('Type “DELETE BUSINESS” to confirm.', { confirmText: 'Type DELETE BUSINESS to confirm.' });
@@ -624,19 +712,47 @@ export class SystemService {
     }
 
     const tables = [
-      'queue_entries', 'appointments', 'referrals', 'prescriptions', 'tooth_findings', 'perio_records', 'dental_charts',
-      'treatment_plan_items', 'treatment_plans', 'treatment_records', 'visits',
-      'payments', 'invoice_items', 'invoices',
-      'stock_movements', 'inventory_purchase_items', 'inventory_purchases', 'inventory_items', 'suppliers', 'inventory_categories',
-      'accounting_transactions', 'financial_periods',
-      'attachments', 'patient_tag_links', 'patient_contacts', 'patients',
-      'notifications', 'login_attempts', 'user_roles', 'users',
+      'queue_entries',
+      'appointments',
+      'referrals',
+      'prescriptions',
+      'tooth_findings',
+      'perio_records',
+      'dental_charts',
+      'treatment_plan_items',
+      'treatment_plans',
+      'treatment_records',
+      'visits',
+      'payments',
+      'invoice_items',
+      'invoices',
+      'stock_movements',
+      'inventory_purchase_items',
+      'inventory_purchases',
+      'inventory_items',
+      'suppliers',
+      'inventory_categories',
+      'accounting_transactions',
+      'financial_periods',
+      'attachments',
+      'patient_tag_links',
+      'patient_contacts',
+      'patients',
+      'notifications',
+      'login_attempts',
+      'user_roles',
+      'users',
       'backup_records',
     ];
     this.db.transaction(() => {
       for (const table of tables) this.db.prepare(`DELETE FROM ${table}`).run();
       this.db.prepare(`DELETE FROM setup_state`).run();
-      this.db.prepare(`UPDATE clinic SET name = '', address = '', phone = '', email = '', website = '', logo_path = NULL, updated_at = ? WHERE id = 1`).run(ctx.instant());
+      this.db
+        .prepare(
+          `UPDATE clinic SET name = '', address = '', phone = '', email =` +
+            ` '', website = '', logo_path = NULL, updated_at = ? WHERE id = 1`,
+        )
+        .run(ctx.instant());
       rebuildSearchIndexes(this.db);
     })();
 
@@ -649,7 +765,9 @@ export class SystemService {
       action: 'delete_business',
       entityType: 'business',
       entityLabel: 'Business deleted',
-      detail: `All business data removed by the owner${backupPath ? ' (a final backup was kept)' : ''}. The application will run setup again.`,
+      detail: `All business data removed by the owner${
+        backupPath ? ' (a final backup was kept)' : ''
+      }. The application will run setup again.`,
       severity: 'critical',
       context: { performedBy: currentUserName(ctx) },
     });

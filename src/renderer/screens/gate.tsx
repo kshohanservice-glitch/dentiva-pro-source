@@ -52,9 +52,8 @@ export function ActivationScreen(): JSX.Element {
           </div>
 
           <Banner tone="info" title="Offline by design.">
-            Dentiva Pro never contacts the internet. The activation code is checked on this machine only, which
-            means it protects against accidental copying between computers rather than against a determined
-            attacker with full access to the device.
+            Dentiva Pro never contacts the internet. The activation code is checked on this machine only, which means it protects against
+            accidental copying between computers rather than against a determined attacker with full access to the device.
           </Banner>
 
           <Field
@@ -88,8 +87,8 @@ export function ActivationScreen(): JSX.Element {
           </Button>
 
           <p className="small muted" style={{ margin: 0 }}>
-            Lost your code? Contact {APP_AUTHOR_EMAIL} with your clinic name. Activation is local and does not require
-            an internet connection.
+            Lost your code? Contact {APP_AUTHOR_EMAIL} with your clinic name. Activation is local and does not require an internet
+            connection.
           </p>
         </div>
       </div>
@@ -166,9 +165,8 @@ export function LoginScreen(): JSX.Element {
           </div>
           {showHelp ? (
             <Banner tone="info" title="Signing in">
-              Passwords are reset by the clinic owner or an administrator from <strong>Users &amp; roles</strong>.
-              After five failed attempts the account locks for a short cooldown. {APP_AUTHOR_EMAIL} can help if the
-              owner account is unavailable.
+              Passwords are reset by the clinic owner or an administrator from <strong>Users &amp; roles</strong>. After five failed
+              attempts the account locks for a short cooldown. {APP_AUTHOR_EMAIL} can help if the owner account is unavailable.
             </Banner>
           ) : null}
           {bootstrap?.previousShutdownWasAbnormal ? (
@@ -203,10 +201,10 @@ export function LockScreen(): JSX.Element {
   return (
     <div className="lock-screen">
       <div className="lock-screen__card">
-        <div className="lock-screen__clock">
-          {now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+        <div className="lock-screen__clock">{now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</div>
+        <div className="muted small">
+          {now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         </div>
-        <div className="muted small">{now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
 
         <div className="row" style={{ justifyContent: 'center', gap: 12, marginTop: 18 }}>
           <Avatar name={session?.fullName ?? 'User'} size={44} />

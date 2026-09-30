@@ -2,12 +2,7 @@ import { builtinModules } from 'node:module';
 import { defineConfig } from 'vite';
 import { fileURLToPath } from 'node:url';
 
-const nodeExternals = [
-  'electron',
-  'better-sqlite3',
-  ...builtinModules,
-  ...builtinModules.map((m) => `node:${m}`),
-];
+const nodeExternals = ['electron', 'better-sqlite3', ...builtinModules, ...builtinModules.map((m) => `node:${m}`)];
 
 export default defineConfig({
   resolve: {

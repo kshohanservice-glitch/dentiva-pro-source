@@ -8,8 +8,7 @@
  */
 import { useEffect, useState } from 'react';
 import { DatabaseBackup, FileSpreadsheet, FolderOpen, HardDrive, History, ShieldCheck, Trash2 } from 'lucide-react';
-import { todayIso } from '@shared/dates';
-import type { BackupCandidate, BackupRecord, BackupStatus, DataSummary, IntegrityReport, RestorePreview } from '@shared/types';
+import type { BackupCandidate, BackupRecord, BackupStatus, DataSummary, RestorePreview } from '@shared/types';
 import { useAction, useApi, useApp } from '@renderer/state/store';
 import { bridge } from '@renderer/lib/bridge';
 import { byteSize, fmtDate, fmtInstant, fmtQuantity } from '@renderer/lib/format';
@@ -18,7 +17,6 @@ import {
   Banner,
   Button,
   Card,
-  Checkbox,
   DefinitionList,
   Empty,
   Field,
@@ -31,11 +29,13 @@ import {
   StatusBadge,
   Switch,
   Tabs,
-  TextArea,
 } from '@renderer/components/ui';
 import { DataTable, DateField, TextField } from '@renderer/components/forms';
 
-const CSV_SOURCES: ReadonlyArray<{ value: 'patients' | 'invoices' | 'payments' | 'inventory' | 'accounting' | 'appointments' | 'visits' | 'prescriptions'; label: string }> = [
+const CSV_SOURCES: ReadonlyArray<{
+  value: 'patients' | 'invoices' | 'payments' | 'inventory' | 'accounting' | 'appointments' | 'visits' | 'prescriptions';
+  label: string;
+}> = [
   { value: 'patients', label: 'Patients' },
   { value: 'appointments', label: 'Appointments' },
   { value: 'visits', label: 'Visits' },
@@ -132,10 +132,9 @@ function BackupsPanel({ status, onRefresh }: { status: BackupStatus | null; onRe
 
   const doRestore = async () => {
     if (!preview) return;
-    const done = await run(
-      () => bridge.invoke('backup.restore', { filePath: previewPath, confirmText: typed, restoreAttachments }),
-      { failure: 'The restore did not start.' },
-    );
+    const done = await run(() => bridge.invoke('backup.restore', { filePath: previewPath, confirmText: typed, restoreAttachments }), {
+      failure: 'The restore did not start.',
+    });
     if (done) {
       toast('success', 'Restore complete', done.message);
       setPreview(null);
@@ -152,8 +151,7 @@ function BackupsPanel({ status, onRefresh }: { status: BackupStatus | null; onRe
       {progress ? <ProgressBar percent={progress.percent} label={progress.message} /> : null}
       {restoring ? (
         <Banner tone="info" title="Restarting">
-          The database was replaced. Dentiva Pro restarts itself to reopen the restored data — this window can stay
-          open.
+          The database was replaced. Dentiva Pro restarts itself to reopen the restored data — this window can stay open.
         </Banner>
       ) : null}
 
@@ -228,7 +226,13 @@ function BackupsPanel({ status, onRefresh }: { status: BackupStatus | null; onRe
               </div>
             ),
             kind:
-              record.kind === 'manual' ? <Badge>Manual</Badge> : record.kind === 'automatic' ? <Badge tone="info">Automatic</Badge> : <Badge tone="warning">Pre-restore</Badge>,
+              record.kind === 'manual' ? (
+                <Badge>Manual</Badge>
+              ) : record.kind === 'automatic' ? (
+                <Badge tone="info">Automatic</Badge>
+              ) : (
+                <Badge tone="warning">Pre-restore</Badge>
+              ),
             when: fmtInstant(record.createdAt),
             by: record.createdByName || '—',
             size: byteSize(record.sizeBytes),
@@ -237,11 +241,16 @@ function BackupsPanel({ status, onRefresh }: { status: BackupStatus | null; onRe
                 {record.patientCount} patient(s) · {record.invoiceCount} invoice(s) · {record.attachmentCount} file(s)
               </span>
             ),
-            state: record.status === 'completed'
-              ? record.verifiedAt
-                ? <StatusBadge status="verified" label="Verified" />
-                : <StatusBadge status="completed" label="Completed" />
-              : <StatusBadge status={record.status} />,
+            state:
+              record.status === 'completed' ? (
+                record.verifiedAt ? (
+                  <StatusBadge status="verified" label="Verified" />
+                ) : (
+                  <StatusBadge status="completed" label="Completed" />
+                )
+              ) : (
+                <StatusBadge status={record.status} />
+              ),
             actions: (
               <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
                 <Button size="sm" variant="ghost" onClick={() => void verify(record)}>
@@ -250,7 +259,14 @@ function BackupsPanel({ status, onRefresh }: { status: BackupStatus | null; onRe
                 <Button size="sm" variant="ghost" onClick={() => void openPreview(record.filePath)}>
                   Restore
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => { setDeleteTarget(record); setDeleteFile(true); }}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setDeleteTarget(record);
+                    setDeleteFile(true);
+                  }}
+                >
                   <Trash2 size={13} />
                 </Button>
               </div>
@@ -258,7 +274,13 @@ function BackupsPanel({ status, onRefresh }: { status: BackupStatus | null; onRe
           }))}
           loading={!status && busy}
           rowKey={(index) => String(backups[index]?.id ?? index)}
-          empty={<Empty title="No backups yet" text="Create the first backup now — it takes a few seconds." icon={<DatabaseBackup size={24} />} />}
+          empty={
+            <Empty
+              title="No backups yet"
+              text="Create the first backup now — it takes a few seconds."
+              icon={<DatabaseBackup size={24} />}
+            />
+          }
         />
       </Card>
 
@@ -280,7 +302,14 @@ function BackupsPanel({ status, onRefresh }: { status: BackupStatus | null; onRe
                   <Button size="sm" variant="ghost" onClick={() => void openPreview(record.filePath)}>
                     Restore
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => { setDeleteTarget(record); setDeleteFile(true); }}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setDeleteTarget(record);
+                      setDeleteFile(true);
+                    }}
+                  >
                     <Trash2 size={13} />
                   </Button>
                 </div>
@@ -350,10 +379,7 @@ function BackupsPanel({ status, onRefresh }: { status: BackupStatus | null; onRe
         }
       >
         <div className="stack">
-          <p>
-            Deleting a backup removes a copy of the clinic data. If it is the only copy you have, the data inside it is
-            gone as well.
-          </p>
+          <p>Deleting a backup removes a copy of the clinic data. If it is the only copy you have, the data inside it is gone as well.</p>
           <Switch label="Also delete the file from disk" checked={deleteFile} onChange={setDeleteFile} />
           <Banner tone="warning" title="Type the file name to confirm">
             You will be asked for “{deleteTarget?.fileName}” before anything is removed.
@@ -417,8 +443,7 @@ function BackupsPanel({ status, onRefresh }: { status: BackupStatus | null; onRe
               <Input value={typed} onChange={(event) => setTyped(event.target.value)} />
             </Field>
             <Banner tone="danger" title="What happens next">
-              A safety backup of the current data is taken first, then the database is replaced and the application
-              restarts on its own.
+              A safety backup of the current data is taken first, then the database is replaced and the application restarts on its own.
             </Banner>
           </div>
         ) : null}
@@ -451,10 +476,9 @@ function DataPanel(): JSX.Element {
   const [vacuumResult, setVacuumResult] = useState<{ beforeBytes: number; afterBytes: number } | null>(null);
 
   const exportCsv = async () => {
-    const outcome = await run(
-      () => bridge.invoke('system.exportCsv', { what: csvSource, from: from || undefined, to: to || undefined }),
-      { failure: 'The export could not be produced.' },
-    );
+    const outcome = await run(() => bridge.invoke('system.exportCsv', { what: csvSource, from: from || undefined, to: to || undefined }), {
+      failure: 'The export could not be produced.',
+    });
     if (!outcome) return;
     await bridge.invoke('app.openPath', { path: outcome.path, reveal: true });
     toast('info', 'Export saved', `${outcome.rowCount} row(s) · ${outcome.path}`);
@@ -464,12 +488,12 @@ function DataPanel(): JSX.Element {
     <div className="stack">
       <Card
         title="What is stored"
-        subtitle={summary.data ? `Oldest record ${fmtDate(summary.data.oldestRecordDate)} · newest ${fmtDate(summary.data.newestRecordDate)}` : undefined}
-        actions={
-          <Button onClick={summary.reload}>
-            Refresh
-          </Button>
+        subtitle={
+          summary.data
+            ? `Oldest record ${fmtDate(summary.data.oldestRecordDate)} · newest ${fmtDate(summary.data.newestRecordDate)}`
+            : undefined
         }
+        actions={<Button onClick={summary.reload}>Refresh</Button>}
         padded={false}
       >
         {summary.loading && !summary.data ? (
@@ -493,17 +517,21 @@ function DataPanel(): JSX.Element {
         title="Integrity check"
         subtitle={integrity.data ? `Checked ${fmtInstant(integrity.data.checkedAt)}` : undefined}
         actions={
-          <Button loading={busy} onClick={() => void run(async () => integrity.reload(), {})}>
+          <Button loading={integrity.loading} onClick={() => integrity.reload()}>
             <ShieldCheck size={14} /> Run check
           </Button>
         }
       >
         {integrity.data ? (
           <div className="stack">
-            <Banner tone={integrity.data.ok ? 'success' : 'danger'} title={integrity.data.ok ? 'Everything is consistent' : 'Problems were found'}>
+            <Banner
+              tone={integrity.data.ok ? 'success' : 'danger'}
+              title={integrity.data.ok ? 'Everything is consistent' : 'Problems were found'}
+            >
               {integrity.data.ok
                 ? 'Foreign keys, indexes and attachment references all check out.'
-                : `Foreign key violations: ${integrity.data.foreignKeyViolations} · missing attachments: ${integrity.data.missingAttachments}`}
+                : `Foreign key violations: ${integrity.data.foreignKeyViolations}` +
+                  ` · missing attachments: ${integrity.data.missingAttachments}`}
             </Banner>
             <div className="stack stack--sm">
               {integrity.data.checks.map((check) => (
@@ -627,10 +655,7 @@ export function BackupScreen(): JSX.Element {
   const status = useApi('backup.status', tab === 'backups' ? undefined : null, [tab]);
 
   return (
-    <Page
-      title="Backup & data"
-      description="Protect the clinic, restore an earlier copy, export and maintain the database"
-    >
+    <Page title="Backup & data" description="Protect the clinic, restore an earlier copy, export and maintain the database">
       <div className="stat-grid">
         <Stat label="Backups kept" value={String(status.data?.backups.length ?? 0)} icon={<DatabaseBackup size={16} />} />
         <Stat
@@ -643,13 +668,16 @@ export function BackupScreen(): JSX.Element {
           value={status.data?.nextDueAt ? fmtInstant(status.data.nextDueAt) : 'Not scheduled'}
           hint={status.data?.intervalDays ? `Every ${status.data.intervalDays} day(s)` : 'Automatic backups are off'}
         />
-        <Stat label="Backup folder" value={status.data?.folderWritable ? 'Writable' : 'Check folder'} tone={status.data?.folderWritable ? 'success' : 'danger'} />
+        <Stat
+          label="Backup folder"
+          value={status.data?.folderWritable ? 'Writable' : 'Check folder'}
+          tone={status.data?.folderWritable ? 'success' : 'danger'}
+        />
       </div>
 
       {status.data && !status.data.folderWritable ? (
         <Banner tone="danger" title="The backup folder cannot be written to">
-          Backups will fail until this is fixed. Choose a folder on a writable drive, ideally a different disk or an
-          external one.
+          Backups will fail until this is fixed. Choose a folder on a writable drive, ideally a different disk or an external one.
         </Banner>
       ) : null}
 

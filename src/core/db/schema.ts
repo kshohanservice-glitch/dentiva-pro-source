@@ -16,7 +16,8 @@ export interface Migration {
   readonly sql: string;
 }
 
-const BASELINE_SQL = /* sql */ `
+const BASELINE_SQL =
+  /* sql */ `
 -- ===========================================================================
 -- Meta
 -- ===========================================================================
@@ -464,7 +465,8 @@ CREATE TABLE IF NOT EXISTS medications (
   deleted_at           TEXT
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_medications_name ON medications (lower(name));
-CREATE UNIQUE INDEX IF NOT EXISTS idx_medications_unique ON medications (lower(name), lower(form), lower(strength)) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_medications_unique ON medications` +
+  ` (lower(name), lower(form), lower(strength)) WHERE deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS clinical_options (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -552,7 +554,8 @@ CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments (date, start_ti
 CREATE INDEX IF NOT EXISTS idx_appointments_patient ON appointments (patient_id, date DESC);
 CREATE INDEX IF NOT EXISTS idx_appointments_dentist ON appointments (dentist_id, date);
 CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments (status);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_appointments_slot ON appointments (dentist_id, date, start_time) WHERE deleted_at IS NULL AND status NOT IN ('cancelled', 'no_show');
+CREATE UNIQUE INDEX IF NOT EXISTS idx_appointments_slot ON appointments (dentist_id,` +
+  ` date, start_time) WHERE deleted_at IS NULL AND status NOT IN ('cancelled', 'no_show');
 
 CREATE TABLE IF NOT EXISTS queue_entries (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -815,7 +818,8 @@ CREATE TABLE IF NOT EXISTS accounting_transactions (
   payment_method_id INTEGER REFERENCES payment_methods (id) ON DELETE SET NULL,
   reference         TEXT NOT NULL DEFAULT '',
   note              TEXT NOT NULL DEFAULT '',
-  source_type       TEXT NOT NULL DEFAULT 'manual' CHECK (source_type IN ('manual', 'payment', 'invoice_void', 'purchase', 'payroll', 'opening')),
+  source_type       TEXT NOT NULL DEFAULT 'manual' CHECK (source_type IN` +
+  ` ('manual', 'payment', 'invoice_void', 'purchase', 'payroll', 'opening')),
   source_id         INTEGER,
   is_void           INTEGER NOT NULL DEFAULT 0,
   void_reason       TEXT NOT NULL DEFAULT '',

@@ -24,7 +24,6 @@ import type {
 import type { ClinicalOptionCategory, Gender, MedicationForm } from '@shared/constants';
 import { MAX_DURATION_DAYS, MAX_DOSES_PER_SLOT, MAX_MEDICATIONS_PER_PRESCRIPTION } from '@shared/constants';
 import { AppError } from '@shared/errors';
-import {} from '@shared/dates';
 import { asNumber, asString, buildWhere, fromBoolInt, pageCount, paginate, parseJsonArray, toBoolInt, toJsonArray } from '../db/sql';
 import { nextPrescriptionNumber } from '../util/ids';
 
@@ -98,7 +97,17 @@ export class PrescriptionService {
     };
   }
 
-  list(query: { page?: number; pageSize?: number; search?: string; preset?: string; from?: string; to?: string; patientId?: number; dentistId?: number | null; includeVoid?: boolean }): Paged<PrescriptionSummary> {
+  list(query: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    preset?: string;
+    from?: string;
+    to?: string;
+    patientId?: number;
+    dentistId?: number | null;
+    includeVoid?: boolean;
+  }): Paged<PrescriptionSummary> {
     requirePermission(this.context(), 'prescription.view');
     const { limit, offset, page, pageSize } = paginate(query.page, query.pageSize);
     const clauses: string[] = ['pr.deleted_at IS NULL'];
@@ -298,7 +307,8 @@ export class PrescriptionService {
       | { number: string }
       | undefined;
     if (!original) throw AppError.notFound('Prescription');
-    if (reason.trim().length < 3) throw AppError.validation('Please describe why the prescription is being replaced.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Please describe why the prescription is being replaced.', { reason: 'Reason is required.' });
     const created = this.create(input);
     const ctx = this.context();
     this.db.transaction(() => {
@@ -317,7 +327,8 @@ export class PrescriptionService {
 
   void(id: number, reason: string): void {
     requirePermission(this.context(), 'prescription.edit');
-    if (reason.trim().length < 3) throw AppError.validation('Please give a reason for voiding this prescription.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Please give a reason for voiding this prescription.', { reason: 'Reason is required.' });
     const ctx = this.context();
     const prescription = this.db.prepare(`SELECT number FROM prescriptions WHERE id = ? AND deleted_at IS NULL`).get(id) as
       | { number: string }
@@ -340,7 +351,8 @@ export class PrescriptionService {
 
   delete(id: number, reason: string): void {
     requirePermission(this.context(), 'prescription.delete');
-    if (reason.trim().length < 3) throw AppError.validation('Please give a reason for deleting this prescription.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Please give a reason for deleting this prescription.', { reason: 'Reason is required.' });
     const ctx = this.context();
     const prescription = this.db.prepare(`SELECT number FROM prescriptions WHERE id = ? AND deleted_at IS NULL`).get(id) as
       | { number: string }
@@ -448,7 +460,9 @@ export class PrescriptionService {
       params.push(term, term);
     }
     const where = buildWhere(clauses);
-    const total = asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM medications m${where}`).get(...params) as { total: number }).total);
+    const total = asNumber(
+      (this.db.prepare(`SELECT COUNT(*) AS total FROM medications m${where}`).get(...params) as { total: number }).total,
+    );
     const rows = this.db
       .prepare(
         `SELECT m.*, (SELECT COUNT(*) FROM prescription_items pi WHERE pi.medication_id = m.id) AS usage_count
@@ -506,11 +520,20 @@ export class PrescriptionService {
         );
       if (result.changes === 0) throw AppError.notFound('Medication');
       this.syncMedicationFts(id);
-      this.context().audit.record({ action: 'update', entityType: 'medication', entityId: id, entityLabel: input.name, detail: 'Medication updated' });
+      this.context().audit.record({
+        action: 'update',
+        entityType: 'medication',
+        entityId: id,
+        entityLabel: input.name,
+        detail: 'Medication updated',
+      });
       return { id };
     }
     const duplicate = this.db
-      .prepare(`SELECT id FROM medications WHERE lower(name) = lower(?) AND lower(form) = lower(?) AND lower(strength) = lower(?) AND deleted_at IS NULL`)
+      .prepare(
+        `SELECT id FROM medications WHERE lower(name) = lower(?) AND lower(form)` +
+          ` = lower(?) AND lower(strength) = lower(?) AND deleted_at IS NULL`,
+      )
       .get(input.name.trim(), input.form, input.strength.trim()) as { id: number } | undefined;
     if (duplicate) throw AppError.conflict('This medication already exists in the catalog.');
     const result = this.db
@@ -534,7 +557,13 @@ export class PrescriptionService {
       );
     const newId = Number(result.lastInsertRowid);
     this.syncMedicationFts(newId);
-    this.context().audit.record({ action: 'create', entityType: 'medication', entityId: newId, entityLabel: input.name, detail: 'Medication added to catalog' });
+    this.context().audit.record({
+      action: 'create',
+      entityType: 'medication',
+      entityId: newId,
+      entityLabel: input.name,
+      detail: 'Medication' + ' added' + ' to catalog',
+    });
     return { id: newId };
   }
 
@@ -556,7 +585,9 @@ export class PrescriptionService {
       });
       return;
     }
-    this.db.prepare(`UPDATE medications SET deleted_at = ?, updated_at = ? WHERE id = ?`).run(this.context().instant(), this.context().instant(), id);
+    this.db
+      .prepare(`UPDATE medications SET deleted_at = ?, updated_at = ? WHERE id = ?`)
+      .run(this.context().instant(), this.context().instant(), id);
     this.db.prepare(`DELETE FROM medications_fts WHERE rowid = ?`).run(id);
     ctx.audit.record({ action: 'delete', entityType: 'medication', entityId: id, detail: 'Medication removed from catalog' });
   }
@@ -601,14 +632,20 @@ export class PrescriptionService {
     }));
   }
 
-  saveClinicalOption(id: number | null, input: { category: ClinicalOptionCategory; label: string; sortOrder: number; isActive: boolean }): { id: number } {
+  saveClinicalOption(
+    id: number | null,
+    input: { category: ClinicalOptionCategory; label: string; sortOrder: number; isActive: boolean },
+  ): { id: number } {
     requirePermission(this.context(), 'clinical_option.manage');
     const label = input.label.trim();
     if (label.length < 2) throw AppError.validation('Option text is too short.', { label: 'Enter the option text.' });
     const now = this.context().instant();
     if (id) {
       const result = this.db
-        .prepare(`UPDATE clinical_options SET category = ?, label = ?, sort_order = ?, is_active = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`)
+        .prepare(
+          `UPDATE clinical_options SET category = ?, label = ?, sort_order = ?,` +
+            ` is_active = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
+        )
         .run(input.category, label, input.sortOrder, toBoolInt(input.isActive), now, id);
       if (result.changes === 0) throw AppError.notFound('Clinical option');
       return { id };
@@ -621,7 +658,13 @@ export class PrescriptionService {
       .prepare(`INSERT INTO clinical_options (category, label, sort_order, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`)
       .run(input.category, label, input.sortOrder, toBoolInt(input.isActive), now, now);
     const newId = Number(result.lastInsertRowid);
-    this.context().audit.record({ action: 'create', entityType: 'clinical_option', entityId: newId, entityLabel: label, detail: 'Clinical option added' });
+    this.context().audit.record({
+      action: 'create',
+      entityType: 'clinical_option',
+      entityId: newId,
+      entityLabel: label,
+      detail: 'Clinical option added',
+    });
     return { id: newId };
   }
 
@@ -646,15 +689,24 @@ export class PrescriptionService {
       | { name: string; address: string; phone: string; email: string; logo_path: string | null; clinic_message: string }
       | undefined;
     const dentistRow = prescription.dentistId
-      ? (this.db
-          .prepare(`SELECT * FROM dentists WHERE id = ?`)
-          .get(prescription.dentistId) as
-          | { id: number; name: string; phone: string; email: string; registration_number: string; visiting_hours: string; signature_path: string | null }
+      ? (this.db.prepare(`SELECT * FROM dentists WHERE id = ?`).get(prescription.dentistId) as
+          | {
+              id: number;
+              name: string;
+              phone: string;
+              email: string;
+              registration_number: string;
+              visiting_hours: string;
+              signature_path: string | null;
+            }
           | undefined)
       : undefined;
     const credentials = dentistRow
       ? (this.db
-          .prepare(`SELECT type, title FROM dentist_credentials WHERE dentist_id = ? AND show_on_prescription = 1 ORDER BY type, sort_order, id`)
+          .prepare(
+            `SELECT type, title FROM dentist_credentials WHERE dentist_id =` +
+              ` ? AND show_on_prescription = 1 ORDER BY type, sort_order, id`,
+          )
           .all(dentistRow.id) as Array<{ type: string; title: string }>)
       : [];
     return {

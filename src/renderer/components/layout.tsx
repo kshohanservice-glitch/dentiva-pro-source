@@ -169,7 +169,7 @@ export function Header({ onOpenSearch }: { onOpenSearch(): void }): JSX.Element 
     }
     setNotificationsOpen(false);
     if (notification.target) {
-      navigate(resolveScreenPath(notification.target.screen, notification.target.id ?? null));
+      void navigate(resolveScreenPath(notification.target.screen, notification.target.id ?? null));
     }
   };
 
@@ -204,15 +204,18 @@ export function Header({ onOpenSearch }: { onOpenSearch(): void }): JSX.Element 
             ) : null}
           </IconButton>
           {notificationsOpen ? (
-            <div className="menu" role="dialog" aria-label="Notifications" style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 380 }}>
+            <div
+              className="menu"
+              role="dialog"
+              aria-label="Notifications"
+              style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 380 }}
+            >
               <div className="row row--between" style={{ padding: '6px 8px' }}>
                 <strong>Notifications</strong>
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() =>
-                    void run(() => bridge.invoke('notifications.markAllRead')).then(() => unread.reload())
-                  }
+                  onClick={() => void run(() => bridge.invoke('notifications.markAllRead')).then(() => unread.reload())}
                 >
                   Mark all read
                 </Button>
@@ -243,7 +246,15 @@ export function Header({ onOpenSearch }: { onOpenSearch(): void }): JSX.Element 
                 </div>
               )}
               <div className="menu__separator" />
-              <Button size="sm" variant="ghost" block onClick={() => { setNotificationsOpen(false); navigate('/settings?tab=notifications'); }}>
+              <Button
+                size="sm"
+                variant="ghost"
+                block
+                onClick={() => {
+                  setNotificationsOpen(false);
+                  void navigate('/settings?tab=notifications');
+                }}
+              >
                 Notification settings
               </Button>
             </div>
@@ -280,7 +291,7 @@ export function Header({ onOpenSearch }: { onOpenSearch(): void }): JSX.Element 
               <MenuItem
                 onClick={() => {
                   close();
-                  navigate(SCREEN_ROUTES.settings);
+                  void navigate(SCREEN_ROUTES.settings);
                 }}
               >
                 <span className="row">
@@ -290,7 +301,7 @@ export function Header({ onOpenSearch }: { onOpenSearch(): void }): JSX.Element 
               <MenuItem
                 onClick={() => {
                   close();
-                  navigate('/change-password');
+                  void navigate('/change-password');
                 }}
               >
                 <span className="row">
@@ -397,7 +408,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose(): void
                         className="menu__item"
                         onClick={() => {
                           onClose();
-                          navigate(resolveScreenPath(item.screen, item.id));
+                          void navigate(resolveScreenPath(item.screen, item.id));
                         }}
                       >
                         <div className="row row--between">

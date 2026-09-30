@@ -29,9 +29,9 @@ describe('database bootstrap', () => {
     expect(existsSync(test.paths.databasePath)).toBe(true);
     expect(schemaVersion(test.container.db)).toBe(LATEST_SCHEMA_VERSION);
 
-    const tables = test.container.db
-      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`)
-      .all() as Array<{ name: string }>;
+    const tables = test.container.db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`).all() as Array<{
+      name: string;
+    }>;
     const names = tables.map((row) => row.name);
     expect(names).toContain('patients');
     expect(names).toContain('invoices');
@@ -75,9 +75,10 @@ describe('reference data seeding', () => {
     expect(total('print_templates')).toBe(4);
     expect(total('clinic')).toBe(1);
 
-    const clinicalOptions = db
-      .prepare(`SELECT category, COUNT(*) AS total FROM clinical_options GROUP BY category`)
-      .all() as Array<{ category: string; total: number }>;
+    const clinicalOptions = db.prepare(`SELECT category, COUNT(*) AS total FROM clinical_options GROUP BY category`).all() as Array<{
+      category: string;
+      total: number;
+    }>;
     expect(clinicalOptions.map((row) => row.category).sort()).toEqual(['advice', 'cc', 'oe', 're']);
     expect(clinicalOptions.reduce((sum, row) => sum + row.total, 0)).toBeGreaterThan(30);
 
@@ -136,9 +137,9 @@ describe('users and authentication', () => {
     expect(result.user.permissions.slice().sort()).toEqual([...ALL_PERMISSION_KEYS].sort());
     expect(users.activeOwnerCount()).toBe(1);
 
-    const audit = test.container.db
-      .prepare(`SELECT action FROM audit_logs WHERE action = 'login' ORDER BY id DESC LIMIT 1`)
-      .get() as { action: string } | undefined;
+    const audit = test.container.db.prepare(`SELECT action FROM audit_logs WHERE action = 'login' ORDER BY id DESC LIMIT 1`).get() as
+      | { action: string }
+      | undefined;
     expect(audit?.action).toBe('login');
   });
 
@@ -150,9 +151,9 @@ describe('users and authentication', () => {
     await expect(auth.login('owner', 'WrongPass123')).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
     const attempts = test.container.db.prepare(`SELECT COUNT(*) AS total FROM login_attempts`).get() as { total: number };
     expect(attempts.total).toBe(1);
-    const failed = test.container.db
-      .prepare(`SELECT COUNT(*) AS total FROM audit_logs WHERE action = 'login_failed'`)
-      .get() as { total: number };
+    const failed = test.container.db.prepare(`SELECT COUNT(*) AS total FROM audit_logs WHERE action = 'login_failed'`).get() as {
+      total: number;
+    };
     expect(failed.total).toBe(1);
   });
 

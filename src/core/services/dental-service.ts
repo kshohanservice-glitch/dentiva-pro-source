@@ -14,7 +14,6 @@ import type { DentitionType, MobilityGrade, ToothFindingType, ToothNumberingSyst
 import { AppError } from '@shared/errors';
 import { formatToothCode, isToothFdi, toothByFdi } from '@shared/dental';
 import { asNumber, asString, fromBoolInt, parseJsonArray, toJsonArray } from '../db/sql';
-import {} from '@shared/dates';
 import { describeToothChartSummary } from '@shared/dental';
 
 export interface SaveFindingsInput {
@@ -54,13 +53,13 @@ export class DentalService {
   }
 
   private ensureChart(patientId: number, dentition: DentitionType): number {
-    const existing = this.db
-      .prepare(`SELECT id FROM dental_charts WHERE patient_id = ? AND dentition = ?`)
-      .get(patientId, dentition) as { id: number } | undefined;
+    const existing = this.db.prepare(`SELECT id FROM dental_charts WHERE patient_id = ? AND dentition = ?`).get(patientId, dentition) as
+      | { id: number }
+      | undefined;
     if (existing) return existing.id;
-    const numbering = this.context().db
-      .prepare(`SELECT value FROM app_settings WHERE key = 'defaultToothNumbering'`)
-      .get() as { value: string } | undefined;
+    const numbering = this.context().db.prepare(`SELECT value FROM app_settings WHERE key = 'defaultToothNumbering'`).get() as
+      | { value: string }
+      | undefined;
     let numberingSystem: ToothNumberingSystem = 'fdi';
     if (numbering) {
       try {
@@ -133,7 +132,13 @@ export class DentalService {
     };
   }
 
-  saveFindings(input: { patientId: number; dentition: DentitionType; findings: ToothFindingInput[]; visitId?: number | null; clearTeeth?: string[] }): DentalChart {
+  saveFindings(input: {
+    patientId: number;
+    dentition: DentitionType;
+    findings: ToothFindingInput[];
+    visitId?: number | null;
+    clearTeeth?: string[];
+  }): DentalChart {
     requirePermission(this.context(), 'chart.edit');
     this.saveFindingsInternal({
       patientId: input.patientId,
@@ -155,10 +160,9 @@ export class DentalService {
       }
       const tooth = toothByFdi(finding.toothFdi);
       if (tooth && tooth.dentition !== input.dentition) {
-        throw AppError.validation(
-          `Tooth ${finding.toothFdi} belongs to the ${tooth.dentition} dentition, not ${input.dentition}.`,
-          { toothFdi: 'Wrong dentition for this tooth.' },
-        );
+        throw AppError.validation(`Tooth ${finding.toothFdi} belongs to the ${tooth.dentition} dentition, not ${input.dentition}.`, {
+          toothFdi: 'Wrong dentition for this tooth.',
+        });
       }
       if (finding.mobilityGrade < 0 || finding.mobilityGrade > 3) {
         throw AppError.validation('Mobility must be between 0 and III.', { mobilityGrade: 'Select a valid mobility grade.' });
@@ -166,10 +170,9 @@ export class DentalService {
       for (const surface of finding.surfaces) {
         const valid = tooth?.surfaces.includes(surface) ?? false;
         if (!valid) {
-          throw AppError.validation(
-            `Surface “${surface}” does not apply to tooth ${finding.toothFdi}.`,
-            { surfaces: `Surface “${surface}” is not valid for this tooth.` },
-          );
+          throw AppError.validation(`Surface “${surface}” does not apply to tooth ${finding.toothFdi}.`, {
+            surfaces: `Surface “${surface}” is not valid for this tooth.`,
+          });
         }
       }
     }
@@ -179,9 +182,7 @@ export class DentalService {
     const affectedTeeth = new Set<string>([...input.findings.map((finding) => finding.toothFdi), ...input.clearTeeth]);
 
     const run = this.db.transaction(() => {
-      const deactivate = this.db.prepare(
-        `UPDATE tooth_findings SET is_active = 0 WHERE chart_id = ? AND tooth_fdi = ? AND is_active = 1`,
-      );
+      const deactivate = this.db.prepare(`UPDATE tooth_findings SET is_active = 0 WHERE chart_id = ? AND tooth_fdi = ? AND is_active = 1`);
       const insert = this.db.prepare(
         `INSERT INTO tooth_findings
            (patient_id, chart_id, tooth_fdi, finding, surfaces, mobility_grade, note, visit_id, recorded_by, recorded_at, is_active)
@@ -282,8 +283,11 @@ export class DentalService {
     const now = this.context().instant();
     this.db.transaction(() => {
       const count = asNumber(
-        (this.db.prepare(`SELECT COUNT(*) AS total FROM tooth_findings WHERE chart_id = ? AND is_active = 1`).get(chart.id) as { total: number })
-          .total,
+        (
+          this.db.prepare(`SELECT COUNT(*) AS total FROM tooth_findings WHERE chart_id = ? AND is_active = 1`).get(chart.id) as {
+            total: number;
+          }
+        ).total,
       );
       this.db.prepare(`DELETE FROM tooth_findings WHERE chart_id = ?`).run(chart.id);
       this.db.prepare(`UPDATE dental_charts SET updated_at = ?, updated_by = ? WHERE id = ?`).run(now, currentUserId(ctx), chart.id);

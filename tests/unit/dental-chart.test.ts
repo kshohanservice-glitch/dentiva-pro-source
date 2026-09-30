@@ -52,7 +52,22 @@ describe('dental chart', () => {
   it('lays the teeth out arch by arch and quadrant by quadrant', () => {
     const permanent = archLayout('permanent');
     expect(permanent.upper.map((tooth) => tooth.fdi)).toEqual([
-      '18', '17', '16', '15', '14', '13', '12', '11', '21', '22', '23', '24', '25', '26', '27', '28',
+      '18',
+      '17',
+      '16',
+      '15',
+      '14',
+      '13',
+      '12',
+      '11',
+      '21',
+      '22',
+      '23',
+      '24',
+      '25',
+      '26',
+      '27',
+      '28',
     ]);
     expect(permanent.lower[0]?.fdi).toBe('48');
     expect(permanent.lower[15]?.fdi).toBe('38');

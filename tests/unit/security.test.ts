@@ -7,7 +7,14 @@ import {
   machineIdentity,
   verifyActivationCode,
 } from '@core/security/activation';
-import { ARGON2_PARAMETERS, constantTimeEquals, hashPassword, passwordStrength, validatePassword, verifyPassword } from '@core/security/password';
+import {
+  ARGON2_PARAMETERS,
+  constantTimeEquals,
+  hashPassword,
+  passwordStrength,
+  validatePassword,
+  verifyPassword,
+} from '@core/security/password';
 
 describe('activation', () => {
   it('accepts only the product code, whatever its spacing', () => {

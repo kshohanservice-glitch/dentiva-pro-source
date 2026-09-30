@@ -21,10 +21,10 @@ import {
   TIME_FORMATS,
   TIME_ZONES,
 } from '@shared/constants';
-import type { AppSettings, ClinicProfile, PrinterProfile } from '@shared/types';
+import type { AppSettings, ClinicProfile } from '@shared/types';
 import { useAction, useApi, useApp } from '@renderer/state/store';
 import { bridge, resolveSourcePath } from '@renderer/lib/bridge';
-import { fmtInstant } from '@renderer/lib/format';
+import { fmtInstant, num, text } from '@renderer/lib/format';
 import {
   Banner,
   Button,
@@ -93,7 +93,11 @@ function ClinicPanel(): JSX.Element {
       <div className="stack">
         <div className="grid-2">
           <TextField label="Clinic name" required value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
-          <TextField label="Registration number" value={form.registrationNumber} onChange={(value) => setForm({ ...form, registrationNumber: value })} />
+          <TextField
+            label="Registration number"
+            value={form.registrationNumber}
+            onChange={(value) => setForm({ ...form, registrationNumber: value })}
+          />
         </div>
         <Field label="Address">
           <TextArea rows={2} value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} />
@@ -121,10 +125,10 @@ function ClinicPanel(): JSX.Element {
                   }}
                 />
               </label>
-              {clinic.data?.logoPath ? (
-                <Switch label="Remove current logo" checked={removeLogo} onChange={setRemoveLogo} />
-              ) : null}
-              <span className="small muted">{logoPath ? 'New logo selected' : clinic.data?.logoPath ? 'Stored logo in use' : 'No logo yet'}</span>
+              {clinic.data?.logoPath ? <Switch label="Remove current logo" checked={removeLogo} onChange={setRemoveLogo} /> : null}
+              <span className="small muted">
+                {logoPath ? 'New logo selected' : clinic.data?.logoPath ? 'Stored logo in use' : 'No logo yet'}
+              </span>
             </div>
           </Field>
         </div>
@@ -163,13 +167,7 @@ function ClinicPanel(): JSX.Element {
   );
 }
 
-function SettingsForm({
-  settings,
-  onSaved,
-}: {
-  settings: AppSettings | null;
-  onSaved(): void;
-}): JSX.Element {
+function SettingsForm({ settings, onSaved }: { settings: AppSettings | null; onSaved(): void }): JSX.Element {
   const { run, busy } = useAction();
   const [patch, setPatch] = useState<Partial<AppSettings>>({});
 
@@ -178,7 +176,7 @@ function SettingsForm({
   }, [settings]);
 
   const value = <K extends keyof AppSettings>(key: K): AppSettings[K] | undefined =>
-    (patch[key] !== undefined ? patch[key] : settings?.[key]) as AppSettings[K] | undefined;
+    patch[key] !== undefined ? patch[key] : settings?.[key];
   const set = (next: Partial<AppSettings>) => setPatch((current) => ({ ...current, ...next }));
   const dirty = Object.keys(patch).length > 0;
 
@@ -370,12 +368,7 @@ function SettingsForm({
           />
         </div>
         <div className="row row--end" style={{ marginTop: 'var(--space-4)' }}>
-          <Button
-            variant="primary"
-            loading={busy}
-            disabled={!dirty}
-            onClick={() => void save()}
-          >
+          <Button variant="primary" loading={busy} disabled={!dirty} onClick={() => void save()}>
             {dirty ? `Save ${Object.keys(patch).length} change(s)` : 'Saved'}
           </Button>
         </div>
@@ -386,10 +379,22 @@ function SettingsForm({
           <div style={{ padding: 'var(--space-4)' }}>
             <DefinitionList
               items={[
-                { label: 'Last automatic backup', value: settings.lastAutomaticBackupAt ? fmtInstant(settings.lastAutomaticBackupAt) : 'Never' },
-                { label: 'Default prescription profile', value: settings.defaultPrescriptionProfileId ? `#${settings.defaultPrescriptionProfileId}` : 'Not set' },
-                { label: 'Default invoice profile', value: settings.defaultInvoiceProfileId ? `#${settings.defaultInvoiceProfileId}` : 'Not set' },
-                { label: 'Default report profile', value: settings.defaultReportProfileId ? `#${settings.defaultReportProfileId}` : 'Not set' },
+                {
+                  label: 'Last automatic backup',
+                  value: settings.lastAutomaticBackupAt ? fmtInstant(settings.lastAutomaticBackupAt) : 'Never',
+                },
+                {
+                  label: 'Default prescription profile',
+                  value: settings.defaultPrescriptionProfileId ? `#${settings.defaultPrescriptionProfileId}` : 'Not set',
+                },
+                {
+                  label: 'Default invoice profile',
+                  value: settings.defaultInvoiceProfileId ? `#${settings.defaultInvoiceProfileId}` : 'Not set',
+                },
+                {
+                  label: 'Default report profile',
+                  value: settings.defaultReportProfileId ? `#${settings.defaultReportProfileId}` : 'Not set',
+                },
               ]}
             />
           </div>
@@ -423,11 +428,7 @@ function PrintingPanel(): JSX.Element {
       <Card
         title="Printers available on this computer"
         subtitle={`${(printers.data ?? []).length} printer(s) reported by Windows`}
-        actions={
-          <Button onClick={printers.reload}>
-            Refresh
-          </Button>
-        }
+        actions={<Button onClick={printers.reload}>Refresh</Button>}
         padded={false}
       >
         <DataTable
@@ -467,8 +468,7 @@ function PrintingPanel(): JSX.Element {
         }
       >
         <p className="small muted" style={{ margin: 0 }}>
-          A test page uses the default {testKind} profile. Adjust the profile below if margins or the paper size are
-          wrong.
+          A test page uses the default {testKind} profile. Adjust the profile below if margins or the paper size are wrong.
         </p>
       </Card>
 
@@ -481,9 +481,9 @@ function PrintingPanel(): JSX.Element {
         columns={[
           { key: 'name', label: 'Profile' },
           { key: 'kind', label: 'Document' },
-          { key: 'printerName', label: 'Printer', render: (row) => String(row['printerName'] ?? '') || 'System default' },
-          { key: 'paperKey', label: 'Paper', render: (row) => String(row['paperKey'] ?? '').toUpperCase() },
-          { key: 'size', label: 'Size (mm)', render: (row) => `${row['widthMm']} × ${row['heightMm']}` },
+          { key: 'printerName', label: 'Printer', render: (row) => text(row['printerName']) || 'System default' },
+          { key: 'paperKey', label: 'Paper', render: (row) => text(row['paperKey']).toUpperCase() },
+          { key: 'size', label: 'Size (mm)', render: (row) => `${num(row['widthMm'])} × ${num(row['heightMm'])}` },
           { key: 'isDefault', label: 'Default', render: (row) => (row['isDefault'] ? 'Yes' : '—') },
           { key: 'isActive', label: 'Active', render: (row) => (row['isActive'] ? 'Yes' : 'No') },
         ]}
@@ -569,7 +569,13 @@ function PrintingPanel(): JSX.Element {
             defaultValue: true,
           },
           { key: 'signatureLabel', label: 'Signature label', type: 'text', defaultValue: 'Signature' },
-          { key: 'accentColour', label: 'Accent colour', type: 'text', defaultValue: '#0f766e', hint: 'Hex colour used for rules and headings' },
+          {
+            key: 'accentColour',
+            label: 'Accent colour',
+            type: 'text',
+            defaultValue: '#0f766e',
+            hint: 'Hex colour used for rules and headings',
+          },
           { key: 'isDefault', label: 'Default for this document', type: 'switch', defaultValue: false },
         ]}
       />
@@ -611,10 +617,9 @@ function DangerPanel(): JSX.Element {
     });
     if (!answer.ok || !answer.typed) return;
     setProgress('A safety backup is being taken…');
-    const result = await run(
-      () => bridge.invoke('system.resetData', { scope, confirmText: answer.typed!, backupFirst: true }),
-      { failure: 'The data could not be erased.' },
-    );
+    const result = await run(() => bridge.invoke('system.resetData', { scope, confirmText: answer.typed!, backupFirst: true }), {
+      failure: 'The data could not be erased.',
+    });
     setProgress(null);
     if (result) {
       setResetOpen(false);
@@ -628,7 +633,8 @@ function DangerPanel(): JSX.Element {
     const answer = await confirm({
       title: 'Delete the entire clinic',
       description:
-        'Patients, documents, invoices, stock, staff, users and settings are all erased and the application returns to first-run setup. Backups survive so the clinic can be restored.',
+        'Patients, documents, invoices, stock, staff, users and settings are all erased and the' +
+        ' application returns to first-run setup. Backups survive so the clinic can be restored.',
       confirmLabel: 'Delete everything',
       tone: 'danger',
       typedWord: 'DELETE BUSINESS',
@@ -636,10 +642,9 @@ function DangerPanel(): JSX.Element {
     });
     if (!answer.ok || !answer.typed) return;
     setProgress('Taking a final safety backup, then erasing…');
-    const result = await run(
-      () => bridge.invoke('system.deleteBusiness', { password, confirmText: answer.typed!, backupFirst: true }),
-      { failure: 'The clinic could not be deleted.' },
-    );
+    const result = await run(() => bridge.invoke('system.deleteBusiness', { password, confirmText: answer.typed!, backupFirst: true }), {
+      failure: 'The clinic could not be deleted.',
+    });
     setProgress(null);
     if (result) {
       setDeleteOpen(false);
@@ -664,8 +669,7 @@ function DangerPanel(): JSX.Element {
     <div className="stack">
       {progress ? <ProgressBar percent={-1} label={progress} /> : null}
       <Banner tone="warning" title="These actions cannot be undone from the interface">
-        Each one asks for a typed confirmation and takes a safety backup first. Store that backup somewhere else before
-        you continue.
+        Each one asks for a typed confirmation and takes a safety backup first. Store that backup somewhere else before you continue.
       </Banner>
 
       <Card title="What is currently stored" padded={false}>
@@ -690,8 +694,7 @@ function DangerPanel(): JSX.Element {
       <Card title="Import patients from a spreadsheet">
         <div className="stack">
           <p className="small muted" style={{ margin: 0 }}>
-            Prepare a CSV file with a header row. Nothing is written until you press Import: the first pass only shows
-            what would happen.
+            Prepare a CSV file with a header row. Nothing is written until you press Import: the first pass only shows what would happen.
           </p>
           <div className="row" style={{ gap: 10 }}>
             <Button onClick={() => void runImport(false)} loading={busy}>
@@ -804,8 +807,7 @@ function DangerPanel(): JSX.Element {
             <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
           </Field>
           <Banner tone="danger" title="This is the last step">
-            Enter your password, then type DELETE BUSINESS in the confirmation dialog. The application restarts at the
-            first-run wizard.
+            Enter your password, then type DELETE BUSINESS in the confirmation dialog. The application restarts at the first-run wizard.
           </Banner>
         </div>
       </Modal>
@@ -838,9 +840,7 @@ function DangerPanel(): JSX.Element {
           <Field label="File" hint="Leave empty to choose the file in the next dialog">
             <Input value={importFile} onChange={(event) => setImportFile(event.target.value)} />
           </Field>
-          <p className="small muted">
-            Rows that duplicate an existing patient (same name and phone) are skipped and reported afterwards.
-          </p>
+          <p className="small muted">Rows that duplicate an existing patient (same name and phone) are skipped and reported afterwards.</p>
         </div>
       </Modal>
     </div>
@@ -858,7 +858,11 @@ export function SettingsScreen(): JSX.Element {
     <Page
       title="Settings"
       description="Clinic identity, behaviour, security and printing"
-      actions={<span className="small muted">{APP_NAME} {version.data?.appVersion ?? APP_VERSION}</span>}
+      actions={
+        <span className="small muted">
+          {APP_NAME} {version.data?.appVersion ?? APP_VERSION}
+        </span>
+      }
     >
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
 
@@ -872,12 +876,21 @@ export function SettingsScreen(): JSX.Element {
           <Card title="This installation">
             <DefinitionList
               items={[
-                { label: 'Application', value: `${system.data?.appVersion ?? APP_VERSION} (build ${system.data?.appBuild ?? APP_BUILD_NUMBER})` },
-                { label: 'Data folder', value: <span className="mono small">{system.data?.userDataPath ?? version.data?.dataDir ?? '—'}</span> },
+                {
+                  label: 'Application',
+                  value: `${system.data?.appVersion ?? APP_VERSION} (build ${system.data?.appBuild ?? APP_BUILD_NUMBER})`,
+                },
+                {
+                  label: 'Data folder',
+                  value: <span className="mono small">{system.data?.userDataPath ?? version.data?.dataDir ?? '—'}</span>,
+                },
                 { label: 'Database', value: <span className="mono small">{system.data?.databasePath ?? '—'}</span> },
                 { label: 'Log folder', value: <span className="mono small">{system.data?.logPath ?? '—'}</span> },
                 { label: 'Operating system', value: system.data ? `${system.data.osVersion} (${system.data.architecture})` : '—' },
-                { label: 'Electron / Chromium / Node', value: system.data ? `${system.data.electronVersion} / ${system.data.chromeVersion} / ${system.data.nodeVersion}` : '—' },
+                {
+                  label: 'Electron / Chromium / Node',
+                  value: system.data ? `${system.data.electronVersion} / ${system.data.chromeVersion} / ${system.data.nodeVersion}` : '—',
+                },
                 { label: 'Installed', value: system.data?.installedAt ? fmtInstant(system.data.installedAt) : '—' },
                 { label: 'Clinic profile', value: clinic.data?.name ?? '—' },
               ]}

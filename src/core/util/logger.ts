@@ -88,7 +88,9 @@ export function createLogger(options: LoggerOptions): Logger {
 
   const write = (level: LogLevel, scope: string | null, message: string, meta?: Record<string, unknown>): void => {
     if (LEVEL_ORDER[level] < LEVEL_ORDER[minLevel]) return;
-    const line = `${new Date().toISOString()} ${level.toUpperCase().padEnd(5)} ${scope ? `[${scope}] ` : ''}${message}${safeStringify(meta)}`;
+    const line = `${new Date().toISOString()} ${level.toUpperCase().padEnd(5)} ${
+      scope ? `[${scope}] ` : ''
+    }${message}${safeStringify(meta)}`;
     if (mirrorToConsole) {
       if (level === 'error') console.error(line);
       else if (level === 'warn') console.warn(line);

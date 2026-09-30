@@ -12,6 +12,8 @@ import { copyFile, mkdir, readdir, rm, stat, rename, unlink } from 'node:fs/prom
 import { basename, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 
+/** Control characters are exactly what must not reach a Windows file name. */
+// eslint-disable-next-line no-control-regex -- control characters are the point
 const INVALID_NAME_CHARS = /[\u0000-\u001f<>:"/\\|?*]/g;
 
 /** A file name that is safe on Windows and keeps its extension. */

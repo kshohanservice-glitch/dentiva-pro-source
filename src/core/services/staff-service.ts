@@ -6,12 +6,12 @@
  */
 import type { SqliteDatabase } from '../db/connection';
 import type { CoreContext } from '../context';
-import { currentUserId, hasPermission, requirePermission } from '../context';
+import { hasPermission, requirePermission } from '../context';
 import type { Paged, StaffInput, StaffMember } from '@shared/types';
 import type { BloodGroup } from '@shared/constants';
 import { AppError } from '@shared/errors';
 import { ageYears } from '@shared/dates';
-import { asNumber, asString, buildWhere, fromBoolInt, pageCount, paginate } from '../db/sql';
+import { asNumber, asString, buildWhere, pageCount, paginate } from '../db/sql';
 import type { AttachmentService } from './attachment-service';
 
 interface StaffRow {
@@ -72,7 +72,9 @@ export class StaffService {
 
   private readonly select = `SELECT * FROM staff s`;
 
-  list(query: { page?: number; pageSize?: number; search?: string; status?: string[]; department?: string | null } = {}): Paged<StaffMember> {
+  list(
+    query: { page?: number; pageSize?: number; search?: string; status?: string[]; department?: string | null } = {},
+  ): Paged<StaffMember> {
     requirePermission(this.context(), 'staff.view');
     const { limit, offset, page, pageSize } = paginate(query.page, query.pageSize ?? 50);
     const clauses: string[] = ['s.deleted_at IS NULL'];
@@ -87,13 +89,19 @@ export class StaffService {
     }
     if (query.search && query.search.trim() !== '') {
       const term = `%${query.search.trim().replace(/[%_]/g, (match) => `\\${match}`)}%`;
-      clauses.push(`(s.name LIKE ? ESCAPE '\\' OR s.designation LIKE ? ESCAPE '\\' OR s.department LIKE ? ESCAPE '\\' OR s.phone LIKE ? ESCAPE '\\')`);
+      clauses.push(
+        `(s.name LIKE ? ESCAPE '\\' OR s.designation LIKE ? ESCAPE '\\' OR` +
+          ` s.department LIKE ? ESCAPE '\\' OR s.phone LIKE ? ESCAPE '\\')`,
+      );
       params.push(term, term, term, term);
     }
     const where = buildWhere(clauses);
     const total = asNumber((this.db.prepare(`SELECT COUNT(*) AS total FROM staff s${where}`).get(...params) as { total: number }).total);
     const rows = this.db
-      .prepare(`${this.select}${where} ORDER BY CASE s.status WHEN 'active' THEN 0 WHEN 'on_leave' THEN 1 ELSE 2 END, s.name LIMIT ? OFFSET ?`)
+      .prepare(
+        `${this.select}${where} ORDER BY CASE s.status WHEN 'active' THEN` +
+          ` 0 WHEN 'on_leave' THEN 1 ELSE 2 END, s.name LIMIT ? OFFSET ?`,
+      )
       .all(...params, limit, offset) as StaffRow[];
     return { items: rows.map((row) => this.map(row)), total, page, pageSize, pageCount: pageCount(total, pageSize) };
   }
@@ -221,7 +229,8 @@ export class StaffService {
     if (confirmText?.trim() !== row.name) {
       throw AppError.validation(`Type the name (${row.name}) to confirm deletion.`, { confirmText: `Type ${row.name} to confirm.` });
     }
-    if (reason.trim().length < 3) throw AppError.validation('Please give a reason for removing this staff record.', { reason: 'Reason is required.' });
+    if (reason.trim().length < 3)
+      throw AppError.validation('Please give a reason for' + ' removing this staff record.', { reason: 'Reason is required.' });
     const ctx = this.context();
     this.db.transaction(() => {
       this.db.prepare(`UPDATE staff SET deleted_at = ?, updated_at = ? WHERE id = ?`).run(ctx.instant(), ctx.instant(), id);
@@ -286,17 +295,21 @@ export class StaffService {
   private validate(input: StaffInput, existingId: number | null): void {
     const fieldErrors: Record<string, string> = {};
     if (input.name.trim().length < 2) fieldErrors['name'] = 'Enter the staff member’s name.';
-    if (input.email.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) fieldErrors['email'] = 'Enter a valid email address.';
+    if (input.email.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim()))
+      fieldErrors['email'] = 'Enter a valid' + ' email address.';
     if (input.phone.trim() !== '' && !/^[0-9+\-\s()]{6,20}$/.test(input.phone.trim())) fieldErrors['phone'] = 'Enter a valid phone number.';
     if (input.dob && input.dob > this.context().today()) fieldErrors['dob'] = 'Date of birth cannot be in the future.';
-    if (input.joiningDate && input.dob && input.joiningDate < input.dob) fieldErrors['joiningDate'] = 'Joining date cannot be before the date of birth.';
+    if (input.joiningDate && input.dob && input.joiningDate < input.dob)
+      fieldErrors['joiningDate'] = 'Joining date cannot be' + ' before the date of birth.';
     if (input.salaryPaisa !== null && (!Number.isFinite(input.salaryPaisa) || input.salaryPaisa < 0)) {
       fieldErrors['salaryPaisa'] = 'Enter a valid salary.';
     }
     if (input.userId !== null) {
       const linked = this.db.prepare(`SELECT id FROM users WHERE id = ? AND deleted_at IS NULL`).get(input.userId);
       if (!linked) fieldErrors['userId'] = 'Select a valid user account.';
-      const taken = this.db.prepare(`SELECT id FROM staff WHERE user_id = ? AND deleted_at IS NULL`).get(input.userId) as { id: number } | undefined;
+      const taken = this.db.prepare(`SELECT id FROM staff WHERE user_id` + ` = ? AND deleted_at IS NULL`).get(input.userId) as
+        | { id: number }
+        | undefined;
       if (taken && taken.id !== existingId) fieldErrors['userId'] = 'That user account is already linked to another staff member.';
     }
     if (Object.keys(fieldErrors).length > 0) throw AppError.validation('Please correct the highlighted fields.', fieldErrors);

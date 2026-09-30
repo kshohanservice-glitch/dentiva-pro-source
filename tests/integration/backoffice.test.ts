@@ -4,7 +4,7 @@
  * and the data-management screens.
  */
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import {} from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { todayIso } from '@shared/dates';
 import { createPatient, createTestApp, type TestApp } from './harness';
@@ -48,8 +48,28 @@ describe('billing', () => {
       date,
       notes: 'Consultation and filling',
       items: [
-        { treatmentId: null, code: 'CONS', description: 'Consultation', toothCodes: [], quantity: 1, unitPricePaisa: 50_000, discountType: 'none', discountValue: 0, sortOrder: 1 },
-        { treatmentId: null, code: 'FIL', description: 'Composite filling', toothCodes: ['16'], quantity: 2, unitPricePaisa: 120_000, discountType: 'amount', discountValue: 4_000, sortOrder: 2 },
+        {
+          treatmentId: null,
+          code: 'CONS',
+          description: 'Consultation',
+          toothCodes: [],
+          quantity: 1,
+          unitPricePaisa: 50_000,
+          discountType: 'none',
+          discountValue: 0,
+          sortOrder: 1,
+        },
+        {
+          treatmentId: null,
+          code: 'FIL',
+          description: 'Composite filling',
+          toothCodes: ['16'],
+          quantity: 2,
+          unitPricePaisa: 120_000,
+          discountType: 'amount',
+          discountValue: 4_000,
+          sortOrder: 2,
+        },
       ],
       discountType: 'percent',
       discountValue: 10,
@@ -63,7 +83,14 @@ describe('billing', () => {
     expect(invoice.totalPaisa).toBe(257_400);
     expect(invoice.status).toBe('unpaid');
 
-    const payment = payments.create({ invoiceId: created.id, amountPaisa: 50_000, methodId: null, reference: '', note: 'Part payment', paidDate: date });
+    const payment = payments.create({
+      invoiceId: created.id,
+      amountPaisa: 50_000,
+      methodId: null,
+      reference: '',
+      note: 'Part payment',
+      paidDate: date,
+    });
     expect(payment.receiptNumber).toMatch(/^RCP-/);
 
     const afterPayment = invoices.get(created.id);
@@ -89,10 +116,27 @@ describe('billing', () => {
       date,
       notes: '',
       items: [
-        { treatmentId: null, code: 'X', description: 'Extraction', toothCodes: ['38'], quantity: 1, unitPricePaisa: 200_000, discountType: 'none', discountValue: 0, sortOrder: 1 },
+        {
+          treatmentId: null,
+          code: 'X',
+          description: 'Extraction',
+          toothCodes: ['38'],
+          quantity: 1,
+          unitPricePaisa: 200_000,
+          discountType: 'none',
+          discountValue: 0,
+          sortOrder: 1,
+        },
       ],
     });
-    const payment = payments.create({ invoiceId: created.id, amountPaisa: 200_000, methodId: null, reference: '', note: '', paidDate: date });
+    const payment = payments.create({
+      invoiceId: created.id,
+      amountPaisa: 200_000,
+      methodId: null,
+      reference: '',
+      note: '',
+      paidDate: date,
+    });
 
     payments.void(payment.id, 'Cheque bounced', payment.receiptNumber);
     const afterVoid = invoices.get(created.id);
@@ -102,30 +146,36 @@ describe('billing', () => {
 
     invoices.void(created.id, 'Raised in error');
     expect(invoices.get(created.id).status).toBe('void');
-    expect(() => payments.create({ invoiceId: created.id, amountPaisa: 1_000, methodId: null, reference: '', note: '', paidDate: date })).toThrowError(/void/i);
+    expect(() =>
+      payments.create({ invoiceId: created.id, amountPaisa: 1_000, methodId: null, reference: '', note: '', paidDate: date }),
+    ).toThrowError(/void/i);
   });
 });
 
 describe('inventory', () => {
   it('tracks stock movements and reports items that fall below the minimum', () => {
     const { inventory } = test.services;
-    const saved = inventory.save(null, {
-      code: 'MAT-001',
-      name: 'Composite resin A2',
-      categoryId: null,
-      supplierId: null,
-      unit: 'syringe',
-      purchasePricePaisa: 85_000,
-      sellingPricePaisa: null,
-      minimumStockMilli: 20_000,
-      reorderLevelMilli: 30_000,
-      batchNumber: 'B-1',
-      expiryDate: null,
-      purchaseDate: null,
-      storageLocation: 'Cabinet 2',
-      notes: '',
-      isActive: true,
-    }, 50_000);
+    const saved = inventory.save(
+      null,
+      {
+        code: 'MAT-001',
+        name: 'Composite resin A2',
+        categoryId: null,
+        supplierId: null,
+        unit: 'syringe',
+        purchasePricePaisa: 85_000,
+        sellingPricePaisa: null,
+        minimumStockMilli: 20_000,
+        reorderLevelMilli: 30_000,
+        batchNumber: 'B-1',
+        expiryDate: null,
+        purchaseDate: null,
+        storageLocation: 'Cabinet 2',
+        notes: '',
+        isActive: true,
+      },
+      50_000,
+    );
 
     expect(inventory.get(saved.id).currentStockMilli).toBe(50_000);
 
@@ -180,7 +230,15 @@ describe('inventory', () => {
       notes: '',
       recordAsExpense: true,
       items: [
-        { itemId: item.id, itemName: 'Gloves (medium)', unit: 'box', quantityMilli: 2_000, unitPricePaisa: 45_000, batchNumber: 'G-9', expiryDate: null },
+        {
+          itemId: item.id,
+          itemName: 'Gloves (medium)',
+          unit: 'box',
+          quantityMilli: 2_000,
+          unitPricePaisa: 45_000,
+          batchNumber: 'G-9',
+          expiryDate: null,
+        },
       ],
     });
 
@@ -303,14 +361,28 @@ describe('staff, dentists, users and roles', () => {
     expect(login.user.permissions).toContain('patient.view');
 
     // The session is really restricted: the permission check lives in the service.
-    expect(() => test.services.invoices.create({
-      patientId,
-      visitId: null,
-      dentistId,
-      date: todayIso(),
-      notes: '',
-      items: [{ treatmentId: null, code: 'X', description: 'Filling', toothCodes: [], quantity: 1, unitPricePaisa: 10_000, discountType: 'none', discountValue: 0, sortOrder: 1 }],
-    })).toThrowError(/permission/i);
+    expect(() =>
+      test.services.invoices.create({
+        patientId,
+        visitId: null,
+        dentistId,
+        date: todayIso(),
+        notes: '',
+        items: [
+          {
+            treatmentId: null,
+            code: 'X',
+            description: 'Filling',
+            toothCodes: [],
+            quantity: 1,
+            unitPricePaisa: 10_000,
+            discountType: 'none',
+            discountValue: 0,
+            sortOrder: 1,
+          },
+        ],
+      }),
+    ).toThrowError(/permission/i);
     expect(() => test.services.users.list({ page: 1, pageSize: 10 })).toThrowError(/permission/i);
     expect(created.id).toBeGreaterThan(0);
   });
@@ -429,7 +501,17 @@ describe('reports, printing, search and the dashboard', () => {
       date: todayIso(),
       notes: '',
       items: [
-        { treatmentId: null, code: 'SCL', description: 'Scaling', toothCodes: [], quantity: 1, unitPricePaisa: 150_000, discountType: 'none', discountValue: 0, sortOrder: 1 },
+        {
+          treatmentId: null,
+          code: 'SCL',
+          description: 'Scaling',
+          toothCodes: [],
+          quantity: 1,
+          unitPricePaisa: 150_000,
+          discountType: 'none',
+          discountValue: 0,
+          sortOrder: 1,
+        },
       ],
     });
 
@@ -504,6 +586,6 @@ describe('application status and master data', () => {
 });
 
 async function auditActions(app: TestApp): Promise<number> {
-  const csv = await app.services.audit.exportRows('1900-01-01', '2999-12-31').length;
+  const csv = app.services.audit.exportRows('1900-01-01', '2999-12-31').length;
   return csv;
 }

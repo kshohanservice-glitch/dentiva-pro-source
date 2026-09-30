@@ -8,7 +8,7 @@
 import type { SqliteDatabase } from './db/connection';
 import type { Logger } from './util/logger';
 import type { SessionManager } from './security/session';
-import type { PermissionKey } from '@shared/permissions';
+
 import { AppError } from '@shared/errors';
 import { permissionMatches } from '@shared/permissions';
 
@@ -75,7 +75,8 @@ export function hasEveryPermission(ctx: CoreContext, permissions: readonly strin
 }
 
 /** Throws a FORBIDDEN AppError unless the session holds `permission`. */
-export function requirePermission(ctx: CoreContext, permission: PermissionKey | string): void {
+/** Accepts any permission string so callers can pass a computed key. */
+export function requirePermission(ctx: CoreContext, permission: string): void {
   const user = ctx.session.currentUser();
   if (!user) throw AppError.unauthenticated();
   if (ctx.session.isLocked()) throw AppError.locked();

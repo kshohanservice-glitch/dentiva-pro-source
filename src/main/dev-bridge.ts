@@ -9,12 +9,14 @@
  * broadcasts. The desktop build never imports this file.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import type { Browser, Page } from 'puppeteer-core';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import { createCoreContainer, type CoreContainer } from '@core/container';
 import { createLogger } from '@core/util/logger';
 import { APP_BUILD_NUMBER, APP_NAME, APP_VERSION } from '@shared/app-info';
 import { sanitiseFileName } from '@core/util/files';
+import { applyPendingRestore } from '@core/services/backup-service';
 import { createRouter } from './ipc/router';
 import type { MainPorts } from './ipc/handlers';
 import type { PrintHostPort, PrintRenderOptions } from '@core/services/print-service';
@@ -52,9 +54,9 @@ const MIME: Record<string, string> = {
 /** Chromium-backed print host used when `DENTIVA_CHROMIUM` points at a browser. */
 function createDevPrintHost(tempDir: string): PrintHostPort {
   const executablePath = process.env['DENTIVA_CHROMIUM'] ?? '';
-  let browser: import('puppeteer-core').Browser | null = null;
+  let browser: Browser | null = null;
 
-  async function page(): Promise<import('puppeteer-core').Page> {
+  async function page(): Promise<Page> {
     if (!executablePath) throw AppError.precondition('The browser preview cannot print without a Chromium binary.');
     if (!browser) {
       const puppeteer = await import('puppeteer-core');
@@ -157,6 +159,13 @@ export async function startDevBridge(options: DevBridgeOptions): Promise<DevBrid
   const clients = new Set<ServerResponse>();
   const printHost = createDevPrintHost(paths.tempDir);
 
+  // A staged restore is applied before the database is opened, exactly as the
+  // packaged application does on restart.
+  const restoreOutcome = await applyPendingRestore(paths, {
+    logger: { info: (message) => logger.info(message), error: (message) => logger.error(message) },
+  });
+  if (restoreOutcome && !restoreOutcome.applied) logger.error(`Staged restore skipped: ${restoreOutcome.problem ?? 'unknown'}`);
+
   const container = createCoreContainer({
     paths,
     machineGuid: guid,
@@ -201,6 +210,9 @@ export async function startDevBridge(options: DevBridgeOptions): Promise<DevBrid
         return;
       }
       if (event === 'backup.progress' && payload) push({ name: 'backup.progress', payload });
+      if (event === 'restore.relaunching') {
+        push({ name: 'restore.relaunching', payload: { message: String(payload?.['message'] ?? 'Restore staged.') } });
+      }
     },
   });
 

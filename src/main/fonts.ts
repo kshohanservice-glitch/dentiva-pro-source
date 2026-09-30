@@ -15,7 +15,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const LATIN_RANGE =
-  'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD';
+  'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,' +
+  ' U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD';
 const BENGALI_RANGE = 'U+0964-0965, U+0980-09FF, U+200C-200D, U+20B9, U+25CC, U+A8E0-A8FF';
 
 interface Face {
@@ -59,7 +60,10 @@ function faceRule(appPath: string, face: Face, alias: string): string | null {
   } catch {
     return null;
   }
-  return `@font-face { font-family: '${alias}'; font-style: normal; font-weight: ${face.weight}; font-display: block; src: url(data:font/woff2;base64,${encoded}) format('woff2'); unicode-range: ${face.range}; }`;
+  return (
+    `@font-face { font-family: '${alias}'; font-style: normal; font-weight: ${face.weight}; font-display:` +
+    ` block; src: url(data:font/woff2;base64,${encoded}) format('woff2'); unicode-range: ${face.range}; }`
+  );
 }
 
 /**

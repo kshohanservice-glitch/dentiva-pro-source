@@ -15,13 +15,7 @@ import {
 } from '@shared/constants';
 import type { StockMovementType } from '@shared/constants';
 import { todayIso } from '@shared/dates';
-import type {
-  InventoryAlerts,
-  InventoryItem,
-  InventoryItemInput,
-  InventoryPurchase,
-  StockMovement,
-} from '@shared/types';
+import type { InventoryAlerts, InventoryItem, InventoryItemInput, InventoryPurchase, StockMovement } from '@shared/types';
 import { useAction, useApi, useApp } from '@renderer/state/store';
 import { bridge } from '@renderer/lib/bridge';
 import { fmtDate, fmtMoney, fmtQuantity, titleCase } from '@renderer/lib/format';
@@ -30,9 +24,7 @@ import {
   Button,
   Card,
   Empty,
-  ErrorState,
   Field,
-  Input,
   LoadingBlock,
   Modal,
   Page,
@@ -130,7 +122,12 @@ function ItemDialog({
             disabled={!form.name.trim()}
             onClick={async () => {
               const saved = await run(
-                () => bridge.invoke('inventory.items.save', { id: item?.id ?? null, input: form, openingStockMilli: item ? undefined : stockMilli }),
+                () =>
+                  bridge.invoke('inventory.items.save', {
+                    id: item?.id ?? null,
+                    input: form,
+                    openingStockMilli: item ? undefined : stockMilli,
+                  }),
                 { success: item ? 'Item updated.' : 'Item created.', failure: 'The item could not be saved.' },
               );
               if (saved) {
@@ -157,12 +154,25 @@ function ItemDialog({
           </Field>
         </div>
         <div className="grid-3">
-          <OptionSelect label="Category" resource="inventory-categories" value={form.categoryId} onChange={(value) => patch({ categoryId: value })} />
+          <OptionSelect
+            label="Category"
+            resource="inventory-categories"
+            value={form.categoryId}
+            onChange={(value) =>
+              patch({
+                categoryId: value,
+              })
+            }
+          />
           <OptionSelect label="Supplier" resource="suppliers" value={form.supplierId} onChange={(value) => patch({ supplierId: value })} />
           <TextField label="Storage location" value={form.storageLocation} onChange={(value) => patch({ storageLocation: value })} />
         </div>
         <div className="grid-3">
-          <MoneyField label="Purchase price" valuePaisa={form.purchasePricePaisa} onChange={(paisa) => patch({ purchasePricePaisa: paisa })} />
+          <MoneyField
+            label="Purchase price"
+            valuePaisa={form.purchasePricePaisa}
+            onChange={(paisa) => patch({ purchasePricePaisa: paisa })}
+          />
           <MoneyField
             label="Selling price"
             valuePaisa={form.sellingPricePaisa ?? 0}
@@ -172,8 +182,16 @@ function ItemDialog({
           {!item ? <QuantityField label="Opening stock" valueMilli={stockMilli} onChange={setStockMilli} unit={form.unit} /> : null}
         </div>
         <div className="grid-3">
-          <QuantityField label="Minimum stock" valueMilli={form.minimumStockMilli} onChange={(milli) => patch({ minimumStockMilli: milli })} />
-          <QuantityField label="Reorder level" valueMilli={form.reorderLevelMilli} onChange={(milli) => patch({ reorderLevelMilli: milli })} />
+          <QuantityField
+            label="Minimum stock"
+            valueMilli={form.minimumStockMilli}
+            onChange={(milli) => patch({ minimumStockMilli: milli })}
+          />
+          <QuantityField
+            label="Reorder level"
+            valueMilli={form.reorderLevelMilli}
+            onChange={(milli) => patch({ reorderLevelMilli: milli })}
+          />
           <TextField label="Batch number" value={form.batchNumber} onChange={(value) => patch({ batchNumber: value })} />
         </div>
         <div className="grid-3">
@@ -267,8 +285,18 @@ function MovementDialog({
             onChange={(event) => setType(event.target.value as StockMovementType)}
           />
         </Field>
-        <QuantityField label="Quantity" valueMilli={quantityMilli} onChange={setQuantityMilli} hint="Positive number; the sign comes from the movement type" />
-        <MoneyField label="Unit cost" valuePaisa={unitCostPaisa} onChange={setUnitCostPaisa} hint="Used for stock valuation and expense posting" />
+        <QuantityField
+          label="Quantity"
+          valueMilli={quantityMilli}
+          onChange={setQuantityMilli}
+          hint="Positive number; the sign comes from the movement type"
+        />
+        <MoneyField
+          label="Unit cost"
+          valuePaisa={unitCostPaisa}
+          onChange={setUnitCostPaisa}
+          hint="Used for stock valuation and expense posting"
+        />
         <TextField label="Reference" value={reference} onChange={setReference} />
         <Field label="Reason" required hint="Recorded in the audit log">
           <TextArea value={reason} rows={2} onChange={(event) => setReason(event.target.value)} />
@@ -292,7 +320,15 @@ function PurchaseDialog({ open, onClose, onSaved }: { open: boolean; onClose(): 
   const [recordAsExpense, setRecordAsExpense] = useState(true);
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<
-    Array<{ itemId: number | null; itemName: string; unit: InventoryItem['unit']; quantityMilli: number; unitPricePaisa: number; batchNumber: string; expiryDate: string | null }>
+    Array<{
+      itemId: number | null;
+      itemName: string;
+      unit: InventoryItem['unit'];
+      quantityMilli: number;
+      unitPricePaisa: number;
+      batchNumber: string;
+      expiryDate: string | null;
+    }>
   >([{ itemId: null, itemName: '', unit: 'piece', quantityMilli: 0, unitPricePaisa: 0, batchNumber: '', expiryDate: null }]);
   const items = useApi('inventory.items.options', open ? undefined : null);
 
@@ -457,7 +493,11 @@ export function InventoryScreen(): JSX.Element {
     { ...lists.state, search: lists.state.search || undefined, lowStockOnly: lowStockOnly || undefined },
     [tab === 'items', lists.state.page, lists.state.search, lowStockOnly],
   );
-  const movements = useApi('inventory.movements.list', tab === 'movements' ? lists.state : null, [tab, lists.state.page, lists.state.search]);
+  const movements = useApi('inventory.movements.list', tab === 'movements' ? lists.state : null, [
+    tab,
+    lists.state.page,
+    lists.state.search,
+  ]);
   const purchases = useApi('inventory.purchases.list', tab === 'purchases' ? lists.state : null, [tab, lists.state.page]);
   const alerts = useApi('inventory.alerts', undefined);
   const stats = useApi('inventory.statistics', { preset: 'this_year' }, [tab]);
@@ -471,19 +511,32 @@ export function InventoryScreen(): JSX.Element {
       reason: true,
     });
     if (!answer.ok || !answer.reason) return;
-    await run(
-      () => bridge.invoke('inventory.items.delete', { id: item.id, reason: answer.reason!, confirmText: item.code }),
-      { success: 'Item removed.' },
-    );
+    await run(() => bridge.invoke('inventory.items.delete', { id: item.id, reason: answer.reason!, confirmText: item.code }), {
+      success: 'Item removed.',
+    });
     items.reload();
   };
 
   const rowActions = (item: InventoryItem) => (
     <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
-      <Button size="sm" variant="ghost" onClick={() => { setMovementItem(item); setMovementOpen(true); }}>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => {
+          setMovementItem(item);
+          setMovementOpen(true);
+        }}
+      >
         Stock
       </Button>
-      <Button size="sm" variant="ghost" onClick={() => { setDialogItem(item); setDialogOpen(true); }}>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => {
+          setDialogItem(item);
+          setDialogOpen(true);
+        }}
+      >
         Edit
       </Button>
       <Button size="sm" variant="ghost" onClick={() => void removeItem(item)}>
@@ -518,7 +571,11 @@ export function InventoryScreen(): JSX.Element {
         <Stat label="Stock value" value={fmtMoney(stats.data?.stockValuePaisa ?? 0)} />
         <Stat label="Items" value={String(stats.data?.itemCount ?? 0)} icon={<Boxes size={16} />} />
         <Stat label="Low stock" value={String(stats.data?.lowStockCount ?? 0)} tone={stats.data?.lowStockCount ? 'warning' : 'default'} />
-        <Stat label="Expiring soon" value={String(stats.data?.expiringSoonCount ?? 0)} tone={stats.data?.expiringSoonCount ? 'warning' : 'default'} />
+        <Stat
+          label="Expiring soon"
+          value={String(stats.data?.expiringSoonCount ?? 0)}
+          tone={stats.data?.expiringSoonCount ? 'warning' : 'default'}
+        />
         <Stat label="Expired" value={String(stats.data?.expiredCount ?? 0)} tone={stats.data?.expiredCount ? 'danger' : 'default'} />
         <Stat label="Purchases this year" value={fmtMoney(stats.data?.purchaseTotalPaisa ?? 0)} />
       </div>
@@ -528,7 +585,11 @@ export function InventoryScreen(): JSX.Element {
           ...TABS.slice(0, 1),
           { key: 'movements', label: 'Movements' },
           ...TABS.slice(2, 4),
-          { key: 'alerts', label: 'Alerts', count: (alerts.data?.lowStock.length ?? 0) + (alerts.data?.expired.length ?? 0) + (alerts.data?.expiringSoon.length ?? 0) },
+          {
+            key: 'alerts',
+            label: 'Alerts',
+            count: (alerts.data?.lowStock.length ?? 0) + (alerts.data?.expired.length ?? 0) + (alerts.data?.expiringSoon.length ?? 0),
+          },
           ...TABS.slice(4),
         ]}
         active={tab}
@@ -539,7 +600,15 @@ export function InventoryScreen(): JSX.Element {
         <Card padded={false}>
           <div className="row" style={{ padding: 'var(--space-4)', gap: 10 }}>
             <div style={{ minWidth: 260, flex: 1 }}>
-              <SearchInput value={lists.state.search} placeholder="Search by name or code…" onChange={(value) => lists.patch({ search: value })} />
+              <SearchInput
+                value={lists.state.search}
+                placeholder="Search by name or code…"
+                onChange={(value) =>
+                  lists.patch({
+                    search: value,
+                  })
+                }
+              />
             </div>
             <Switch label="Low stock only" checked={lowStockOnly} onChange={setLowStockOnly} />
           </div>
@@ -584,7 +653,9 @@ export function InventoryScreen(): JSX.Element {
             error={items.error}
             onRetry={items.reload}
             rowKey={(index) => String(items.data?.items[index]?.id ?? index)}
-            empty={<Empty title="No inventory items" text="Add the materials and medicines you keep in stock." icon={<Package size={24} />} />}
+            empty={
+              <Empty title="No inventory items" text="Add the materials and medicines you keep in stock." icon={<Package size={24} />} />
+            }
           />
         </Card>
       ) : null}
@@ -593,7 +664,15 @@ export function InventoryScreen(): JSX.Element {
         <Card padded={false}>
           <div className="row" style={{ padding: 'var(--space-4)' }}>
             <div style={{ minWidth: 260, flex: 1 }}>
-              <SearchInput value={lists.state.search} placeholder="Search movements…" onChange={(value) => lists.patch({ search: value })} />
+              <SearchInput
+                value={lists.state.search}
+                placeholder="Search movements…"
+                onChange={(value) =>
+                  lists.patch({
+                    search: value,
+                  })
+                }
+              />
             </div>
           </div>
           <DataTable
@@ -696,21 +775,29 @@ export function InventoryScreen(): JSX.Element {
       ) : null}
 
       <ItemDialog open={dialogOpen} item={dialogItem} onClose={() => setDialogOpen(false)} onSaved={() => items.reload()} />
-      <MovementDialog open={movementOpen} item={movementItem} onClose={() => setMovementOpen(false)} onSaved={() => { items.reload(); movements.reload(); alerts.reload(); }} />
-      <PurchaseDialog open={purchaseOpen} onClose={() => setPurchaseOpen(false)} onSaved={() => { purchases.reload(); items.reload(); }} />
+      <MovementDialog
+        open={movementOpen}
+        item={movementItem}
+        onClose={() => setMovementOpen(false)}
+        onSaved={() => {
+          items.reload();
+          movements.reload();
+          alerts.reload();
+        }}
+      />
+      <PurchaseDialog
+        open={purchaseOpen}
+        onClose={() => setPurchaseOpen(false)}
+        onSaved={() => {
+          purchases.reload();
+          items.reload();
+        }}
+      />
     </Page>
   );
 }
 
-function AlertsPanel({
-  alerts,
-  loading,
-  onRefresh,
-}: {
-  alerts: InventoryAlerts | null;
-  loading: boolean;
-  onRefresh(): void;
-}): JSX.Element {
+function AlertsPanel({ alerts, loading, onRefresh }: { alerts: InventoryAlerts | null; loading: boolean; onRefresh(): void }): JSX.Element {
   if (loading && !alerts) return <LoadingBlock rows={5} />;
   const groups: Array<{ title: string; items: readonly InventoryItem[]; tone: 'danger' | 'warning' | 'info' }> = [
     { title: 'Expired', items: alerts?.expired ?? [], tone: 'danger' },

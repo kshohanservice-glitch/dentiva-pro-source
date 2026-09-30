@@ -2,7 +2,39 @@
  * Domain contracts shared by the core services, the IPC boundary and the UI.
  * These are plain data shapes: no behaviour, no framework, no Node APIs.
  */
-import type { AccountingDirection, AppointmentStatus, AttachmentCategory, AutoLockMinutes, BackupIntervalDays, BloodGroup, ClinicalOptionCategory, DensityMode, DentistCredentialType, DentitionType, FoodTiming, Gender, InventoryUnit, InvoiceStatus, MedicationForm, MobilityGrade, NotificationCategory, NotificationSeverity, NumberGrouping, PaperSizeKey, PatientStatus, PaymentMethodCategory, PreferredContact, PrintTemplateKind, QueuePriority, QueueStatus, ReferralStatus, StockMovementType, ThemeMode, ToothFindingType, ToothNumberingSystem, ToothSurface } from './constants';
+import type {
+  AccountingDirection,
+  AppointmentStatus,
+  AttachmentCategory,
+  AutoLockMinutes,
+  BackupIntervalDays,
+  BloodGroup,
+  ClinicalOptionCategory,
+  DensityMode,
+  DentitionType,
+  FoodTiming,
+  Gender,
+  InventoryUnit,
+  InvoiceStatus,
+  MedicationForm,
+  MobilityGrade,
+  NotificationCategory,
+  NotificationSeverity,
+  NumberGrouping,
+  PaperSizeKey,
+  PatientStatus,
+  PaymentMethodCategory,
+  PreferredContact,
+  PrintTemplateKind,
+  QueuePriority,
+  QueueStatus,
+  ReferralStatus,
+  StockMovementType,
+  ThemeMode,
+  ToothFindingType,
+  ToothNumberingSystem,
+  ToothSurface,
+} from './constants';
 import type { IsoDate, IsoInstant, IsoTime } from './dates';
 import type { Paisa } from './money';
 import type { SerializedError } from './errors';
@@ -806,7 +838,13 @@ export interface PaymentStats {
   readonly cardPaisa: Paisa;
   readonly mobileWalletPaisa: Paisa;
   readonly otherPaisa: Paisa;
-  readonly byMethod: ReadonlyArray<{ methodId: number; methodName: string; category: PaymentMethodCategory; amountPaisa: Paisa; count: number }>;
+  readonly byMethod: ReadonlyArray<{
+    methodId: number;
+    methodName: string;
+    category: PaymentMethodCategory;
+    amountPaisa: Paisa;
+    count: number;
+  }>;
   readonly daily: ReadonlyArray<{ date: IsoDate; amountPaisa: Paisa; count: number }>;
   readonly outstandingPaisa: Paisa;
   readonly invoiceCount: number;
@@ -1052,7 +1090,13 @@ export interface AccountingSummary {
   readonly netPaisa: Paisa;
   readonly collectedFromInvoicesPaisa: Paisa;
   readonly outstandingPaisa: Paisa;
-  readonly byCategory: ReadonlyArray<{ categoryId: number; categoryName: string; direction: AccountingDirection; amountPaisa: Paisa; count: number }>;
+  readonly byCategory: ReadonlyArray<{
+    categoryId: number;
+    categoryName: string;
+    direction: AccountingDirection;
+    amountPaisa: Paisa;
+    count: number;
+  }>;
   readonly byMonth: ReadonlyArray<{ month: string; incomePaisa: Paisa; expensePaisa: Paisa; netPaisa: Paisa }>;
   readonly byMethod: ReadonlyArray<{ methodId: number | null; methodName: string; amountPaisa: Paisa }>;
 }
@@ -1643,7 +1687,7 @@ export interface MedicationListQuery extends ListQuery {
   includeInactive?: boolean;
 }
 
-export interface MedicationListRow extends Medication {}
+export type MedicationListRow = Medication;
 
 export interface ClinicalOptionInput {
   category: ClinicalOptionCategory;

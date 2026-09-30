@@ -99,22 +99,44 @@ export function AboutScreen(): JSX.Element {
               { label: 'Electron', value: system.data?.electronVersion ?? '—' },
               { label: 'Chromium', value: system.data?.chromeVersion ?? '—' },
               { label: 'Node', value: system.data?.nodeVersion ?? '—' },
-              { label: 'Data folder', value: <span className="mono small">{system.data?.userDataPath ?? bootstrap.data?.dataDir ?? '—'}</span> },
+              {
+                label: 'Data folder',
+                value: <span className="mono small">{system.data?.userDataPath ?? bootstrap.data?.dataDir ?? '—'}</span>,
+              },
               { label: 'Licence', value: 'Proprietary — see LICENSE in the installation folder' },
             ]}
           />
         </div>
       </Card>
 
-      <Card title="This installation" actions={<Button size="sm" onClick={() => { system.reload(); health.reload(); }}>Refresh</Button>}>
+      <Card
+        title="This installation"
+        actions={
+          <Button
+            size="sm"
+            onClick={() => {
+              system.reload();
+              health.reload();
+            }}
+          >
+            Refresh
+          </Button>
+        }
+      >
         {health.loading && !health.data ? (
           <Spinner />
         ) : (
           <div className="grid-2">
             <DefinitionList
               items={[
-                { label: 'Database', value: health.data?.databaseOk ? <Badge tone="success">Open</Badge> : <Badge tone="danger">Unavailable</Badge> },
-                { label: 'Integrity', value: health.data?.integrityOk ? <Badge tone="success">Checked</Badge> : <Badge tone="warning">Needs a check</Badge> },
+                {
+                  label: 'Database',
+                  value: health.data?.databaseOk ? <Badge tone="success">Open</Badge> : <Badge tone="danger">Unavailable</Badge>,
+                },
+                {
+                  label: 'Integrity',
+                  value: health.data?.integrityOk ? <Badge tone="success">Checked</Badge> : <Badge tone="warning">Needs a check</Badge>,
+                },
                 { label: 'Schema version', value: String(health.data?.schemaVersion ?? '—') },
                 { label: 'Database size', value: byteSize(health.data?.databaseSizeBytes) },
                 { label: 'Attachments', value: `${health.data?.attachmentCount ?? 0} file(s)` },
@@ -127,7 +149,10 @@ export function AboutScreen(): JSX.Element {
                 { label: 'Log folder', value: <span className="mono small">{health.data?.logDir ?? '—'}</span> },
                 { label: 'Attachment storage', value: <span className="mono small">{health.data?.attachmentsDir ?? '—'}</span> },
                 { label: 'Backups', value: <span className="mono small">{health.data?.backupsDir ?? '—'}</span> },
-                { label: 'Activated', value: bootstrap.data?.activation.activated ? fmtInstant(bootstrap.data.activation.activatedAt) : 'Not activated' },
+                {
+                  label: 'Activated',
+                  value: bootstrap.data?.activation.activated ? fmtInstant(bootstrap.data.activation.activatedAt) : 'Not activated',
+                },
                 { label: 'Machine bound', value: bootstrap.data?.activation.machineBound ? 'Yes' : 'No' },
               ]}
             />
@@ -138,9 +163,8 @@ export function AboutScreen(): JSX.Element {
       <Card title="Works without the internet">
         <div className="stack">
           <Banner tone="success" title="Fully offline">
-            {APP_NAME} never contacts a server. There is no cloud account, no telemetry, no online activation and no
-            artificial-intelligence service. Every record, image and report stays inside the folder above, on this
-            computer.
+            {APP_NAME} never contacts a server. There is no cloud account, no telemetry, no online activation and no artificial-intelligence
+            service. Every record, image and report stays inside the folder above, on this computer.
           </Banner>
           <div className="grid-3">
             <div className="row" style={{ gap: 10 }}>
@@ -162,8 +186,8 @@ export function AboutScreen(): JSX.Element {
               <div>
                 <div>Local activation</div>
                 <div className="small muted">
-                  The activation code is checked on this machine. It proves nothing cryptographically — it is a
-                  good-faith licence check, and the records are protected by your own accounts and passwords.
+                  The activation code is checked on this machine. It proves nothing cryptographically — it is a good-faith licence check,
+                  and the records are protected by your own accounts and passwords.
                 </div>
               </div>
             </div>
@@ -172,9 +196,7 @@ export function AboutScreen(): JSX.Element {
             <Ban size={18} />
             <div>
               <div>No hidden dependencies</div>
-              <div className="small muted">
-                Only free and open-source libraries are used; every one is listed below with its licence.
-              </div>
+              <div className="small muted">Only free and open-source libraries are used; every one is listed below with its licence.</div>
             </div>
           </div>
         </div>
@@ -182,7 +204,10 @@ export function AboutScreen(): JSX.Element {
 
       <Card
         title="Third-party notices"
-        subtitle={`${THIRD_PARTY_NOTICES.length} packages · generated ${fmtInstant(LICENSES_GENERATED_AT)} · digest ${LICENSES_DIGEST.slice(0, 16)}…`}
+        subtitle={`${THIRD_PARTY_NOTICES.length} packages · generated ${fmtInstant(LICENSES_GENERATED_AT)} · digest ${LICENSES_DIGEST.slice(
+          0,
+          16,
+        )}…`}
         actions={
           <div className="row" style={{ gap: 8 }}>
             <Segmented
@@ -232,8 +257,8 @@ export function AboutScreen(): JSX.Element {
       <Card title="Keeping this copy up to date">
         <div className="stack">
           <p className="small muted" style={{ margin: 0 }}>
-            Dentiva Pro is installed manually and updated by running a newer installer. An update never touches the
-            data folder: patients, images, invoices, backups and settings stay exactly where they are.
+            Dentiva Pro is installed manually and updated by running a newer installer. An update never touches the data folder: patients,
+            images, invoices, backups and settings stay exactly where they are.
           </p>
           <div className="row" style={{ gap: 10 }}>
             <Cpu size={18} />
@@ -243,9 +268,7 @@ export function AboutScreen(): JSX.Element {
           </div>
           <div className="row" style={{ gap: 10 }}>
             <HardDrive size={18} />
-            <span className="small">
-              Before updating, create a backup from Backup &amp; data and copy it to another drive.
-            </span>
+            <span className="small">Before updating, create a backup from Backup &amp; data and copy it to another drive.</span>
           </div>
         </div>
       </Card>
@@ -253,9 +276,8 @@ export function AboutScreen(): JSX.Element {
       <Card title="Support">
         <div className="stack">
           <p style={{ margin: 0 }}>
-            Write to <span className="mono">{APP_AUTHOR_EMAIL}</span> and include the version above, what you were
-            doing, and any message shown on screen. The technical log can be opened from Backup &amp; data → Data &amp;
-            maintenance.
+            Write to <span className="mono">{APP_AUTHOR_EMAIL}</span> and include the version above, what you were doing, and any message
+            shown on screen. The technical log can be opened from Backup &amp; data → Data &amp; maintenance.
           </p>
           <Field label="Author">
             <span>
@@ -263,8 +285,8 @@ export function AboutScreen(): JSX.Element {
             </span>
           </Field>
           <Banner tone="info" title="Your data is yours">
-            Because everything is local, support can only help with the application itself. Keep your own backups — the
-            application will never send your records anywhere, not even for troubleshooting.
+            Because everything is local, support can only help with the application itself. Keep your own backups — the application will
+            never send your records anywhere, not even for troubleshooting.
           </Banner>
         </div>
       </Card>

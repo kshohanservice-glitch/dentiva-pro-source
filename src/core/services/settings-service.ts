@@ -75,7 +75,7 @@ export class SettingsService {
       appointmentSlotMinutes: Math.min(Math.max(settings.appointmentSlotMinutes || 30, 5), 240),
       expiryWarningDays: Math.min(Math.max(settings.expiryWarningDays || 60, 1), 365),
       lowStockWarningFactor: Math.min(Math.max(settings.lowStockWarningFactor || 1, 0.1), 10),
-    } as AppSettings;
+    };
   }
 
   /**
@@ -94,7 +94,7 @@ export class SettingsService {
       entityLabel: 'Application settings',
       detail: keys.length > 0 ? `Updated: ${keys.join(', ')}` : 'Application settings saved',
       severity: 'warning',
-      after: patch as Record<string, unknown>,
+      after: patch,
     });
     return settings;
   }
@@ -104,7 +104,7 @@ export class SettingsService {
       `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
        ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
     );
-    const now = (this.ctx()?.instant() ?? nowInstant());
+    const now = this.ctx()?.instant() ?? nowInstant();
     const apply = this.db.transaction((entries: Array<[string, unknown]>) => {
       for (const [key, value] of entries) {
         if (!(key in DEFAULT_APP_SETTINGS)) continue;
@@ -135,10 +135,11 @@ export class SettingsService {
         }
       | undefined;
     if (!row) {
-      const now = (this.ctx()?.instant() ?? nowInstant());
+      const now = this.ctx()?.instant() ?? nowInstant();
       this.db
         .prepare(
-          `INSERT INTO clinic (id, name, logo_path, address, phone, email, website, clinic_message, visiting_hours, registration_number, created_at, updated_at)
+          `INSERT INTO clinic (id, name, logo_path, address, phone, email, website,` +
+            ` clinic_message, visiting_hours, registration_number, created_at, updated_at)
            VALUES (1, '', NULL, '', '', '', '', ?, '', '', ?, ?)`,
         )
         .run(CLINIC_DEFAULT_MESSAGE, now, now);
@@ -208,7 +209,7 @@ export class SettingsService {
       clinicMessage: input.clinicMessage,
       visitingHours: input.visitingHours,
       registrationNumber: input.registrationNumber,
-      updatedAt: (this.ctx()?.instant() ?? nowInstant()),
+      updatedAt: this.ctx()?.instant() ?? nowInstant(),
     };
     if (input.logoPath !== undefined) {
       fields.push('logo_path = @logoPath');
@@ -300,7 +301,7 @@ export class SettingsService {
            preferences_complete = 1, administrator_complete = 1, review_complete = 1
          WHERE id = 1`,
       )
-      .run((this.ctx()?.instant() ?? nowInstant()));
+      .run(this.ctx()?.instant() ?? nowInstant());
     return this.getSetupState();
   }
 

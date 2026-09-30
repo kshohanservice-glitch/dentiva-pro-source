@@ -13,18 +13,7 @@ import type { DashboardCard } from '@shared/types';
 import { useAction, useApi } from '@renderer/state/store';
 import { bridge } from '@renderer/lib/bridge';
 import { fmtDate, fmtInstant, fmtMoney, fmtTime } from '@renderer/lib/format';
-import {
-  Badge,
-  Banner,
-  Button,
-  Card,
-  Empty,
-  ErrorState,
-  LoadingBlock,
-  Page,
-  Stat,
-  StatusBadge,
-} from '@renderer/components/ui';
+import { Badge, Banner, Button, Card, Empty, ErrorState, LoadingBlock, Page, Stat, StatusBadge } from '@renderer/components/ui';
 
 export function DashboardScreen(): JSX.Element {
   const navigate = useNavigate();
@@ -63,7 +52,12 @@ export function DashboardScreen(): JSX.Element {
       </Page>
     );
   }
-  if (!data) return <Page title="Dashboard"><LoadingBlock /></Page>;
+  if (!data)
+    return (
+      <Page title="Dashboard">
+        <LoadingBlock />
+      </Page>
+    );
 
   const trendTotal = data.paymentTrend.reduce((sum, point) => sum + point.amountPaisa, 0);
   const trendPeak = Math.max(1, ...data.paymentTrend.map((point) => point.amountPaisa));
@@ -77,11 +71,7 @@ export function DashboardScreen(): JSX.Element {
           <Button icon={<RefreshCw size={15} />} onClick={() => dashboard.reload()} loading={dashboard.loading}>
             Refresh
           </Button>
-          <Button
-            variant="primary"
-            icon={<Users size={15} />}
-            onClick={() => navigate(resolveScreenPath('patients'))}
-          >
+          <Button variant="primary" icon={<Users size={15} />} onClick={() => navigate(resolveScreenPath('patients'))}>
             Patients
           </Button>
         </>
@@ -186,9 +176,7 @@ export function DashboardScreen(): JSX.Element {
                     <span>{entry.patientName}</span>
                   </div>
                   <div className="row" style={{ gap: 8 }}>
-                    {entry.waitingMinutes !== null ? (
-                      <span className="small muted">{entry.waitingMinutes} min</span>
-                    ) : null}
+                    {entry.waitingMinutes !== null ? <span className="small muted">{entry.waitingMinutes} min</span> : null}
                     <StatusBadge status={entry.status} />
                   </div>
                 </div>
@@ -228,7 +216,11 @@ export function DashboardScreen(): JSX.Element {
 
         <Card
           title="Inventory alerts"
-          subtitle={`${data.inventoryAlerts.lowStock} low · ${data.inventoryAlerts.expiringSoon} expiring · ${data.inventoryAlerts.expired} expired`}
+          subtitle={[
+            `${data.inventoryAlerts.lowStock} low`,
+            `${data.inventoryAlerts.expiringSoon} expiring`,
+            `${data.inventoryAlerts.expired} expired`,
+          ].join(' · ')}
           actions={
             <Button size="sm" onClick={() => navigate(resolveScreenPath('inventory'))}>
               Open inventory

@@ -6,23 +6,11 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  AlertTriangle,
-  CalendarPlus,
-  FileText,
-  History,
-  Paperclip,
-  Phone,
-  Pill,
-  Receipt,
-  Stethoscope,
-  Trash2,
-  Upload,
-} from 'lucide-react';
+import { AlertTriangle, CalendarPlus, FileText, History, Paperclip, Phone, Pill, Receipt, Stethoscope, Trash2, Upload } from 'lucide-react';
 import { resolveScreenPath } from '@shared/api';
 import { ATTACHMENT_CATEGORIES, GENDER_LABELS, PATIENT_STATUS_LABELS } from '@shared/constants';
 import type { AttachmentCategory } from '@shared/constants';
-import type { Attachment, InvoiceSummary, PatientDetail, PrescriptionSummary, Referral, TreatmentPlan, VisitSummary } from '@shared/types';
+import type { Attachment, InvoiceSummary, PatientDetail, PrescriptionSummary, VisitSummary } from '@shared/types';
 import { useAction, useApi, useApp } from '@renderer/state/store';
 import { bridge, resolveSourcePath } from '@renderer/lib/bridge';
 import { fmtDate, fmtDateTime, fmtMoney } from '@renderer/lib/format';
@@ -41,7 +29,6 @@ import {
   Select,
   StatusBadge,
   Tabs,
-  TextArea,
   Timeline,
 } from '@renderer/components/ui';
 import { DataTable } from '@renderer/components/forms';
@@ -102,7 +89,12 @@ export function PatientDetailScreen(): JSX.Element {
       </Page>
     );
   }
-  if (!detail) return <Page title="Patient"><LoadingBlock /></Page>;
+  if (!detail)
+    return (
+      <Page title="Patient">
+        <LoadingBlock />
+      </Page>
+    );
 
   return (
     <Page
@@ -127,7 +119,11 @@ export function PatientDetailScreen(): JSX.Element {
           <Button icon={<CalendarPlus size={15} />} onClick={() => navigate(`${resolveScreenPath('appointments')}?patient=${detail.id}`)}>
             Book
           </Button>
-          <Button variant="primary" icon={<Stethoscope size={15} />} onClick={() => navigate(`${resolveScreenPath('visits')}?patient=${detail.id}`)}>
+          <Button
+            variant="primary"
+            icon={<Stethoscope size={15} />}
+            onClick={() => navigate(`${resolveScreenPath('visits')}?patient=${detail.id}`)}
+          >
             New visit
           </Button>
           <Button variant="ghost" onClick={() => setEditing(true)}>
@@ -170,13 +166,24 @@ export function PatientDetailScreen(): JSX.Element {
       {tab === 'files' ? <FilesTab patientId={detail.id} canManage={can('patient.attachment.manage')} /> : null}
       {tab === 'referrals' ? <ReferralsTab patientId={detail.id} /> : null}
 
-      <PatientForm open={editing} patientId={detail.id} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); patient.reload(); }} />
+      <PatientForm
+        open={editing}
+        patientId={detail.id}
+        onClose={() => setEditing(false)}
+        onSaved={() => {
+          setEditing(false);
+          patient.reload();
+        }}
+      />
 
       <Modal
         open={deleteOpen}
         width="narrow"
         title="Delete this patient"
-        description="Patients with clinical or financial history are archived, never destroyed. Existing visits, prescriptions and invoices stay readable."
+        description={
+          'Patients with clinical or financial history are archived, never destroyed. ' +
+          'Existing visits, prescriptions and invoices stay readable.'
+        }
         onClose={() => setDeleteOpen(false)}
         footer={
           <div className="row row--end">
@@ -208,8 +215,7 @@ export function PatientDetailScreen(): JSX.Element {
         }
       >
         <div className="small muted">
-          Future appointments and open queue entries for this patient will be cancelled. The action is recorded in the
-          audit log.
+          Future appointments and open queue entries for this patient will be cancelled. The action is recorded in the audit log.
         </div>
       </Modal>
     </Page>
@@ -327,7 +333,9 @@ function TimelineTab({ patientId }: { patientId: number }): JSX.Element {
   if (timeline.error) return <ErrorState message={timeline.error} onRetry={timeline.reload} />;
   const events = timeline.data ?? [];
   if (events.length === 0) {
-    return <Empty title="Nothing recorded yet" text="Visits, prescriptions, invoices and payments appear here." icon={<History size={24} />} />;
+    return (
+      <Empty title="Nothing recorded yet" text="Visits, prescriptions, invoices and payments appear here." icon={<History size={24} />} />
+    );
   }
   return (
     <Card title="Clinical timeline" subtitle={`${events.length} event(s)`}>
@@ -432,7 +440,13 @@ function PrescriptionsTab({ patientId }: { patientId: number }): JSX.Element {
           date: fmtDate(prescription.date),
           diagnosis: prescription.diagnosis || '—',
           items: String(prescription.itemCount),
-          status: prescription.isVoid ? <Badge tone="danger">Void</Badge> : prescription.printedAt ? <Badge tone="success">Printed</Badge> : <Badge>Draft</Badge>,
+          status: prescription.isVoid ? (
+            <Badge tone="danger">Void</Badge>
+          ) : prescription.printedAt ? (
+            <Badge tone="success">Printed</Badge>
+          ) : (
+            <Badge>Draft</Badge>
+          ),
           actions: (
             <Button
               size="sm"
@@ -467,10 +481,16 @@ function PrescriptionsTab({ patientId }: { patientId: number }): JSX.Element {
 
 function PlansTab({ patientId }: { patientId: number }): JSX.Element {
   const plans = useApi('treatmentPlans.list', { patientId, pageSize: 50 });
-  const items = (plans.data?.items ?? []) as unknown as TreatmentPlan[];
+  const items = plans.data?.items ?? [];
   if (plans.loading && !plans.data) return <LoadingBlock rows={5} />;
   if (items.length === 0) {
-    return <Empty title="No treatment plans" text="Long treatments are tracked as plans with sessions and items." icon={<Stethoscope size={24} />} />;
+    return (
+      <Empty
+        title="No treatment plans"
+        text="Long treatments are tracked as plans with sessions and items."
+        icon={<Stethoscope size={24} />}
+      />
+    );
   }
   return (
     <div className="stack">
@@ -510,7 +530,11 @@ function BillingTab({ patientId, canSeeMoney }: { patientId: number; canSeeMoney
   const invoices = useApi('invoices.byPatient', canSeeMoney ? { patientId, limit: 100 } : null);
   const payments = useApi('payments.byPatient', canSeeMoney ? { patientId, limit: 100 } : null);
   if (!canSeeMoney) {
-    return <Banner tone="info" title="Billing is restricted">Your role does not include permission to view invoices and payments.</Banner>;
+    return (
+      <Banner tone="info" title="Billing is restricted">
+        Your role does not include permission to view invoices and payments.
+      </Banner>
+    );
   }
   const invoiceItems = invoices.data ?? [];
   const paymentItems = payments.data ?? [];
@@ -660,11 +684,7 @@ function FilesTab({ patientId, canManage }: { patientId: number; canManage: bool
           uploaded: `${fmtDateTime(attachment.createdAt)} · ${attachment.uploadedByName}`,
           actions: (
             <div className="row" style={{ gap: 6 }}>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => void run(() => bridge.invoke('attachments.open', { id: attachment.id }))}
-              >
+              <Button size="sm" variant="ghost" onClick={() => void run(() => bridge.invoke('attachments.open', { id: attachment.id }))}>
                 Open
               </Button>
               <Button
@@ -726,11 +746,7 @@ function ReferralsTab({ patientId }: { patientId: number }): JSX.Element {
 
 export function PatientSummaryChips({ patient }: { patient: PatientDetail }): JSX.Element {
   const chips = useMemo(
-    () => [
-      patient.ageText,
-      GENDER_LABELS[patient.gender],
-      patient.bloodGroup === 'unknown' ? '' : patient.bloodGroup,
-    ].filter(Boolean),
+    () => [patient.ageText, GENDER_LABELS[patient.gender], patient.bloodGroup === 'unknown' ? '' : patient.bloodGroup].filter(Boolean),
     [patient],
   );
   return (
