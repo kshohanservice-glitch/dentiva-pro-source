@@ -303,15 +303,28 @@ try {
         throw 'The uninstaller did not finish within three minutes; it may be waiting for a dialog that a silent uninstall must not show.'
     }
 
-    # The uninstaller copies itself to a temporary folder and works from there, so the
-    # files may linger for a few seconds after the process above has exited.
-    $deadline = (Get-Date).AddSeconds(120)
-    while ((Test-Path $appExe) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 3 }
+    # The uninstaller copies itself into a temporary folder and does the real work from
+    # there, so the process above can exit while the files, the shortcuts and the
+    # registry entry are still disappearing. Waiting for the result — not for the
+    # process — is what a person sees after an uninstall, and it is the only way to
+    # check it without failing for being faster than the uninstaller. (This assertion
+    # did fail exactly once that way, with everything else already gone.)
+    $deadline = (Get-Date).AddSeconds(180)
+    while ((Get-Date) -lt $deadline) {
+        $remaining = (Test-Path $appExe) -or (Test-Path $uninstaller) -or `
+            (Test-Path $startMenuShortcut) -or (Test-Path $desktopShortcut) -or `
+            ($null -ne (Get-UninstallEntry))
+        if (-not $remaining) { break }
+        Start-Sleep -Seconds 3
+    }
+
     Assert-Truthy (-not (Test-Path $appExe)) 'the uninstaller removed the application executable'
     Assert-Truthy (-not (Test-Path $uninstaller)) 'the uninstaller removed its own files'
+    Assert-Truthy (-not (Test-Path $startMenuShortcut)) 'the Start Menu shortcut was removed'
+    Assert-Truthy (-not (Test-Path $desktopShortcut)) 'the desktop shortcut was removed'
+    Assert-Truthy ($null -eq (Get-UninstallEntry)) 'the uninstall entry was removed'
     Assert-Truthy (Test-Path $marker) 'the clinic data folder survived the uninstall'
     Assert-Truthy (Test-Path $database) 'the clinic database survived the uninstall'
-    Assert-Truthy ($null -eq (Get-UninstallEntry)) 'the uninstall entry was removed'
     Write-Evidence "data after uninstall: $((Get-ChildItem $defaultDataDir -Recurse -File | Measure-Object).Count) files kept in $defaultDataDir"
 
     # -----------------------------------------------------------------------

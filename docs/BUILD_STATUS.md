@@ -178,6 +178,12 @@ complete application workflow over the real IPC surface.
   "Previous attempt" panel exists to show. Fixed with `runOk()` and a status reload; the
   interface suite drives the screen itself now, and the packaged suite drives the real
   application.
+- **The check could outrun the uninstaller.** electron-builder's uninstaller copies
+  itself into a temporary folder and works from there, so the process the check waits
+  for exits while the shortcuts and the registry entry are still being removed. One run
+  failed on "the uninstall entry was removed" with everything else already gone — a
+  flake in the check, not in the product, but an unwelcome one on a release gate. The
+  check now waits for the outcome (files, shortcuts and entry all gone), then asserts.
 - **A silent uninstall waited for a click that never comes.** NSIS shows a
   `MessageBox` even in silent mode, so the message telling a person their clinic
   data had been kept stopped the uninstaller dead on the CI machine — long enough
