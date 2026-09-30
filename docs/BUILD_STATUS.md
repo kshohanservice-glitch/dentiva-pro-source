@@ -216,12 +216,14 @@ complete application workflow over the real IPC surface.
 | 14  | `4308c79` | **passed**     | failed                      | `Start-Process -Wait` makes the installed self-check run at last — healthy on the default and the relocated data folder, exit 1 on a broken one — and then the check's own assertion helper threw on a string                     |
 | 15  | `16cd816` | **passed**     | cancelled (hung)            | the assertion helper is fixed and the check reached the uninstall — where the "your data was kept" dialog waited for a click on an unattended machine; the next push cancelled it through the workflow's own concurrency rule     |
 | 16  | `7b81c15` | **passed**     | **passed**                  | **every gate green**: install, shortcuts, uninstall entry, licence bundle, self-check healthy on the default and relocated folders and exit 1 on a broken one, uninstall removing the application while keeping the clinic's data |
-| 17  | `ec36938` | **passed**     | **passed**                  | the final commit of the branch: identical evidence to run 16, with the pull-request run on the same commit also green                                                                                                             |
+| 17  | `ec36938` | **passed**     | failed (pull request)       | the pull-request run failed on "the uninstall entry was removed" while every other post-uninstall assertion had passed — the check could outrun the uninstaller's temporary copy                                                  |
+| 18  | `55d27f3` | **passed**     | **passed**                  | both the push and the pull-request run green with the same evidence as run 16; the two artifacts and `latest.yml` uploaded as `dentiva-pro-windows`                                                                               |
+| 19  | `115320a` | **passed**     | **passed**                  | the flake is fixed: the check waits for the uninstaller to finish, then asserts the executable, the uninstaller, **both shortcuts** and the registry entry are gone and the clinic's data is kept                                 |
 
 Run 6 built `DentivaPro-1.0.0-Windows-x64-Setup.exe` (106.98 MB) and
-`DentivaPro-1.0.0-Windows-x64-Portable.exe` (106.59 MB); run 17
-(`https://github.com/kshohanservice-glitch/dentiva-pro-source/actions/runs/36717846647`,
-commit `ec36938`) passed every gate on both jobs and uploaded the two artifacts,
+`DentivaPro-1.0.0-Windows-x64-Portable.exe` (106.59 MB); run 19
+(`https://github.com/kshohanservice-glitch/dentiva-pro-source/actions/runs/36720456407`,
+commit `115320a`) passed every gate on both jobs and uploaded the two artifacts,
 `latest.yml` and the evidence files as `dentiva-pro-windows` (223.98 MB). Any
 documentation-only commit after it re-runs the same pipeline — the workflow cannot
 tell a comment from code — so the Actions tab on the branch is the live answer, and
@@ -234,23 +236,26 @@ output).
 
 ## Resume point (next work session starts here)
 
-**Run 16 (commit `7b81c15`, run `36716332055`) is green on both jobs.** Every release
-gate that can be checked by machine has now passed, and the evidence is quoted in
-`docs/TEST-REPORT.md`. What remains is the part only a person can do:
+**Every machine-checkable gate passes on commit `115320a`.** Run 19
+(`36720456407` push, `36720461576` pull request) is green on both jobs, and its
+evidence is quoted in `docs/TEST-REPORT.md`. `docs/RELEASE-CHECKLIST.md` sections 1
+and 2 are complete; what remains is section 3, which is human on purpose:
 
-1. Wait for the pipeline on the final documentation commit to go green (both the `push`
-   and the `pull_request` run) and check that the evidence annotation still matches the
-   table in `docs/TEST-REPORT.md`.
-2. **`docs/RELEASE-CHECKLIST.md` sections 1 and 2 are complete on commit `06fa577`; the
-   remaining gates are the human ones (section 3).** Pull request **#1** is open —
-   https://github.com/kshohanservice-glitch/dentiva-pro-source/pull/1 — `main` is
-   mergeable and the owner reviews and merges it. The agent must never merge.
-3. After the merge: tag `v1.0.0`, attach the two Windows artifacts from the green run and
-   follow `docs/RELEASE-CHECKLIST.md` section 4. The `.exe` is deliberately never built or
-   published before those gates pass.
-4. If the sandbox loses its repository token again, `git fetch origin <branch>` restores
-   the history — the working tree survives a sandbox restart even when `.git` does not,
-   and the branch pointer in the snapshot may lag behind the remote.
+1. Review pull request **#1** — https://github.com/kshohanservice-glitch/dentiva-pro-source/pull/1
+   (`arena/01a0f0ee-dentiva-pro-source` → `main`, `MERGEABLE`, `CLEAN`). The agent
+   never merges it.
+2. After the merge: tag `v1.0.0` on the merged commit, attach
+   `DentivaPro-1.0.0-Windows-x64-Setup.exe`, `DentivaPro-1.0.0-Windows-x64-Portable.exe`
+   and `latest.yml` from run 19, and write the release notes as
+   `docs/RELEASE-CHECKLIST.md` section 4 requires (including the SHA-256 checksums
+   from `release/*.yml` and the honest activation caveat).
+3. Gates 22 and 23 stay with the owner: install the released `.exe` on a real clinic
+   PC, activate, complete the wizard, print one prescription and one invoice, take a
+   backup — then publish.
+4. If a commit is added later, the pipeline re-runs everything on it; the Actions tab
+   on the branch is the live answer and the table above is the history. If the sandbox
+   loses its repository token or its `.git`, `git fetch origin <branch>` restores the
+   history, and `git branch --set-upstream-to` restores the tracking.
 
 ## Known follow-ups
 
