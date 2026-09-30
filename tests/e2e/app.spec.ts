@@ -11,13 +11,25 @@
  * pipeline uses against the installed copy.
  */
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { fileURLToPath } from 'node:url';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
-const root = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
+/**
+ * Playwright loads this file as CommonJS, so `import.meta` is not available — with
+ * it the whole suite fails to load ("Cannot use 'import.meta' outside a module")
+ * and reports "No tests found", which is worse than any assertion failure. The
+ * suite is run from the repository root by `npm run test:e2e:electron`, and the
+ * manifest check below turns a wrong working directory into a loud failure
+ * instead of a silently skipped suite.
+ */
+const root = process.cwd();
+const manifest = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')) as { name?: string };
+if (manifest.name !== 'dentiva-pro') {
+  throw new Error(`The packaged-application suite must run from the repository root; it was started in ${root}.`);
+}
+
 const mainEntry = path.join(root, 'dist', 'main', 'index.cjs');
 const LICENSE_CODE = '1516591935015165';
 const OWNER_PASSWORD = 'Ayesha-Clinic-2026';
@@ -87,6 +99,10 @@ async function signIn(window: Page, username: string, password: string): Promise
 }
 
 const binary = electronBinary();
+if (process.env.CI && binary === null) {
+  // Skipping in CI would report a green suite that never opened the application.
+  throw new Error('The Electron binary is not installed, so the packaged application cannot be tested.');
+}
 test.skip(binary === null, 'The Electron binary is not installed; run npm install without --ignore-scripts.');
 test.skip(!existsSync(mainEntry), 'The application has not been built; run npm run build first.');
 
