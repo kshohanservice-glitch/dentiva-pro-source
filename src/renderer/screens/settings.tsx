@@ -168,7 +168,7 @@ function ClinicPanel(): JSX.Element {
 }
 
 function SettingsForm({ settings, onSaved }: { settings: AppSettings | null; onSaved(): void }): JSX.Element {
-  const { run, busy } = useAction();
+  const { runOk, busy } = useAction();
   const [patch, setPatch] = useState<Partial<AppSettings>>({});
 
   useEffect(() => {
@@ -181,11 +181,11 @@ function SettingsForm({ settings, onSaved }: { settings: AppSettings | null; onS
   const dirty = Object.keys(patch).length > 0;
 
   const save = async () => {
-    const saved = await run(() => bridge.invoke('settings.update', { patch }), {
+    const saved = await runOk(() => bridge.invoke('settings.update', { patch }), {
       success: 'Settings saved.',
       failure: 'Some settings could not be saved.',
     });
-    if (saved !== undefined) {
+    if (saved) {
       setPatch({});
       onSaved();
     }

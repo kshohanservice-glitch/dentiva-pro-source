@@ -91,6 +91,7 @@ function InvoiceEditor({
   const [form, setForm] = useState<InvoiceInput>(emptyInvoice());
   const existing = useApi('invoices.get', invoiceId ? { id: invoiceId } : null);
   const prefill = useApi('patients.quickSearch', defaultPatientId ? { query: String(defaultPatientId), limit: 5 } : null);
+  const editPatient = useApi('patients.quickSearch', existing.data ? { query: existing.data.patientCode, limit: 5 } : null);
   const treatments = useApi('resource.list', { resource: 'treatments', query: { pageSize: 300 } });
   const options = (treatments.data?.items ?? []) as unknown as Treatment[];
 
@@ -103,16 +104,21 @@ function InvoiceEditor({
   }, [defaultPatientId, prefill.data, invoiceId]);
 
   useEffect(() => {
+    const match = editPatient.data?.find((candidate) => candidate.id === existing.data?.patientId);
+    if (match) setPatient(match);
+  }, [editPatient.data, existing.data]);
+
+  useEffect(() => {
     const detail = existing.data;
     if (!detail) return;
     setForm({
       patientId: detail.patientId,
-      visitId: null,
+      visitId: detail.visitId,
       dentistId: detail.dentistId,
       date: detail.date,
       notes: detail.notes,
-      discountType: 'none',
-      discountValue: 0,
+      discountType: detail.invoiceDiscountType,
+      discountValue: detail.invoiceDiscountValue,
       items: detail.items.map((item, index) => ({
         id: item.id,
         treatmentId: item.treatmentId,
@@ -160,6 +166,10 @@ function InvoiceEditor({
     };
     if (input.items.length === 0) {
       toast('warning', 'Add at least one line');
+      return;
+    }
+    if (input.items.some((item) => !Number.isInteger(item.quantity) || item.quantity <= 0)) {
+      toast('warning', 'Every line needs a whole-number quantity greater than zero.');
       return;
     }
     const saved = await run(
@@ -297,10 +307,10 @@ function InvoiceEditor({
                       <Input
                         className="input--numeric"
                         inputMode="numeric"
-                        value={String(item.quantity)}
+                        value={item.quantity === 0 ? '' : String(item.quantity)}
                         onChange={(event) => {
                           const items = [...form.items];
-                          items[index] = { ...item, quantity: Math.max(1, Number(event.target.value) || 1) };
+                          items[index] = { ...item, quantity: event.target.value === '' ? 0 : Number(event.target.value) };
                           setForm((current) => ({ ...current, items }));
                         }}
                       />
@@ -484,10 +494,12 @@ function InvoiceDrawer({
   invoiceId,
   onClose,
   onChanged,
+  onEdit,
 }: {
   invoiceId: number | null;
   onClose(): void;
   onChanged(): void;
+  onEdit(id: number): void;
 }): JSX.Element | null {
   const { confirm } = useApp();
   const { run } = useAction();
@@ -555,6 +567,11 @@ function InvoiceDrawer({
             <Button variant="ghost" icon={<Printer size={15} />} onClick={() => void print('print')}>
               Print
             </Button>
+            {detail.status !== 'void' ? (
+              <Button variant="ghost" onClick={() => onEdit(detail.id)}>
+                Edit
+              </Button>
+            ) : null}
             {detail.status !== 'void' && detail.duePaisa > 0 ? (
               <Button variant="primary" icon={<Receipt size={15} />} onClick={() => setPayOpen(true)}>
                 Take payment
@@ -670,6 +687,7 @@ export function InvoicesScreen(): JSX.Element {
   const [outstandingOnly, setOutstandingOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(Boolean(defaultPatientId));
+  const [editing, setEditing] = useState<number | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
 
   const list = useApi(
@@ -813,7 +831,26 @@ export function InvoicesScreen(): JSX.Element {
           setSelected(id);
         }}
       />
-      <InvoiceDrawer invoiceId={selected} onClose={() => setSelected(null)} onChanged={() => list.reload()} />
+      <InvoiceEditor
+        open={editing !== null}
+        invoiceId={editing}
+        defaultPatientId={null}
+        onClose={() => setEditing(null)}
+        onSaved={(id) => {
+          setEditing(null);
+          list.reload();
+          setSelected(id);
+        }}
+      />
+      <InvoiceDrawer
+        invoiceId={selected}
+        onClose={() => setSelected(null)}
+        onChanged={() => list.reload()}
+        onEdit={(id) => {
+          setSelected(null);
+          setEditing(id);
+        }}
+      />
     </Page>
   );
 }

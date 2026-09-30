@@ -208,6 +208,20 @@ try {
     Write-Evidence "installer: $($installer.Name) ($([math]::Round($installer.Length / 1MB, 2)) MB)"
     Write-Evidence "portable:  $($portable.Name) ($([math]::Round($portable.Length / 1MB, 2)) MB)"
 
+    # Hash the actual files produced by this checkout, on the same runner that
+    # uploads them. Never copy an older run's digest into release evidence.
+    $updateManifest = Join-Path $releaseDir 'latest.yml'
+    Assert-Truthy (Test-Path $updateManifest) 'the update manifest was produced'
+    $checksums = @($installer.FullName, $portable.FullName, $updateManifest) | ForEach-Object {
+        $digest = (Get-FileHash -Algorithm SHA256 -LiteralPath $_).Hash.ToLowerInvariant()
+        "$digest  $(Split-Path $_ -Leaf)"
+    }
+    $checksumFile = Join-Path $releaseDir 'CHECKSUMS-SHA256.txt'
+    [System.IO.File]::WriteAllText($checksumFile, (($checksums -join "`n") + "`n"), [System.Text.UTF8Encoding]::new($false))
+    Write-Evidence "SHA-256 from exact files in this build:"
+    foreach ($entry in $checksums) { Write-Evidence $entry }
+
+
     # -----------------------------------------------------------------------
     # 2. A clean machine: nothing installed, nothing configured
     # -----------------------------------------------------------------------
@@ -252,6 +266,51 @@ try {
     Assert-Truthy (Test-Path $licenceFiles) 'the licence bundle was generated for the packaged build'
     $packagedNotices = Join-Path $releaseDir 'win-unpacked\resources\THIRD-PARTY-NOTICES.txt'
     Assert-Truthy (Test-Path $packagedNotices) 'the third-party notices were copied into the packaged resources'
+
+    # Exercise the NORMAL GUI entry point. Self-check deliberately bypasses bootstrap
+    # and would not catch a premature session.defaultSession access.
+    Write-Log '--- 3a. Normal installed GUI startup (no self-check flags)'
+    Remove-Item Env:\DENTIVA_SELF_CHECK_FILE, Env:\DENTIVA_DATA_DIR -ErrorAction SilentlyContinue
+    $gui = Start-Process -FilePath $appExe -PassThru
+    try {
+        $deadline = (Get-Date).AddSeconds(90)
+        $windowReady = $false
+        while ((Get-Date) -lt $deadline) {
+            $gui.Refresh()
+            if ($gui.HasExited) { throw "Normal GUI exited before opening a window (exit $($gui.ExitCode))." }
+            if ($gui.MainWindowHandle -ne 0 -and $gui.MainWindowTitle -like '*Dentiva Pro*') {
+                $windowReady = $true
+                break
+            }
+            Start-Sleep -Seconds 2
+        }
+        Assert-Truthy $windowReady 'normal installed GUI opened a Dentiva Pro window within 90 seconds'
+        Start-Sleep -Seconds 5
+        $gui.Refresh()
+        Assert-Truthy (-not $gui.HasExited) 'normal GUI remains alive after first launch (no app-ready/session crash)'
+        Write-Evidence "normal GUI launch: window '$($gui.MainWindowTitle)', process alive after startup"
+    } finally {
+        if (-not $gui.HasExited) { Stop-Process -Id $gui.Id -Force -ErrorAction SilentlyContinue }
+        $gui.WaitForExit(10000) | Out-Null
+    }
+
+    # Drive activation → wizard → owner sign-in → dashboard → restart against
+    # the INSTALLED executable. This is automated GUI evidence, not an owner
+    # inspection or physical printer acceptance.
+    Write-Log '--- 3b. Installed GUI activation, setup, dashboard and restart'
+    $env:DENTIVA_INSTALLED_EXE = $appExe
+    try {
+        & (Join-Path $repoRoot 'node_modules\.bin\playwright.cmd') test --config tests/e2e/playwright.config.ts --grep 'activates, walks the setup wizard' *>&1 |
+            Tee-Object -FilePath (Join-Path $resultsDir 'windows-gui-workflow.log')
+        if ($LASTEXITCODE -ne 0) {
+            $guiTail = Get-Content (Join-Path $resultsDir 'windows-gui-workflow.log') -Tail 45 -ErrorAction SilentlyContinue
+            foreach ($line in $guiTail) { Write-Log "  gui: $line" }
+            throw "Installed GUI workflow failed (Playwright exit $LASTEXITCODE)."
+        }
+        Write-Evidence 'installed GUI: activation, full setup, dashboard, restart and sign-in passed'
+    } finally {
+        Remove-Item Env:\DENTIVA_INSTALLED_EXE -ErrorAction SilentlyContinue
+    }
 
     # -----------------------------------------------------------------------
     # 4. The installed application opens its own database

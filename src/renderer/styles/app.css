@@ -1044,7 +1044,23 @@ a:hover {
 .stat-grid {
   display: grid;
   gap: var(--space-4);
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.stat-grid[data-count='4'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.stat-grid[data-count='7'] {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 1250px) {
+  .stat-grid, .stat-grid[data-count='7'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 740px) {
+  .stat-grid, .stat-grid[data-count='4'], .stat-grid[data-count='7'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .stat {
   display: flex;
@@ -1942,4 +1958,36 @@ a:hover {
   body {
     background: #fff;
   }
+}
+
+/* Patient search stays anchored inside dialogs rather than below unrelated fields. */
+.patient-picker {
+  position: relative;
+  min-width: 0;
+}
+.patient-picker__results {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + 4px);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 120;
+}
+.patient-picker__results > [role='status'],
+.patient-picker__results > [role='alert'] {
+  padding: var(--space-3);
+}
+.patient-picker__active,
+.patient-picker__results .menu__item:focus-visible {
+  background: var(--surface-3);
+  outline: 2px solid var(--accent);
+}
+.patient-picker__clear {
+  position: absolute;
+  inset-inline-end: 8px;
+  top: 6px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
 }

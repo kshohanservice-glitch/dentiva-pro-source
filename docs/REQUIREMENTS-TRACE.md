@@ -64,3 +64,25 @@ Every product requirement, where it lives in the code, and what proves it works.
   both of which have to _type_ it — and in the test fixtures that prove the
   screen accepts the right code and refuses the wrong one. The application
   itself, its bundle, and every shipped file carry the digest only.
+
+## Post-merge release-blocker trace
+
+Installed Windows normal GUI startup must not access Electron session before
+`app.whenReady()`. The packaged CSP is registered before window creation;
+`tools/ci/windows-check.ps1` launches the installed GUI without `--self-check`
+and verifies its window and continued process life. Self-check remains a separate
+path and cannot establish normal startup readiness. Release gate: pending Windows
+CI and real-machine retest (see `RELEASE-AUDIT-v1.0.0.md`).
+
+## Expanded owner-request coverage
+
+`MASTER-AUDIT-MATRIX.md` tracks the requested feature areas, the implementation,
+services/data/permissions, existing tests and outstanding manual verification.
+The shared patient-picker regression covers keyboard and mouse selection in an
+invoice modal; it does not prove every patient-linked form on Windows.
+
+The new `WINDOWS-ACCEPTANCE-LEDGER.md` enumerates the 44 owner-requested
+real-user steps and 25 Windows display combinations. All are NOT TESTABLE from
+the current Linux workspace; CI evidence is separately identified, not conflated
+with real-user verification. Source audit repairs: settings save failure,
+invoice editor reachability/discount/patient ID, and dashboard grid layout.

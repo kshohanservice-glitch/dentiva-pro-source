@@ -253,8 +253,10 @@ jobs:
             release/*Setup.exe
             release/*Portable.exe
             release/*.yml
+            release/CHECKSUMS-SHA256.txt
             test-results/windows-install-evidence.txt
             test-results/windows-check.log
             test-results/windows-check-transcript.txt
             test-results/windows-build.log
+            test-results/windows-gui-workflow.log
           if-no-files-found: warn

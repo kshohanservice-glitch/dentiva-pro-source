@@ -1,0 +1,53 @@
+# v1.0.0 release audit — BLOCKED
+
+The installed Windows GUI crashed before readiness on the merged main build. The
+old draft/tag and the 4bb2172 artifacts MUST NOT be published. The main process
+called `session.defaultSession` synchronously from `bootstrap()` before Electron
+had become ready. The self-check bypassed `bootstrap()`, hiding the failure.
+
+This branch registers the webview guard before readiness and installs the same
+packaged response-header CSP inside `app.whenReady()`, before restore, container,
+IPC registration or window creation. The Windows clean-machine script now launches
+the installed EXE without flags, waits for a Dentiva Pro window and checks that
+the process remains alive. This is a regression gate, not a substitute for an
+owner's real-machine acceptance test of activation, wizard and dashboard.
+
+Release remains blocked until the new commit passes both CI jobs and a new
+installer and portable build from that commit pass real Windows GUI acceptance.
+Record the downloaded artifact's SHA-256 using `node tools/release-checksums.mjs`.
+Do not reuse historical artifact checksums.
+
+## Subsequent audit pass — still blocked
+
+The shared patient picker had no arrow/Enter/Escape selection or accessible
+combobox semantics; it has been rebuilt with request cancellation, explicit
+selected IDs, clear/change, loading/empty/error states and an anchored listbox.
+The enclosing generic label previously made a nested action's accessible name
+include unrelated field text; this picker now uses non-interactive field chrome.
+An invoice UI regression exercises keyboard and mouse selection of distinct
+patient IDs. Full patient-linked-form and Windows DPI review remains open; see
+`MASTER-AUDIT-MATRIX.md`. CI for this subsequent commit must pass independently.
+
+Windows CI now writes and uploads `release/CHECKSUMS-SHA256.txt` by hashing the
+new installer, portable and update manifest on the build runner. This is build
+provenance, **not** an approval to publish or a substitute for independent
+verification after downloading. The previous artifact download from this sandbox
+failed with an EOF from GitHub's artifact blob host.
+
+Further source review exposed a release-blocking invoice edit path (editor never
+reachable, patient/visit/whole-invoice discount not restored, patient transfer
+ignored by update) and a settings error path that cleared failed edits. These
+are repaired with regression tests. Manual Windows acceptance and visual review
+remain **NOT TESTABLE** from this Linux workspace; see the acceptance ledger.
+
+The earlier Windows smoke only established a live application window; this
+revision adds Playwright automation against the installed EXE for activation,
+setup, dashboard and restart. It must pass on the exact commit before claiming
+that narrower Windows GUI gate. Manual 44-step and DPI/physical printer checks
+remain independent blockers.
+
+The installed Windows GUI Playwright gate passed on `1f0d781` (run
+`36746197430`): activation through dashboard and restart are now supported by
+automated Windows evidence, in addition to the startup smoke. Full interactive
+user acceptance and physical printer/DPI checks remain blocked. A later commit
+must obtain its own green run and fresh artifact hashes.

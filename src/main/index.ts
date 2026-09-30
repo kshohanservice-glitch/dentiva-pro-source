@@ -478,10 +478,14 @@ function registerIpc(): void {
   });
 }
 
-function applySecurityPolicy(): void {
+function registerWebContentsGuard(): void {
   app.on('web-contents-created', (_event, contents) => {
     contents.on('will-attach-webview', (event) => event.preventDefault());
   });
+}
+
+/** Called after app.whenReady(), before any window or navigation exists. */
+function applySecurityPolicy(): void {
   // The packaged renderer is a local file: it may load its own bundled assets
   // and nothing else. In development Vite needs to inject its live-reload
   // client, so the policy is only applied to the packaged file:// documents.
@@ -597,7 +601,7 @@ function runSelfCheckAndExit(): void {
 
 function bootstrap(): void {
   app.setAppUserModelId('bd.shohankhan.dentivapro');
-  applySecurityPolicy();
+  registerWebContentsGuard();
 
   app.on('second-instance', () => focusMainWindow());
   app.on('activate', () => focusMainWindow());
@@ -621,6 +625,7 @@ function bootstrap(): void {
   });
 
   void app.whenReady().then(async () => {
+    applySecurityPolicy();
     const paths = resolveCorePaths();
     const bootLogger = createLogger({
       directory: paths.logsDir,

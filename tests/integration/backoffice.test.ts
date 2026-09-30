@@ -106,6 +106,62 @@ describe('billing', () => {
     expect(summary.outstandingPaisa).toBe(207_400);
   });
 
+  it('preserves invoice arithmetic through edits and prevents paid invoices changing patient', () => {
+    const other = createPatient(test, { firstName: 'Invoice', lastName: 'Second' });
+    const { invoices, payments } = test.services;
+    const line = (quantity: number, unitPricePaisa: number, discountValue = 0) => ({
+      treatmentId: null,
+      code: 'X',
+      description: 'Treatment',
+      toothCodes: [],
+      quantity,
+      unitPricePaisa,
+      discountType: 'amount' as const,
+      discountValue,
+      sortOrder: 1,
+    });
+    const input = {
+      patientId,
+      visitId: null,
+      dentistId,
+      date: todayIso(),
+      notes: '',
+      items: [line(1, 250_000)],
+      discountType: 'none' as const,
+      discountValue: 0,
+    };
+    const created = invoices.create(input);
+    expect(invoices.get(created.id)).toMatchObject({
+      subtotalPaisa: 250_000,
+      discountPaisa: 0,
+      totalPaisa: 250_000,
+      duePaisa: 250_000,
+    });
+    invoices.update(created.id, {
+      ...input,
+      patientId: other.id,
+      items: [line(2, 250_000, 25_000), { ...line(1, 100_000), sortOrder: 2 }],
+      discountType: 'amount',
+      discountValue: 10_000,
+    });
+    const edited = invoices.get(created.id);
+    expect(edited.patientId).toBe(other.id);
+    expect(edited.items.map((item) => item.lineTotalPaisa)).toEqual([475_000, 100_000]);
+    expect(edited).toMatchObject({
+      subtotalPaisa: 600_000,
+      discountPaisa: 35_000,
+      totalPaisa: 565_000,
+      duePaisa: 565_000,
+      invoiceDiscountType: 'amount',
+      invoiceDiscountValue: 10_000,
+    });
+    invoices.update(created.id, { ...input, patientId: other.id, items: [line(1, 250_000)] });
+    expect(invoices.get(created.id)).toMatchObject({ totalPaisa: 250_000, itemCount: 1 });
+    payments.create({ invoiceId: created.id, amountPaisa: 50_000, methodId: null, reference: '', note: '', paidDate: todayIso() });
+    expect(() => invoices.update(created.id, input)).toThrow(/another patient/i);
+    expect(invoices.get(created.id)).toMatchObject({ patientId: other.id, paidPaisa: 50_000, duePaisa: 200_000 });
+  });
+
   it('refuses to bill a voided invoice and keeps receipts for voided payments', () => {
     const { invoices, payments } = test.services;
     const date = todayIso();

@@ -93,7 +93,7 @@ export function DashboardScreen(): JSX.Element {
         </Banner>
       ) : null}
 
-      <div className="stat-grid">
+      <div className="stat-grid" data-count={data.cards.length}>
         {data.cards.map((card) => (
           <Stat
             key={card.key}

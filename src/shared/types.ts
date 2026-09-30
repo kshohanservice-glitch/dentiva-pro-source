@@ -755,6 +755,8 @@ export interface InvoiceDetail extends InvoiceSummary {
   readonly patientPhone: string;
   readonly patientAddress: string;
   readonly notes: string;
+  readonly invoiceDiscountType: 'none' | 'percent' | 'amount';
+  readonly invoiceDiscountValue: number;
   readonly items: readonly InvoiceItem[];
   readonly payments: readonly PaymentSummary[];
   readonly dentistId: number | null;

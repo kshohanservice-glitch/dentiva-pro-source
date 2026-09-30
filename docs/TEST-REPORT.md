@@ -206,3 +206,69 @@ DENTIVA_STRESS_PATIENTS=600 npm run test:stress
 npm run build && npm run test:e2e
 npm run test:e2e:electron      # needs the Electron binary
 ```
+
+## Post-merge startup regression (2026-09-30)
+
+A real installed Windows GUI launch of the merged build failed before app readiness.
+The earlier self-check green result did **not** cover normal bootstrap. This branch
+adds a Windows CI check that starts the installed executable normally and requires
+an application window and a surviving process. Local Linux: typecheck, lint,
+format, 102 unit/integration tests (including hostile sort/direction/search),
+24 UI tests and production build passed. New Windows CI and real-machine
+acceptance have not yet passed; release remains blocked.
+
+## Expanded audit — patient picker regression
+
+A shared patient picker had no keyboard result navigation and no listbox
+semantics. An invoice UI test now searches, selects the second real patient
+using ArrowDown+Enter, changes the selection and selects another by mouse;
+the existing invoice creation tests remain passing. Local results: 102
+unit/integration, 25 UI, 8 stress and 38 IPC E2E checks; lint, typecheck,
+format and build passed. Windows GUI/DPI, hardware printing and exhaustive
+screen-by-screen acceptance are **not** verified by these local checks.
+
+On commit `314ecc5`, CI run `36740789514` passed both Linux verification and
+Windows clean-machine jobs. Windows evidence includes normal installed GUI
+window and surviving process, healthy default/relocated self-check, broken-data
+negative case, shortcut and registry installation, and uninstall retaining data.
+Activation/wizard/dashboard in the _installed Windows GUI_ were not traversed;
+Linux packaged E2E tests cover those flows on Linux, not Windows. The subsequent
+checksum-evidence commit requires its own CI run before these results apply to it.
+
+## Subsequent regression cases (pending final-commit gates)
+
+- Settings UI: simulated write failure must keep pending changes; successful
+  retry persists in SQLite and survives settings-tab remount.
+- Invoice core: price ৳2,500 × 1 with zero discount, two lines with discount,
+  patient transfer before payment, removing a line, refusing transfer after
+  payment; assertions read persisted paisa and ledger balances.
+- Invoice UI: edit button opens a populated form, quantity can be cleared and
+  replaced, and the saved invoice preserves its patient and recalculates total.
+- No 44-step Windows interactive workflow or physical printer test was run;
+  exact statuses: `WINDOWS-ACCEPTANCE-LEDGER.md`.
+
+The Windows job has a new installed-executable Playwright scenario covering
+activation, all wizard steps, owner login, dashboard and restart on a fresh data
+folder. Its result is **pending** on this change until CI completes. It is
+separate from the Linux bundled-app scenario and from human inspection.
+
+CI run `36744279197` passed Linux verification but FAILED the new installed
+Windows Playwright workflow after the ordinary installed window smoke passed.
+The exact Playwright failure was not included in the CI annotation; the check
+now appends its log tail to the failure transcript. No Windows full-GUI gate
+is claimed passed. Re-run required on the diagnostic change.
+
+Run `36745292092` identified that the installed Windows GUI passed activation,
+all wizard steps, sign-in, dashboard and restart, but the test's final clinic
+name locator selected the _first_ matching node: the sidebar's hidden name at
+narrow layout, instead of the visible header name. The final check now targets a
+visible match. It still requires the actual clinic name to appear after restart;
+this is a locator correction, not removal of the assertion. Re-run pending.
+
+Run `36746197430` on `1f0d781` passed both Linux and Windows jobs. The installed
+Windows executable completed activation, the seven wizard steps, owner sign-in,
+dashboard, restart and re-login in Playwright on a fresh data directory. The
+ordinary GUI launch, default/relocated/broken self-check and clean uninstall
+also passed. This does **not** cover the other 44-step user workflow entries or
+any physical printer/DPI inspection. The artifacts and hashes from this run
+are _historical_ if further commits are made.
