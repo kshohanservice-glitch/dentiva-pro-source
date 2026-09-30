@@ -34,7 +34,7 @@ $startMenuShortcut = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Progra
 $desktopShortcut = Join-Path $env:USERPROFILE 'Desktop\Dentiva Pro.lnk'
 $defaultDataDir = Join-Path $env:APPDATA 'Dentiva Pro'
 $relocatedDataDir = Join-Path $env:RUNNER_TEMP 'dentiva-relocated-data'
-$uninstallKeyPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
+$uninstallRoot = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
 
 New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
 
@@ -59,8 +59,12 @@ function Assert-Truthy {
     Write-Log "  ok: $Message"
 }
 
+# The Uninstall key itself may be absent on a machine that has never installed a
+# per-user application, which is exactly the machine this script runs on.
 function Get-UninstallEntry {
-    Get-ItemProperty $uninstallKeyPath |
+    if (-not (Test-Path $uninstallRoot)) { return $null }
+    Get-ChildItem $uninstallRoot -ErrorAction SilentlyContinue |
+        ForEach-Object { Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue } |
         Where-Object { $_.DisplayName -like 'Dentiva Pro*' } |
         Select-Object -First 1
 }
