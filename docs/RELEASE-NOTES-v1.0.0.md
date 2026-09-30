@@ -1,0 +1,10 @@
+# Dentiva Pro 1.0.0 — proposed notes (NOT PUBLISHED)
+
+Offline dental clinic management for Windows, including patient records,
+clinical charting, billing, reporting, backups and role-based access.
+Activation requires a valid product code. Clinic data is preserved on uninstall.
+
+**Release blocked:** a previous installed GUI build crashed before Electron app
+readiness. Do not distribute the prior draft/tag or previous Windows artifacts.
+Populate final commit, build provenance and SHA-256 checksums only after the new
+Windows packaged GUI and clean-machine acceptance checks pass.

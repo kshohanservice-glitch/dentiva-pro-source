@@ -206,3 +206,13 @@ DENTIVA_STRESS_PATIENTS=600 npm run test:stress
 npm run build && npm run test:e2e
 npm run test:e2e:electron      # needs the Electron binary
 ```
+
+## Post-merge startup regression (2026-09-30)
+
+A real installed Windows GUI launch of the merged build failed before app readiness.
+The earlier self-check green result did **not** cover normal bootstrap. This branch
+adds a Windows CI check that starts the installed executable normally and requires
+an application window and a surviving process. Local Linux: typecheck, lint,
+format, 102 unit/integration tests (including hostile sort/direction/search),
+24 UI tests and production build passed. New Windows CI and real-machine
+acceptance have not yet passed; release remains blocked.

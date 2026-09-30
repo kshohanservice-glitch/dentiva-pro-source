@@ -253,6 +253,33 @@ try {
     $packagedNotices = Join-Path $releaseDir 'win-unpacked\resources\THIRD-PARTY-NOTICES.txt'
     Assert-Truthy (Test-Path $packagedNotices) 'the third-party notices were copied into the packaged resources'
 
+    # Exercise the NORMAL GUI entry point. Self-check deliberately bypasses bootstrap
+    # and would not catch a premature session.defaultSession access.
+    Write-Log '--- 3a. Normal installed GUI startup (no self-check flags)'
+    Remove-Item Env:\DENTIVA_SELF_CHECK_FILE, Env:\DENTIVA_DATA_DIR -ErrorAction SilentlyContinue
+    $gui = Start-Process -FilePath $appExe -PassThru
+    try {
+        $deadline = (Get-Date).AddSeconds(90)
+        $windowReady = $false
+        while ((Get-Date) -lt $deadline) {
+            $gui.Refresh()
+            if ($gui.HasExited) { throw "Normal GUI exited before opening a window (exit $($gui.ExitCode))." }
+            if ($gui.MainWindowHandle -ne 0 -and $gui.MainWindowTitle -like '*Dentiva Pro*') {
+                $windowReady = $true
+                break
+            }
+            Start-Sleep -Seconds 2
+        }
+        Assert-Truthy $windowReady 'normal installed GUI opened a Dentiva Pro window within 90 seconds'
+        Start-Sleep -Seconds 5
+        $gui.Refresh()
+        Assert-Truthy (-not $gui.HasExited) 'normal GUI remains alive after first launch (no app-ready/session crash)'
+        Write-Evidence "normal GUI launch: window '$($gui.MainWindowTitle)', process alive after startup"
+    } finally {
+        if (-not $gui.HasExited) { Stop-Process -Id $gui.Id -Force -ErrorAction SilentlyContinue }
+        $gui.WaitForExit(10000) | Out-Null
+    }
+
     # -----------------------------------------------------------------------
     # 4. The installed application opens its own database
     # -----------------------------------------------------------------------

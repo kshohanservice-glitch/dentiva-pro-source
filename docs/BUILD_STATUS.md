@@ -268,3 +268,13 @@ and 2 are complete; what remains is section 3, which is human on purpose:
   Markdown tables).
 - The design system's 100–200 % DPI review remains a manual check on real hardware; there is no automated
   visual regression suite.
+
+## Post-merge release blocker (2026-09-30)
+
+The preceding resume point is historical, not release approval. Real installed
+Windows GUI launch exposed `Session can only be received when app is ready`.
+The self-check did not enter normal bootstrap. This branch moves the unchanged
+CSP registration into the ready callback, before window creation, and adds a
+normal installed GUI launch gate to Windows CI. The former uncommitted post-merge
+work was not present in this checkout; it has been reconstructed here. New CI
+and real Windows acceptance remain pending. See `RELEASE-AUDIT-v1.0.0.md`.

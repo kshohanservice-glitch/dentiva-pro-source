@@ -68,6 +68,24 @@ describe('patients', () => {
     expect(quick.some((row) => row.id === first.id)).toBe(true);
   });
 
+  it('rejects hostile sort, direction and search without interpolating SQL', () => {
+    const alpha = createPatient(test, { firstName: 'Alpha' });
+    const zulu = createPatient(test, { firstName: 'Zulu' });
+    const query = { page: 1, pageSize: 25 };
+    const sorted = test.services.patients.list({ ...query, sort: 'name', direction: 'asc' });
+    expect(sorted.items.map((row) => row.id)).toEqual([alpha.id, zulu.id]);
+
+    const hostile = test.services.patients.list({
+      ...query,
+      sort: 'name; DROP TABLE patients;--',
+      direction: 'asc; DROP TABLE patients;--' as 'asc',
+    });
+    expect(hostile.total).toBe(2);
+    expect(hostile.items.map((row) => row.id)).toEqual(test.services.patients.list(query).items.map((row) => row.id));
+    expect(test.services.patients.list({ ...query, search: "%' OR 1=1 --" }).total).toBe(0);
+    expect(test.services.patients.list({ ...query, search: 'Alpha' }).items[0]?.id).toBe(alpha.id);
+  });
+
   it('honours the date-range filter and newer-first default order', () => {
     const older = createPatient(test, { firstName: 'Old' });
     test.setNow(new Date(Date.now() + 86_400_000));

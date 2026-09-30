@@ -2,7 +2,6 @@
  * Small SQL helpers shared by the repositories: row decoding, JSON columns,
  * identifier quoting and value coercion.
  */
-import type { SortDirection } from '@shared/types';
 
 export function parseJsonArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.filter((entry): entry is string => typeof entry === 'string');
@@ -93,31 +92,6 @@ export function ftsQuery(value: string): string | null {
     .filter((term) => term.length > 0);
   if (terms.length === 0) return null;
   return terms.map((term) => `"${term}"*`).join(' AND ');
-}
-
-const ALLOWED_SORT_COLUMNS = new Set<string>();
-
-/** Register column names that are safe to interpolate into ORDER BY clauses. */
-export function allowSortColumns(...columns: string[]): void {
-  for (const column of columns) ALLOWED_SORT_COLUMNS.add(column);
-}
-
-/**
- * Resolve a request sort key against an allow-list. Never interpolate raw
- * user input into SQL: unknown keys fall back to the default ordering.
- */
-export function resolveSort(
-  requested: string | undefined,
-  mapping: Record<string, string>,
-  fallback: string,
-  direction: SortDirection | undefined,
-): { column: string; direction: SortDirection } {
-  const column = requested ? mapping[requested] : undefined;
-  const resolved = column ?? fallback;
-  if (!ALLOWED_SORT_COLUMNS.has(resolved) && !/^[a-z_][a-z0-9_.]*$/i.test(resolved)) {
-    return { column: fallback, direction: direction ?? 'desc' };
-  }
-  return { column: resolved, direction: direction ?? 'desc' };
 }
 
 export function paginate(
