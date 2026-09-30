@@ -12,8 +12,8 @@ export interface ThirdPartyNotice {
   readonly direct: boolean;
 }
 
-export const LICENSES_GENERATED_AT = '2026-09-30T09:52:17.927Z';
 export const LICENSES_DIGEST = '503fccde55d802654fa77cb6736d67c8eee5c38880e297d9c506727c239b0b77';
+export const LICENSES_PACKAGE_SET = '574 packages (36 direct, 538 transitive)';
 export const THIRD_PARTY_NOTICES: readonly ThirdPartyNotice[] = [
   {
     name: '@ampproject/remapping',

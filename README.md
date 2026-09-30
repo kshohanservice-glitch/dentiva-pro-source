@@ -88,6 +88,8 @@ copy of the backup folder off the clinic computer.
 | [docs/TEST-REPORT.md](docs/TEST-REPORT.md)               | What was tested, how, and with what result               |
 | [docs/RELEASE-CHECKLIST.md](docs/RELEASE-CHECKLIST.md)   | Every gate a release must pass                           |
 | [docs/BUILD_STATUS.md](docs/BUILD_STATUS.md)             | Live status of the build (kept current while developing) |
+| [docs/DESIGN.md](docs/DESIGN.md)                         | Design system: tokens, components, layout rules          |
+| [docs/REQUIREMENTS-TRACE.md](docs/REQUIREMENTS-TRACE.md) | Every requirement, where it lives, and what proves it    |
 | [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)         | Every open-source component and its licence              |
 
 ## Development

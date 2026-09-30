@@ -196,9 +196,19 @@ for (const entry of [...byName.values()].sort((a, b) => a.name.localeCompare(b.n
   });
 }
 
+// --- content digest ---------------------------------------------------------
+//
+// The generated files must be byte-identical for the same dependency tree, so the
+// freshness check in CI (regenerate, then `git diff --exit-code`) can work. A
+// wall-clock timestamp would make every run differ; the digest below changes only
+// when a package, a version or a licence changes.
+
+const digest = createHash('sha256')
+  .update(JSON.stringify(notices.map((entry) => [entry.name, entry.version, entry.license])))
+  .digest('hex');
+
 // --- THIRD-PARTY-NOTICES.md ------------------------------------------------
 
-const generatedAt = new Date().toISOString();
 const direct = notices.filter((entry) => entry.direct);
 const transitive = notices.filter((entry) => !entry.direct);
 
@@ -208,7 +218,7 @@ noticeLines.push('');
 noticeLines.push('Dentiva Pro is built on free and open-source software. This file lists every package that');
 noticeLines.push('is compiled into or shipped with the application, together with its licence.');
 noticeLines.push('');
-noticeLines.push(`Generated: ${generatedAt}`);
+noticeLines.push(`Notice digest: ${digest}`);
 noticeLines.push(`Packages: ${notices.length} (${direct.length} direct, ${transitive.length} transitive)`);
 noticeLines.push('');
 noticeLines.push('## Direct dependencies');
@@ -252,7 +262,7 @@ plainNotices.push('package that is compiled into or shipped with the application
 plainNotices.push('the licence it is used under. The complete licence texts are in the file');
 plainNotices.push('OPEN-SOURCE-LICENCES.txt next to this one.');
 plainNotices.push('');
-plainNotices.push(`Generated: ${generatedAt}`);
+plainNotices.push(`Notice digest: ${digest}`);
 plainNotices.push(`Packages: ${notices.length} (${direct.length} direct, ${transitive.length} transitive)`);
 plainNotices.push('');
 plainNotices.push('Direct dependencies');
@@ -287,7 +297,7 @@ const licenceLines = [];
 licenceLines.push('Dentiva Pro — complete open-source licence texts');
 licenceLines.push('='.repeat(78));
 licenceLines.push('');
-licenceLines.push(`Generated: ${generatedAt}`);
+licenceLines.push(`Notice digest: ${digest}`);
 licenceLines.push(`Distinct licence texts: ${byText.size} (covering ${notices.length} packages)`);
 licenceLines.push('');
 licenceLines.push('Every package bundled with Dentiva Pro is used under one of the licences below.');
@@ -342,11 +352,9 @@ export interface ThirdPartyNotice {
   readonly direct: boolean;
 }
 
-export const LICENSES_GENERATED_AT = ${JSON.stringify(generatedAt)};
-export const LICENSES_DIGEST = ${JSON.stringify(
-  createHash('sha256')
-    .update(JSON.stringify(notices.map((entry) => [entry.name, entry.version, entry.license])))
-    .digest('hex'),
+export const LICENSES_DIGEST = ${JSON.stringify(digest)};
+export const LICENSES_PACKAGE_SET = ${JSON.stringify(
+  `${notices.length} packages (${direct.length} direct, ${transitive.length} transitive)`,
 )};
 export const THIRD_PARTY_NOTICES: readonly ThirdPartyNotice[] = ${JSON.stringify(
   notices.map((entry) => ({

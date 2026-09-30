@@ -2,13 +2,13 @@
 
 > Single source of truth for resuming work. Update at the end of every work session.
 
-| Field         | Value                                                                     |
-| ------------- | ------------------------------------------------------------------------- |
-| Current phase | Phase 20 — Windows installer + clean-machine test (built; CI run pending) |
-| Version       | 1.0.0 (build 1000)                                                        |
-| Branch        | `arena/01a0f0ee-dentiva-pro-source`                                       |
-| Base commit   | `b06410d` (main, initial repository state)                                |
-| Last updated  | 2026-09-30                                                                |
+| Field         | Value                                                                           |
+| ------------- | ------------------------------------------------------------------------------- |
+| Current phase | Phase 22 — production build + clean-machine verification (CI run 1 in progress) |
+| Version       | 1.0.0 (build 1000)                                                              |
+| Branch        | `arena/01a0f0ee-dentiva-pro-source`                                             |
+| Base commit   | `b06410d` (main, initial repository state)                                      |
+| Last updated  | 2026-09-30 (CI run 1 fixed; requirements trace written)                         |
 
 ## Phase tracker
 
@@ -35,8 +35,8 @@
 | 18    | Security audit (RBAC guards vs catalogue, password, activation, destructive ops)                         | 🔄 Continuous — sweep done, re-run on service changes                     |
 | 19    | Installer assets (`EULA.txt`, `installer.nsh`, licences bundle, notices)                                 | ✅ Complete                                                               |
 | 20    | Clean-machine installation test                                                                          | 🔄 Implemented in CI (`windows-installer` job); first run pending         |
-| 21    | Release audit + requirements traceability                                                                | 🔄 In progress — docs set written; trace pending                          |
-| 22    | Production build + final artifact validation                                                             | ⏳ Pending — after the CI run                                             |
+| 21    | Release audit + requirements traceability                                                                | ✅ Complete — `docs/REQUIREMENTS-TRACE.md` maps all 42 requirement groups |
+| 22    | Production build + final artifact validation                                                             | 🔄 CI builds the installer on Windows; run 1 evidence pending             |
 | 23    | GitHub Release / `dist` artifacts                                                                        | ⏳ Pending — human merge gate, then tag and publish                       |
 
 ## Verification ledger (this session, working tree)
@@ -116,7 +116,7 @@ complete application workflow over the real IPC surface.
   the installed copy, uninstall with data-preservation proof, artifact upload).
 - Docs: `README.md`, `ARCHITECTURE.md`, `INSTALL.md`, `USER-GUIDE.md`, `BACKUP-AND-RESTORE.md`, `PRINTING.md`,
   `TROUBLESHOOTING.md`, `TEST-REPORT.md`, `RELEASE-CHECKLIST.md`, `BUILD_STATUS.md`, `DESIGN.md`,
-  `THIRD-PARTY-NOTICES.md`.
+  `REQUIREMENTS-TRACE.md`, `THIRD-PARTY-NOTICES.md`.
 
 ## Bugs found and fixed while building the test layers
 
@@ -134,14 +134,25 @@ complete application workflow over the real IPC surface.
   `system.integrityCheck()` correctly requires `settings.view`. Fixed by splitting the permission check from
   the work (`integrityCheckInternal()`), so no permission is bypassed and the self-check still runs.
 
+- The first CI run failed on the licence-freshness step: the generator stamped a
+  wall-clock timestamp into `THIRD-PARTY-NOTICES.md` and `src/renderer/generated/licenses.ts`, so
+  regenerating on the runner always produced a diff. The generator is now deterministic — it records
+  the package set and the content digest instead of the time — and regenerating twice produces
+  identical bytes on this machine (`diff` clean, digest `503fccde…`).
+- `tools/format-check.mjs` exempted long lines with an unanchored "licen" match, which also excused
+  `tools/license-audit.mjs`; the exemption is now anchored to the licence/generated directories and to
+  the two exempt file names.
+
 ## Resume point (next work session starts here)
 
 1. Push the branch and let CI run: the Linux `verify` job and the Windows `windows-installer` job.
+   Run 1 (commit `35fbd2e`) failed in the verify job on licence freshness — fixed in the commit after it;
+   run 2 is the authoritative one.
 2. Paste the Windows job's evidence (installer size, shortcut/uninstall checks, self-check report, data
    preserved after uninstall) into `docs/TEST-REPORT.md`, and record the CI run URL in this file.
 3. Re-run the packaged-application Playwright spec on Linux CI; if the Electron build needs an argument in a
    headless runner, adjust `tests/e2e/app.spec.ts` (the xvfb wrapper is already in the workflow).
-4. Finish the requirements trace (`docs/REQUIREMENTS-TRACE.md`) and mark phase 21 complete.
+4. ~~Finish the requirements trace~~ — written (`docs/REQUIREMENTS-TRACE.md`, phase 21 complete).
 5. Stop at the human merge gate: the pull request is opened and reviewed by the owner, who merges it. The
    agent must never merge.
 6. After the merge, tag `v1.0.0`, attach the artifacts produced by the Windows job, and follow

@@ -23,10 +23,10 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', 'release', 'coverage', 'gener
 
 const MAX_LENGTH = 140;
 // Licence bundles, generated files and this checker's own reports are exempt.
-// The match is anchored to directories and exact file names so that a script
-// merely mentioning "licence" in its own name is still held to the limit.
-const LONG_LINE_EXEMPT = /(^|\/)(licenses|generated)\//i;
-const EXEMPT_FILES = /(THIRD-PARTY-NOTICES|BUILD_DIGEST)/i;
+// The match is anchored to directories and exact file names, so a script merely
+// mentioning "licence" in its own name is still held to the limit.
+const EXEMPT = /(^|\/)(licenses|generated)\//i;
+const EXEMPT_FILE_PATHS = /(^|\/)(THIRD-PARTY-NOTICES|BUILD_DIGEST)[^/]*$/i;
 // Markdown table rows are exempt: Prettier aligns table cells and a row cannot be
 // wrapped without destroying the table, so prose and code keep the hard limit.
 const TABLE_ROW = /^\s*\|.*\|\s*$/;
@@ -68,7 +68,7 @@ async function check(file) {
   lines.forEach((line, index) => {
     const number = index + 1;
     if (/\s+$/.test(line)) problems.push(`${relative}:${number}: trailing whitespace`);
-    const exempt = LONG_LINE_EXEMPT.test(relative) || EXEMPT_FILES.test(relative);
+    const exempt = EXEMPT.test(relative) || EXEMPT_FILE_PATHS.test(relative);
     if (line.length > MAX_LENGTH && !exempt && !TABLE_ROW.test(line)) {
       problems.push(`${relative}:${number}: line is ${line.length} characters (limit ${MAX_LENGTH})`);
     }

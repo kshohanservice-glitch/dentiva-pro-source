@@ -15,7 +15,7 @@ import {
   APP_TAGLINE,
   APP_VERSION,
 } from '@shared/app-info';
-import { LICENSES_DIGEST, LICENSES_GENERATED_AT, THIRD_PARTY_NOTICES } from '@renderer/generated/licenses';
+import { LICENSES_DIGEST, LICENSES_PACKAGE_SET, THIRD_PARTY_NOTICES } from '@renderer/generated/licenses';
 import { useApi } from '@renderer/state/store';
 import { bridge } from '@renderer/lib/bridge';
 import { byteSize, fmtInstant } from '@renderer/lib/format';
@@ -204,10 +204,7 @@ export function AboutScreen(): JSX.Element {
 
       <Card
         title="Third-party notices"
-        subtitle={`${THIRD_PARTY_NOTICES.length} packages · generated ${fmtInstant(LICENSES_GENERATED_AT)} · digest ${LICENSES_DIGEST.slice(
-          0,
-          16,
-        )}…`}
+        subtitle={`${LICENSES_PACKAGE_SET} · digest ${LICENSES_DIGEST.slice(0, 16)}…`}
         actions={
           <div className="row" style={{ gap: 8 }}>
             <Segmented
