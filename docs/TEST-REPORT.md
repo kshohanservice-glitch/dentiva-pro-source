@@ -139,19 +139,40 @@ The `windows-installer` job runs `tools/ci/windows-check.ps1` on a fresh
 | Licence bundle                    | `build/licenses/OPEN-SOURCE-LICENCES.txt` generated and packaged                                                                         |
 | Third-party notices               | `resources/THIRD-PARTY-NOTICES.txt` present in the packaged application                                                                  |
 
-Run 15 (commit `4308c79`) then proved the installed application's own self-check:
+**Run 16 (commit `7b81c15`) is the first run in which every Windows gate passed.**
+Its evidence annotation reads:
 
-| Gate                                    | Evidence                                                                                                                         |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Healthy self-check, default data folder | exit 0, `ok: true`, `packaged: true`, database inside `%APPDATA%\Dentiva Pro`                                                    |
-| Relocated data folder                   | exit 0, `ok: true`, database under `…\dentiva-relocated-data` — `DENTIVA_DATA_DIR` moves the whole folder, not just the file     |
-| Broken installation is reported         | a data folder whose parent is a file: exit **1**, `ok: false`, with a readable reason — the negative gate the release depends on |
+```
+installer: DentivaPro-1.0.0-Windows-x64-Setup.exe (106.98 MB)
+portable:  DentivaPro-1.0.0-Windows-x64-Portable.exe (106.59 MB)
+start menu shortcut -> C:\Users\runneradmin\AppData\Local\Programs\Dentiva Pro\Dentiva Pro.exe
+desktop shortcut  -> C:\Users\runneradmin\AppData\Local\Programs\Dentiva Pro\Dentiva Pro.exe
+uninstall entry: Dentiva Pro 1.0.0 · 1.0.0 · Shohan Khan
+self-check (default):   state=activation_required licence=False schema=4
+                        database=C:\Users\runneradmin\AppData\Roaming\Dentiva Pro\data\dentiva.sqlite stdout=yes
+self-check (relocated): state=activation_required licence=False schema=4
+                        database=D:\a\_temp\dentiva-relocated-data\data\dentiva.sqlite stdout=yes
+self-check (broken data folder) correctly reported ok=false
+data after uninstall: 5 files kept in C:\Users\runneradmin\AppData\Roaming\Dentiva Pro
+```
 
-The same run also proved the install-time gates above. **One gate has not been
-observed yet**: the uninstall, which must remove the application, its shortcuts and
-its registry entry while keeping the clinic's data folder and database. The check
-reaches it next; the job's evidence annotation and the uploaded
-`windows-install-evidence.txt` are the source for this table.
+| Gate                                    | Evidence                                                                                                    |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Installer and portable built            | 106.98 MB and 106.59 MB, built from this commit                                                             |
+| Silent install on a clean machine       | nothing installed beforehand; `…\Programs\Dentiva Pro\Dentiva Pro.exe` and its uninstaller afterwards       |
+| Start Menu and desktop shortcuts        | both present, both pointing at the installed executable                                                     |
+| Uninstall entry registered (`HKCU`)     | `Dentiva Pro 1.0.0` · version `1.0.0` · publisher `Shohan Khan`                                             |
+| Licence bundle and third-party notices  | generated at build time and present in the packaged resources                                               |
+| Healthy self-check, default data folder | exit 0, `ok: true`, `packaged: true`, database inside `%APPDATA%\Dentiva Pro`                               |
+| Relocated data folder                   | exit 0, `ok: true`, database under `…\dentiva-relocated-data` — `DENTIVA_DATA_DIR` moves the whole folder   |
+| Broken installation is reported         | a data folder whose parent is a file: exit **1**, `ok: false`, with a readable reason                       |
+| Uninstall removes the application       | executable, uninstaller, shortcuts and registry entry gone                                                  |
+| Uninstall keeps the clinic's records    | 5 files, including `data\dentiva.sqlite` and a marker file written just before the uninstall, still present |
+
+The self-check reports `state=activation_required` on purpose: it runs on a machine
+that has never been set up, which is exactly what a clean-machine check should see.
+Two defects the pipeline found on the way are recorded in `docs/BUILD_STATUS.md`
+(the packaged suite that had never actually run, and the silent-uninstall dialog).
 
 ## What is deliberately not automated
 

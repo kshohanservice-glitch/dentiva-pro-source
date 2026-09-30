@@ -192,22 +192,24 @@ complete application workflow over the real IPC surface.
 
 ## Continuous integration
 
-| Run | Commit    | Linux `verify` | Windows `windows-installer` | What it proved                                                                                                                                                                                                |
-| --- | --------- | -------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `35fbd2e` | failed         | not started                 | licence freshness compared a wall-clock timestamp                                                                                                                                                             |
-| 2   | `bcd7f45` | failed         | not started                 | licences deterministic; the packaged Playwright spec needed headless switches                                                                                                                                 |
-| 3   | `0a14002` | **passed**     | failed                      | whole Linux chain green incl. Playwright over Electron; `D2:\` path bug on Windows                                                                                                                            |
-| 4   | `5e567ed` | **passed**     | failed                      | `fileURLToPath` fixed; electron-builder tried to publish and demanded a token                                                                                                                                 |
-| 5   | `285aeb1` | **passed**     | failed                      | `--publish never`; the Uninstall registry key threw on a clean machine                                                                                                                                        |
-| 6   | `4d3649a` | **passed**     | failed                      | installer + portable built and installed; shortcuts, uninstall entry, licence bundle and packaged notices verified; the installed `--self-check` printed nothing (GUI-subsystem stdout)                       |
-| 7   | `7b6a815` | **passed**     | failed                      | the installed `--self-check` still produced no report on Windows                                                                                                                                              |
-| 8   | `0adf955` | **passed**     | failed                      | the `--self-check-file` switch never reached `process.argv` on Windows; an environment variable replaced it                                                                                                   |
-| 9   | `75502b6` | failed         | not started                 | the packaged suite loaded at last — Playwright's Electron API cannot drive a process that exits immediately                                                                                                   |
-| 10  | `7dcfbaf` | failed         | not started                 | the self-check ran as a spawned process; the wizard step hit a strict-mode violation                                                                                                                          |
-| 11  | `7a8043c` | failed         | not started                 | Playwright's output folder moved into the repository root                                                                                                                                                     |
-| 12  | `4197803` | **passed**     | failed                      | **the packaged application walks activation, the wizard, sign-in and a restart on real Electron**; no self-check report on Windows                                                                            |
-| 13  | `0a34805` | **passed**     | failed                      | a launch trace proved the main process had not run at all when the check looked                                                                                                                               |
-| 14  | `4308c79` | **passed**     | failed                      | `Start-Process -Wait` makes the installed self-check run at last — healthy on the default and the relocated data folder, exit 1 on a broken one — and then the check's own assertion helper threw on a string |
+| Run | Commit    | Linux `verify` | Windows `windows-installer` | What it proved                                                                                                                                                                                                                    |
+| --- | --------- | -------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `35fbd2e` | failed         | not started                 | licence freshness compared a wall-clock timestamp                                                                                                                                                                                 |
+| 2   | `bcd7f45` | failed         | not started                 | licences deterministic; the packaged Playwright spec needed headless switches                                                                                                                                                     |
+| 3   | `0a14002` | **passed**     | failed                      | whole Linux chain green incl. Playwright over Electron; `D2:\` path bug on Windows                                                                                                                                                |
+| 4   | `5e567ed` | **passed**     | failed                      | `fileURLToPath` fixed; electron-builder tried to publish and demanded a token                                                                                                                                                     |
+| 5   | `285aeb1` | **passed**     | failed                      | `--publish never`; the Uninstall registry key threw on a clean machine                                                                                                                                                            |
+| 6   | `4d3649a` | **passed**     | failed                      | installer + portable built and installed; shortcuts, uninstall entry, licence bundle and packaged notices verified; the installed `--self-check` printed nothing (GUI-subsystem stdout)                                           |
+| 7   | `7b6a815` | **passed**     | failed                      | the installed `--self-check` still produced no report on Windows                                                                                                                                                                  |
+| 8   | `0adf955` | **passed**     | failed                      | the `--self-check-file` switch never reached `process.argv` on Windows; an environment variable replaced it                                                                                                                       |
+| 9   | `75502b6` | failed         | not started                 | the packaged suite loaded at last — Playwright's Electron API cannot drive a process that exits immediately                                                                                                                       |
+| 10  | `7dcfbaf` | failed         | not started                 | the self-check ran as a spawned process; the wizard step hit a strict-mode violation                                                                                                                                              |
+| 11  | `7a8043c` | failed         | not started                 | Playwright's output folder moved into the repository root                                                                                                                                                                         |
+| 12  | `4197803` | **passed**     | failed                      | **the packaged application walks activation, the wizard, sign-in and a restart on real Electron**; no self-check report on Windows                                                                                                |
+| 13  | `0a34805` | **passed**     | failed                      | a launch trace proved the main process had not run at all when the check looked                                                                                                                                                   |
+| 14  | `4308c79` | **passed**     | failed                      | `Start-Process -Wait` makes the installed self-check run at last — healthy on the default and the relocated data folder, exit 1 on a broken one — and then the check's own assertion helper threw on a string                     |
+| 15  | `16cd816` | **passed**     | hung → cancelled            | the assertion helper is fixed and the check reached the uninstall — where the "your data was kept" dialog waited for a click on an unattended machine                                                                             |
+| 16  | `7b81c15` | **passed**     | **passed**                  | **every gate green**: install, shortcuts, uninstall entry, licence bundle, self-check healthy on the default and relocated folders and exit 1 on a broken one, uninstall removing the application while keeping the clinic's data |
 
 Run 6 built `DentivaPro-1.0.0-Windows-x64-Setup.exe` (106.98 MB) and
 `DentivaPro-1.0.0-Windows-x64-Portable.exe` (106.59 MB).
@@ -219,24 +221,21 @@ output).
 
 ## Resume point (next work session starts here)
 
-1. Read the run that follows this commit. The installed application's self-check now runs
-   and passes on the default and the relocated data folder, and the negative gate exits 1
-   as it must (run 14). What is left to see is the **uninstall**: the application, its
-   shortcuts and its registry entry removed, the clinic's data folder and database kept.
-   The only change in this commit is the check's own assertion helper, which refused to
-   take a string (PowerShell will not bind a `String` to a `[bool]` parameter).
-2. Paste that job's evidence annotation (installer and portable sizes, shortcut targets,
-   uninstall entry, the self-check JSON for the default and the relocated data folders, the
-   deliberately broken folder, and the files kept after the uninstall) into
-   `docs/TEST-REPORT.md`, and add the run URL to the table above. The job's annotation is
-   the place to look when something fails: it quotes the reason and the lines leading to
-   it, and the raw log is dominated by bundler output.
-3. If the sandbox loses its repository token again, `git fetch origin <branch>` restores
-   the history — the working tree survives a sandbox restart even when `.git` does not.
-4. Stop at the human merge gate: the pull request is open and reviewed by the owner, who
-   merges it. The agent must never merge.
-5. After the merge: tag `v1.0.0`, attach the artifacts from the successful Windows job and
-   follow `docs/RELEASE-CHECKLIST.md` section 4.
+**Run 16 (commit `7b81c15`, run `36716332055`) is green on both jobs.** Every release
+gate that can be checked by machine has now passed, and the evidence is quoted in
+`docs/TEST-REPORT.md`. What remains is the part only a person can do:
+
+1. Push the commits after `7b81c15` (documentation only) and wait for the pipeline on the
+   final commit; take the evidence annotation from that run and replace the one quoted in
+   `docs/TEST-REPORT.md` if any number moves.
+2. **Open the pull request** if it is not open (the repository had none when this was
+   written): the branch is `arena/01a0f0ee-dentiva-pro-source`, the base is `main`. The
+   agent must not merge it.
+3. The owner reviews and merges. After the merge: tag `v1.0.0`, attach the two Windows
+   artifacts from the green run and follow `docs/RELEASE-CHECKLIST.md` section 4.
+4. If the sandbox loses its repository token again, `git fetch origin <branch>` restores
+   the history — the working tree survives a sandbox restart even when `.git` does not,
+   and the branch pointer in the snapshot may lag behind the remote.
 
 ## Known follow-ups
 
