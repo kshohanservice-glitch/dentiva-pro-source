@@ -257,3 +257,10 @@ Windows Playwright workflow after the ordinary installed window smoke passed.
 The exact Playwright failure was not included in the CI annotation; the check
 now appends its log tail to the failure transcript. No Windows full-GUI gate
 is claimed passed. Re-run required on the diagnostic change.
+
+Run `36745292092` identified that the installed Windows GUI passed activation,
+all wizard steps, sign-in, dashboard and restart, but the test's final clinic
+name locator selected the _first_ matching node: the sidebar's hidden name at
+narrow layout, instead of the visible header name. The final check now targets a
+visible match. It still requires the actual clinic name to appear after restart;
+this is a locator correction, not removal of the assertion. Re-run pending.

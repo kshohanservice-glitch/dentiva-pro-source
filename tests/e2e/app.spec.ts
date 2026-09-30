@@ -228,7 +228,7 @@ test.describe('packaged desktop application', () => {
     await expect(restarted.getByRole('heading', { name: /activation/i })).toHaveCount(0);
     await signIn(restarted, 'owner', OWNER_PASSWORD);
     await expect(restarted.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
-    await expect(restarted.getByText('Smile Dental Care').first()).toBeVisible();
+    await expect(restarted.getByText('Smile Dental Care').filter({ visible: true }).first()).toBeVisible();
   });
 
   test('--self-check reports a healthy installation and exits 0', async () => {
