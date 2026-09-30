@@ -100,6 +100,14 @@ licence state, data folder) and exits with code `0` when the installation is
 healthy, `1` when it is not. This is the same check the release pipeline runs
 against a freshly installed copy.
 
+A packaged Windows build is a graphical executable, so its standard output is not
+always connected when another program starts it. Add a path to have the identical
+report written to a file as well — this is what an IT script should read:
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\Dentiva Pro\Dentiva Pro.exe" --self-check-file=C:\Temp\dentiva-report.json
+```
+
 ## Updating
 
 Run the newer installer over the existing installation; the application folder

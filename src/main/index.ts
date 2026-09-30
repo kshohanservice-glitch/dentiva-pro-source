@@ -10,8 +10,8 @@
  * talks to `src/core`.
  */
 import { BrowserWindow, Menu, app, ipcMain, session, shell, type MenuItemConstructorOptions } from 'electron';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import { createCoreContainer, type CoreContainer } from '@core/container';
 import { createLogger } from '@core/util/logger';
 import { APP_BUILD_NUMBER, APP_NAME, APP_VERSION } from '@shared/app-info';
@@ -27,6 +27,24 @@ import { collectSelfCheck } from './self-check';
 const INVOKE_CHANNEL = 'dentiva:invoke';
 /** `Dentiva Pro.exe --self-check` reports on the installation and exits. */
 const SELF_CHECK_FLAG = '--self-check';
+/**
+ * `--self-check-file=<path>` writes the same JSON report to a file. A packaged
+ * Windows build is a GUI-subsystem executable: when it is started from a script
+ * its standard output is not always connected, so the release pipeline reads the
+ * report from the file. Both are written when both are available.
+ */
+const SELF_CHECK_FILE_FLAG = '--self-check-file=';
+
+function selfCheckFile(): string | null {
+  const argument = process.argv.find((value) => value.startsWith(SELF_CHECK_FILE_FLAG));
+  if (!argument) return null;
+  const target = argument.slice(SELF_CHECK_FILE_FLAG.length).trim();
+  return target.length > 0 ? target : null;
+}
+
+function isSelfCheckRun(): boolean {
+  return process.argv.includes(SELF_CHECK_FLAG) || selfCheckFile() !== null;
+}
 const EVENT_CHANNEL = 'dentiva:event';
 const BACKGROUND_TICK_MS = 15_000;
 const NOTIFICATION_TICK_MS = 5 * 60_000;
@@ -490,6 +508,7 @@ function reportRestoreOutcome(outcome: PendingRestoreOutcome): void {
  */
 function runSelfCheckAndExit(): void {
   const startedWithoutContainer = Date.now();
+  const reportFile = selfCheckFile();
   void app.whenReady().then(() => {
     let report: unknown;
     let exitCode = 1;
@@ -510,7 +529,16 @@ function runSelfCheckAndExit(): void {
         durationMs: Date.now() - startedWithoutContainer,
       };
     }
-    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    const json = `${JSON.stringify(report, null, 2)}\n`;
+    process.stdout.write(json);
+    if (reportFile) {
+      try {
+        mkdirSync(dirname(reportFile), { recursive: true });
+        writeFileSync(reportFile, json, 'utf8');
+      } catch (error) {
+        process.stdout.write(`Could not write ${reportFile}: ${error instanceof Error ? error.message : String(error)}\n`);
+      }
+    }
     container?.close();
     container = null;
     app.exit(exitCode);
@@ -560,7 +588,7 @@ function bootstrap(): void {
   });
 }
 
-if (process.argv.includes(SELF_CHECK_FLAG)) {
+if (isSelfCheckRun()) {
   // The self-check never opens a second window and never touches the single
   // instance lock, so it cannot disturb a running clinic session.
   runSelfCheckAndExit();

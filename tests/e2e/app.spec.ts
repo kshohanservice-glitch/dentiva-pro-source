@@ -196,10 +196,11 @@ test.describe('packaged desktop application', () => {
   });
 
   test('--self-check reports a healthy installation and exits 0', async () => {
-    note('self-check: launch with --self-check');
+    note('self-check: launch with --self-check and --self-check-file');
+    const reportFile = path.join(dataDir, 'self-check.json');
     const checked = await electron.launch({
       executablePath: electronBinary() ?? undefined,
-      args: [mainEntry, ...ciSwitches(), '--self-check'],
+      args: [mainEntry, ...ciSwitches(), '--self-check', `--self-check-file=${reportFile}`],
       env: { ...process.env, DENTIVA_DATA_DIR: dataDir },
     });
     watch(checked);
@@ -216,5 +217,14 @@ test.describe('packaged desktop application', () => {
     expect(output).toContain('"databaseOk": true');
     expect(output).toContain('"integrityOk": true');
     expect(exitCode).toBe(0);
+
+    // The packaged Windows build cannot rely on stdout, so the same report must
+    // be written to the file the pipeline asks for.
+    expect(existsSync(reportFile)).toBe(true);
+    const written = JSON.parse(readFileSync(reportFile, 'utf8')) as Record<string, unknown>;
+    expect(written.ok).toBe(true);
+    expect(written.databaseOk).toBe(true);
+    expect(written.integrityOk).toBe(true);
+    expect(written.packaged).toBe(true);
   });
 });

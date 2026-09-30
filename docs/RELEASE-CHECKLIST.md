@@ -24,14 +24,14 @@ nothing is published until the packaged artifact is proven too.
 
 ## 2. Packaging gates (Windows CI job `windows-installer`)
 
-| #   | Gate                             | Passing means                                                                                                     |
-| --- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| 14  | Installer and portable built     | `DentivaPro-1.0.0-Windows-x64-Setup.exe` and `…-Portable.exe` produced                                            |
-| 15  | Silent install on a clean runner | application executable, uninstaller, Start Menu shortcut, desktop shortcut and uninstall registry entry all exist |
-| 16  | Installed application runs       | `Dentiva Pro.exe --self-check` exits `0` with `ok`, `databaseOk`, `integrityOk` and `packaged` all true           |
-| 17  | Uninstall removes the app        | the executables are gone and the uninstall entry is gone                                                          |
-| 18  | Uninstall keeps the data         | a file written into the data folder before the uninstall is still there after it                                  |
-| 19  | Artifacts uploaded               | installer, portable build, `latest.yml` and the installer evidence file are attached to the workflow run          |
+| #   | Gate                             | Passing means                                                                                                                                                  |
+| --- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 14  | Installer and portable built     | `DentivaPro-1.0.0-Windows-x64-Setup.exe` and `…-Portable.exe` produced                                                                                         |
+| 15  | Silent install on a clean runner | application executable, uninstaller, Start Menu shortcut, desktop shortcut and uninstall registry entry all exist                                              |
+| 16  | Installed application runs       | `--self-check` (and `--self-check-file=…`, which is what a GUI build is read through) exits `0` with `ok`, `databaseOk`, `integrityOk` and `packaged` all true |
+| 17  | Uninstall removes the app        | the executables are gone and the uninstall entry is gone                                                                                                       |
+| 18  | Uninstall keeps the data         | a file written into the data folder before the uninstall is still there after it                                                                               |
+| 19  | Artifacts uploaded               | installer, portable build, `latest.yml` and the installer evidence file are attached to the workflow run                                                       |
 
 The packaging gates are executed by `tools/ci/windows-check.ps1`, which the
 `windows-installer` job runs on a clean `windows-latest` runner. The script builds

@@ -4,19 +4,19 @@ Every number below was produced by running the command in the same column on
 2026-09-30, against the working tree that this document ships with. Nothing in
 this report is estimated.
 
-| Layer                      | Command                                           | Result                                           |
-| -------------------------- | ------------------------------------------------- | ------------------------------------------------ |
-| Unit                       | `npx vitest run --project unit`                   | **37 tests, 5 suites — passed** (3.3 s)          |
-| Integration (real SQLite)  | `npx vitest run --project integration`            | **59 tests, 6 suites — passed** (32.5 s)         |
-| Interface (real renderer)  | `npm run test:ui`                                 | **23 tests, 6 suites — passed** (48.4 s)         |
-| Stress (600 patients)      | `DENTIVA_STRESS_PATIENTS=600 npm run test:stress` | **8 tests — passed** (9.1 s)                     |
-| End-to-end (IPC surface)   | `npm run test:e2e`                                | **38 checks — passed**                           |
-| End-to-end (real Electron) | `npm run test:e2e:electron`                       | 2 Playwright specs — run by CI (Linux + Windows) |
-| Lint                       | `npm run lint`                                    | **0 errors, 0 warnings**                         |
-| Types (main + renderer)    | `npm run typecheck`                               | **clean**                                        |
-| Formatting policy          | `npm run format:check`                            | **clean** (custom rules + Prettier)              |
-| Production build           | `npm run build`                                   | **succeeds** (main, preload, renderer)           |
-| Installation self-check    | `Dentiva Pro.exe --self-check`                    | covered by integration tests and CI              |
+| Layer                      | Command                                           | Result                                                                  |
+| -------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------- |
+| Unit                       | `npx vitest run --project unit`                   | **37 tests, 5 suites — passed** (3.3 s)                                 |
+| Integration (real SQLite)  | `npx vitest run --project integration`            | **59 tests, 6 suites — passed** (32.5 s)                                |
+| Interface (real renderer)  | `npm run test:ui`                                 | **23 tests, 6 suites — passed** (48.4 s)                                |
+| Stress (600 patients)      | `DENTIVA_STRESS_PATIENTS=600 npm run test:stress` | **8 tests — passed** (9.1 s)                                            |
+| End-to-end (IPC surface)   | `npm run test:e2e`                                | **38 checks — passed**                                                  |
+| End-to-end (real Electron) | `npm run test:e2e:electron`                       | 2 Playwright specs — run by CI (Linux + Windows)                        |
+| Lint                       | `npm run lint`                                    | **0 errors, 0 warnings**                                                |
+| Types (main + renderer)    | `npm run typecheck`                               | **clean**                                                               |
+| Formatting policy          | `npm run format:check`                            | **clean** (custom rules + Prettier)                                     |
+| Production build           | `npm run build`                                   | **succeeds** (main, preload, renderer)                                  |
+| Installation self-check    | `--self-check` / `--self-check-file=…`            | 3 integration tests + Playwright over real Electron (both output forms) |
 
 ## What each layer proves
 

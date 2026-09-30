@@ -109,7 +109,8 @@ IPC surface in `src/shared/api.ts`, the windows in `src/main`, and the interface
 in `src/renderer`. Nothing in the renderer is trusted: every rule is enforced
 again in the core, including permissions.
 
-The build also accepts `--self-check`, which opens the clinic database, runs the
+The build also accepts `--self-check` (and `--self-check-file=<path>` for scripted
+use on Windows, where a graphical build cannot rely on standard output), which opens the clinic database, runs the
 integrity checks and prints a JSON report before exiting — used by the release
 pipeline against the freshly installed application, and by support.
 

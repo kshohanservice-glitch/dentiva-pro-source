@@ -9,7 +9,13 @@ and never changes anything.
 
 It prints a JSON report — `ok`, `state`, `databaseOk`, `integrityOk`,
 `schemaVersion`, `databaseFile`, `licenceActivated`, `problems` — and exits `0`
-when healthy. Copy that report into a support e-mail.
+when healthy. Copy that report into a support e-mail. If the window reports
+nothing because Windows did not connect the output, ask for a file instead:
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\Dentiva Pro\Dentiva Pro.exe" --self-check-file=$env:TEMP\dentiva-report.json
+Get-Content $env:TEMP\dentiva-report.json
+```
 
 ## The application does not start
 

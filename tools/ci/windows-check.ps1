@@ -72,14 +72,22 @@ function Get-UninstallEntry {
 function Invoke-SelfCheck {
     param([string]$Label, [string]$DataDir)
 
+    # A packaged Windows build is a GUI-subsystem executable, so its standard output
+    # is not guaranteed to reach the caller. The report is therefore also written to
+    # a file; the stdout capture is read as a fallback and reported as evidence.
     $reportFile = Join-Path $env:RUNNER_TEMP "self-check-$Label.json"
+    $stdoutFile = Join-Path $env:RUNNER_TEMP "self-check-$Label.stdout.txt"
+    Remove-Item $reportFile, $stdoutFile -ErrorAction SilentlyContinue
     if ($DataDir) { $env:DENTIVA_DATA_DIR = $DataDir } else { Remove-Item Env:\DENTIVA_DATA_DIR -ErrorAction SilentlyContinue }
 
-    & $appExe --self-check > $reportFile 2>&1
+    & $appExe --self-check "--self-check-file=$reportFile" > $stdoutFile 2>&1
     $exitCode = $LASTEXITCODE
-    $raw = Get-Content $reportFile -Raw
+    $onStdout = if ((Test-Path $stdoutFile) -and (Get-Content $stdoutFile -Raw)) { 'yes' } else { 'no' }
+    $raw = if (Test-Path $reportFile) { Get-Content $reportFile -Raw } else { '' }
+    if (-not $raw -and $onStdout -eq 'yes') { $raw = Get-Content $stdoutFile -Raw }
+    Write-Log "  report on stdout: $onStdout · report file: $(Split-Path $reportFile -Leaf)"
     Write-Log $raw
-    if (-not $raw) { throw "The $Label self-check printed nothing." }
+    if (-not $raw) { throw "The $Label self-check produced no report (exit code $exitCode)." }
 
     $json = $raw | ConvertFrom-Json
     Assert-Truthy ($exitCode -eq 0) "the $Label self-check exited 0 (got $exitCode)"
@@ -89,7 +97,7 @@ function Invoke-SelfCheck {
     Assert-Truthy ($json.integrityOk -eq $true) "the $Label self-check passed the integrity check"
     Assert-Truthy ($json.foreignKeyViolations -eq 0) "the $Label self-check found no foreign-key violations"
 
-    Write-Evidence "self-check ($Label): state=$($json.state) licence=$($json.licenceActivated) schema=$($json.schemaVersion) database=$($json.databaseFile)"
+    Write-Evidence "self-check ($Label): state=$($json.state) licence=$($json.licenceActivated) schema=$($json.schemaVersion) database=$($json.databaseFile) stdout=$onStdout"
     return $json
 }
 
