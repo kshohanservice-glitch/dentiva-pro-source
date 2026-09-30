@@ -2,42 +2,42 @@
 
 > Single source of truth for resuming work. Update at the end of every work session.
 
-| Field         | Value                                                                           |
-| ------------- | ------------------------------------------------------------------------------- |
-| Current phase | Phase 22 — production build + clean-machine verification (CI run 1 in progress) |
-| Version       | 1.0.0 (build 1000)                                                              |
-| Branch        | `arena/01a0f0ee-dentiva-pro-source`                                             |
-| Base commit   | `b06410d` (main, initial repository state)                                      |
-| Last updated  | 2026-09-30 (CI run 1 fixed; requirements trace written)                         |
+| Field         | Value                                                                                                          |
+| ------------- | -------------------------------------------------------------------------------------------------------------- |
+| Current phase | Phase 22 — production build + clean-machine verification (Windows gates mostly verified; see the CI log below) |
+| Version       | 1.0.0 (build 1000)                                                                                             |
+| Branch        | `arena/01a0f0ee-dentiva-pro-source`                                                                            |
+| Base commit   | `b06410d` (main, initial repository state)                                                                     |
+| Last updated  | 2026-09-30 (CI run 1 fixed; requirements trace written)                                                        |
 
 ## Phase tracker
 
-| Phase | Description                                                                                              | Status                                                                    |
-| ----- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| 0     | Repository inspection                                                                                    | ✅ Complete                                                               |
-| 1     | Architecture + ADR (`docs/ARCHITECTURE.md`)                                                              | ✅ Complete                                                               |
-| 2     | Shared contracts (`src/shared`: types, permissions, money, dates, IPC surface)                           | ✅ Complete                                                               |
-| 3     | Database schema, migrations, connection + SQL helpers                                                    | ✅ Complete                                                               |
-| 4     | Core services: patients, visits, dental chart, prescriptions, treatments, referrals, appointments, queue | ✅ Complete                                                               |
-| 5     | Core services: invoices, payments, accounting, inventory                                                 | ✅ Complete                                                               |
-| 6     | Core services: users, roles, auth, staff, dentists, attachments                                          | ✅ Complete                                                               |
-| 7     | Core services: seed, backups, setup/activation, app shell, search, dashboard, reports, print, system     | ✅ Complete                                                               |
-| 8     | Integration tests against a real SQLite file                                                             | ✅ Complete (59 tests, 6 suites)                                          |
-| 9     | zod validation + main-process IPC router (175 methods)                                                   | ✅ Complete — schemas inferred from the API contract                      |
-| 10    | Preload bridge + dev bridge (browser preview outside Electron)                                           | ✅ Complete                                                               |
-| 11    | Design system (tokens + components)                                                                      | ✅ Complete                                                               |
-| 12    | Renderer screens (dashboard, patients, clinical, billing, admin)                                         | ✅ Complete                                                               |
-| 13    | Setup wizard + activation UI                                                                             | ✅ Complete                                                               |
-| 14    | Printing UI (preview, printer profiles, templates)                                                       | ✅ Complete                                                               |
-| 15    | Global search + notification centre                                                                      | ✅ Complete                                                               |
-| 16    | UX refinement pass on every screen                                                                       | 🔄 Continuous — responsive/DPI/empty-state review ongoing                 |
-| 17    | Testing: unit, UI, E2E, stress                                                                           | ✅ Complete — 37 unit · 59 integration · 23 UI · 8 stress · 38 E2E checks |
-| 18    | Security audit (RBAC guards vs catalogue, password, activation, destructive ops)                         | 🔄 Continuous — sweep done, re-run on service changes                     |
-| 19    | Installer assets (`EULA.txt`, `installer.nsh`, licences bundle, notices)                                 | ✅ Complete                                                               |
-| 20    | Clean-machine installation test                                                                          | 🔄 Implemented in CI (`windows-installer` job); first run pending         |
-| 21    | Release audit + requirements traceability                                                                | ✅ Complete — `docs/REQUIREMENTS-TRACE.md` maps all 42 requirement groups |
-| 22    | Production build + final artifact validation                                                             | 🔄 CI builds the installer on Windows; run 1 evidence pending             |
-| 23    | GitHub Release / `dist` artifacts                                                                        | ⏳ Pending — human merge gate, then tag and publish                       |
+| Phase | Description                                                                                              | Status                                                                                                     |
+| ----- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 0     | Repository inspection                                                                                    | ✅ Complete                                                                                                |
+| 1     | Architecture + ADR (`docs/ARCHITECTURE.md`)                                                              | ✅ Complete                                                                                                |
+| 2     | Shared contracts (`src/shared`: types, permissions, money, dates, IPC surface)                           | ✅ Complete                                                                                                |
+| 3     | Database schema, migrations, connection + SQL helpers                                                    | ✅ Complete                                                                                                |
+| 4     | Core services: patients, visits, dental chart, prescriptions, treatments, referrals, appointments, queue | ✅ Complete                                                                                                |
+| 5     | Core services: invoices, payments, accounting, inventory                                                 | ✅ Complete                                                                                                |
+| 6     | Core services: users, roles, auth, staff, dentists, attachments                                          | ✅ Complete                                                                                                |
+| 7     | Core services: seed, backups, setup/activation, app shell, search, dashboard, reports, print, system     | ✅ Complete                                                                                                |
+| 8     | Integration tests against a real SQLite file                                                             | ✅ Complete (59 tests, 6 suites)                                                                           |
+| 9     | zod validation + main-process IPC router (175 methods)                                                   | ✅ Complete — schemas inferred from the API contract                                                       |
+| 10    | Preload bridge + dev bridge (browser preview outside Electron)                                           | ✅ Complete                                                                                                |
+| 11    | Design system (tokens + components)                                                                      | ✅ Complete                                                                                                |
+| 12    | Renderer screens (dashboard, patients, clinical, billing, admin)                                         | ✅ Complete                                                                                                |
+| 13    | Setup wizard + activation UI                                                                             | ✅ Complete                                                                                                |
+| 14    | Printing UI (preview, printer profiles, templates)                                                       | ✅ Complete                                                                                                |
+| 15    | Global search + notification centre                                                                      | ✅ Complete                                                                                                |
+| 16    | UX refinement pass on every screen                                                                       | 🔄 Continuous — responsive/DPI/empty-state review ongoing                                                  |
+| 17    | Testing: unit, UI, E2E, stress                                                                           | ✅ Complete — 37 unit · 59 integration · 23 UI · 8 stress · 38 E2E checks                                  |
+| 18    | Security audit (RBAC guards vs catalogue, password, activation, destructive ops)                         | 🔄 Continuous — sweep done, re-run on service changes                                                      |
+| 19    | Installer assets (`EULA.txt`, `installer.nsh`, licences bundle, notices)                                 | ✅ Complete                                                                                                |
+| 20    | Clean-machine installation test                                                                          | 🔄 Verified in CI: install, shortcuts, uninstall entry, licence bundle, notices; self-check re-run pending |
+| 21    | Release audit + requirements traceability                                                                | ✅ Complete — `docs/REQUIREMENTS-TRACE.md` maps all 42 requirement groups                                  |
+| 22    | Production build + final artifact validation                                                             | 🔄 Installer and portable built on Windows CI (`DentivaPro-1.0.0-Windows-x64-Setup.exe`, 106.98 MB)        |
+| 23    | GitHub Release / `dist` artifacts                                                                        | ⏳ Pending — human merge gate, then tag and publish                                                        |
 
 ## Verification ledger (this session, working tree)
 
@@ -133,29 +133,69 @@ complete application workflow over the real IPC surface.
 - The installation self-check needed an integrity report before anybody signs in, but
   `system.integrityCheck()` correctly requires `settings.view`. Fixed by splitting the permission check from
   the work (`integrityCheckInternal()`), so no permission is bypassed and the self-check still runs.
-
-- The first CI run failed on the licence-freshness step: the generator stamped a
-  wall-clock timestamp into `THIRD-PARTY-NOTICES.md` and `src/renderer/generated/licenses.ts`, so
-  regenerating on the runner always produced a diff. The generator is now deterministic — it records
-  the package set and the content digest instead of the time — and regenerating twice produces
-  identical bytes on this machine (`diff` clean, digest `503fccde…`).
+- **Interface:** `useAction().run()` returns `null` on failure and the method's own result on success, so
+  `result !== undefined` is true for a failure and false for the successful call of any method that returns
+  nothing — the setup wizard never advanced after a step, save dialogs for void methods never closed, and
+  `queue.setStatus` did not refresh. The wizard and the two dialogs use the new `runOk()`, which answers
+  "did it work?" directly, and every remaining `result !== undefined`/`null` guard was audited against the
+  method's declared result type.
+- **Windows paths:** `path.resolve(new URL('..', import.meta.url).pathname)` keeps the leading slash of a
+  file URL and Windows then prefixes the current drive (`D:\D:\a\…`), which broke `npm run dist:all` on the
+  Windows runner. Every tool now uses `fileURLToPath`, as the Vite and Vitest configs already did.
+- **Packaging:** `electron-builder` saw a CI environment, honoured `publish: github` and demanded a token,
+  failing the build after both artifacts were produced. The build scripts pass `--publish never`; publishing
+  is a separate, human decision by design.
+- **Windows self-check:** the packaged application is a GUI-subsystem executable, so Windows does not
+  guarantee that its standard output reaches a calling script and the pipeline read an empty report. The
+  self-check now also writes the report to `--self-check-file=<path>`, which is what the pipeline reads and
+  the Playwright spec asserts.
+- **Playwright vs. the CI logs:** Playwright clears its output folder before a run, and that folder was
+  `test-results` itself, so the step transcripts and the suite's diagnostics were deleted just before the
+  upload. The suite writes into `test-results/playwright` now.
+- The first CI run failed on licence freshness: the generator stamped a wall-clock timestamp into
+  `THIRD-PARTY-NOTICES.md` and `src/renderer/generated/licenses.ts`, so regenerating on the runner always
+  produced a diff. The generator is deterministic now — package set plus content digest, no clock — and two
+  consecutive runs on this machine produce identical bytes (digest `503fccde…`).
 - `tools/format-check.mjs` exempted long lines with an unanchored "licen" match, which also excused
-  `tools/license-audit.mjs`; the exemption is now anchored to the licence/generated directories and to
-  the two exempt file names.
+  `tools/license-audit.mjs`; the exemption is anchored to the licence/generated directories and to the two
+  exempt file names.
+- Reading the `HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall` key threw on a machine that has
+  never installed a per-user application; the check tolerates a missing key and asserts the absence of the
+  entry before the install.
+
+## Continuous integration
+
+| Run | Commit    | Linux `verify` | Windows `windows-installer` | What it proved                                                                                                                                                                          |
+| --- | --------- | -------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `35fbd2e` | failed         | not started                 | licence freshness compared a wall-clock timestamp                                                                                                                                       |
+| 2   | `bcd7f45` | failed         | not started                 | licences deterministic; the packaged Playwright spec needed headless switches                                                                                                           |
+| 3   | `0a14002` | **passed**     | failed                      | whole Linux chain green incl. Playwright over Electron; `D2:\` path bug on Windows                                                                                                      |
+| 4   | `5e567ed` | **passed**     | failed                      | `fileURLToPath` fixed; electron-builder tried to publish and demanded a token                                                                                                           |
+| 5   | `285aeb1` | **passed**     | failed                      | `--publish never`; the Uninstall registry key threw on a clean machine                                                                                                                  |
+| 6   | `4d3649a` | **passed**     | failed                      | installer + portable built and installed; shortcuts, uninstall entry, licence bundle and packaged notices verified; the installed `--self-check` printed nothing (GUI-subsystem stdout) |
+| 7   | `7b6a815` | unknown        | unknown                     | `--self-check-file` added; outcome not read back (GitHub credentials expired)                                                                                                           |
+
+Run 6 built `DentivaPro-1.0.0-Windows-x64-Setup.exe` (106.98 MB) and
+`DentivaPro-1.0.0-Windows-x64-Portable.exe` (106.59 MB).
+
+The pipeline publishes its reason where a maintainer always sees it: heavy steps
+keep transcripts, the Windows check writes a compact `=== FAILURE ===` block, and
+the job turns those into annotations (the raw logs are dominated by bundler
+output).
 
 ## Resume point (next work session starts here)
 
-1. Push the branch and let CI run: the Linux `verify` job and the Windows `windows-installer` job.
-   Run 1 (commit `35fbd2e`) failed in the verify job on licence freshness — fixed in the commit after it;
-   run 2 is the authoritative one.
-2. Paste the Windows job's evidence (installer size, shortcut/uninstall checks, self-check report, data
-   preserved after uninstall) into `docs/TEST-REPORT.md`, and record the CI run URL in this file.
-3. Re-run the packaged-application Playwright spec on Linux CI; if the Electron build needs an argument in a
-   headless runner, adjust `tests/e2e/app.spec.ts` (the xvfb wrapper is already in the workflow).
-4. ~~Finish the requirements trace~~ — written (`docs/REQUIREMENTS-TRACE.md`, phase 21 complete).
-5. Stop at the human merge gate: the pull request is opened and reviewed by the owner, who merges it. The
+1. Reconnect GitHub (`gh auth status` reports the token is no longer valid), then re-run the pipeline on
+   commit `7b6a815` (`gh run rerun <id>` or an empty commit) and read the outcome. Run 6 got as far as the
+   installed self-check; run 7 added `--self-check-file` for exactly that step, so the two remaining Windows
+   gates (installed self-check, uninstall keeps the data) should now be reached.
+2. Paste the Windows evidence (sizes, shortcut targets, uninstall entry, self-check JSON, files kept after
+   the uninstall) from the job annotation into `docs/TEST-REPORT.md`, and add the run URL to this file.
+3. Re-check the Linux `verify` job of run 7: its outcome was never read (credentials expired during the
+   watch). Runs 3–6 were green, so a failure would point at the self-check flag.
+4. Stop at the human merge gate: the pull request is opened and reviewed by the owner, who merges it. The
    agent must never merge.
-6. After the merge, tag `v1.0.0`, attach the artifacts produced by the Windows job, and follow
+5. After the merge: tag `v1.0.0`, attach the artifacts from the Windows job and follow
    `docs/RELEASE-CHECKLIST.md` section 4.
 
 ## Known follow-ups

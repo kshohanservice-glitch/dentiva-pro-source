@@ -107,22 +107,42 @@ jobs:
           set -o pipefail
           xvfb-run -a --server-args="-screen 0 1920x1080x24" npm run test:e2e:electron 2>&1 | tee test-results/packaged.log
 
+      # `failure()` is false when the only failures are in steps marked
+      # `continue-on-error`, so this step runs unconditionally and reads each
+      # step's own outcome. A masked failure still fails the job, and it is always
+      # explained: this is the channel the maintainers read.
       - name: Explain what failed, in the job annotations
-        if: failure()
+        if: always()
         shell: bash
         run: |
+          outcomes=(
+            "lint=${{ steps.lint.outcome }}"
+            "types=${{ steps.types.outcome }}"
+            "format=${{ steps.format.outcome }}"
+            "licences=${{ steps.licences.outcome }}"
+            "tests=${{ steps.tests.outcome }}"
+            "ui=${{ steps.ui.outcome }}"
+            "stress=${{ steps.stress.outcome }}"
+            "build=${{ steps.build.outcome }}"
+            "e2e=${{ steps.e2e.outcome }}"
+            "packaged=${{ steps.packaged.outcome }}"
+          )
+
+          failures=()
+          for entry in "${outcomes[@]}"; do
+            case "${entry#*=}" in
+              failure|cancelled) failures+=("$entry") ;;
+            esac
+          done
+
+          if [ ${#failures[@]} -eq 0 ]; then
+            echo "Every step passed."
+            exit 0
+          fi
+
           {
-            echo "step outcomes"
-            echo "  lint=${{ steps.lint.outcome || 'not run' }}"
-            echo "  types=${{ steps.types.outcome || 'not run' }}"
-            echo "  format=${{ steps.format.outcome || 'not run' }}"
-            echo "  licences=${{ steps.licences.outcome || 'not run' }}"
-            echo "  tests=${{ steps.tests.outcome || 'not run' }}"
-            echo "  ui=${{ steps.ui.outcome || 'not run' }}"
-            echo "  stress=${{ steps.stress.outcome || 'not run' }}"
-            echo "  build=${{ steps.build.outcome || 'not run' }}"
-            echo "  e2e=${{ steps.e2e.outcome || 'not run' }}"
-            echo "  packaged=${{ steps.packaged.outcome || 'not run' }}"
+            echo "failing steps: ${failures[*]}"
+            echo "all steps: ${outcomes[*]}"
             for log in test-results/*.log; do
               [ -f "$log" ] || continue
               echo "===== $log (last 60 lines) ====="

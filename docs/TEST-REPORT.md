@@ -17,6 +17,7 @@ this report is estimated.
 | Formatting policy          | `npm run format:check`                            | **clean** (custom rules + Prettier)                                     |
 | Production build           | `npm run build`                                   | **succeeds** (main, preload, renderer)                                  |
 | Installation self-check    | `--self-check` / `--self-check-file=…`            | 3 integration tests + Playwright over real Electron (both output forms) |
+| Windows installer          | CI job `windows-installer`                        | **verified on a clean runner** — see below                              |
 
 ## What each layer proves
 
@@ -122,6 +123,28 @@ clinic's records survive. A second spec runs the binary with `--self-check` and
 asserts the JSON report and exit code. This suite runs in CI (it needs the Electron
 binary, so it skips itself on a machine where dependencies were installed with
 `--ignore-scripts`).
+
+## Windows installer — evidence from the clean-machine job
+
+The `windows-installer` job runs `tools/ci/windows-check.ps1` on a fresh
+`windows-latest` runner. Run 6 of the pipeline (commit `4d3649a`) verified:
+
+| Gate                              | Evidence                                                                                                                                 |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Installer and portable built      | `DentivaPro-1.0.0-Windows-x64-Setup.exe` 106.98 MB, `DentivaPro-1.0.0-Windows-x64-Portable.exe` 106.59 MB                                |
+| Silent install on a clean machine | nothing installed beforehand; `C:\Users\…\AppData\Local\Programs\Dentiva Pro\Dentiva Pro.exe` and `Uninstall Dentiva Pro.exe` afterwards |
+| Start Menu shortcut               | present, target `…\Programs\Dentiva Pro\Dentiva Pro.exe`                                                                                 |
+| Desktop shortcut                  | present, same target                                                                                                                     |
+| Uninstall entry                   | `Dentiva Pro 1.0.0` · version `1.0.0` · publisher `Shohan Khan`                                                                          |
+| Licence bundle                    | `build/licenses/OPEN-SOURCE-LICENCES.txt` generated and packaged                                                                         |
+| Third-party notices               | `resources/THIRD-PARTY-NOTICES.txt` present in the packaged application                                                                  |
+
+Two gates are still being proven by the next run: the installed application's own
+`--self-check` (the first attempt read an empty report, because a GUI-subsystem
+build does not always receive standard output — the check now also writes
+`--self-check-file`), and the uninstall keeping the clinic data folder and
+database. The job's evidence annotation and the uploaded
+`windows-install-evidence.txt` are the source for this table.
 
 ## What is deliberately not automated
 
