@@ -1044,7 +1044,23 @@ a:hover {
 .stat-grid {
   display: grid;
   gap: var(--space-4);
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.stat-grid[data-count='4'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.stat-grid[data-count='7'] {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 1250px) {
+  .stat-grid, .stat-grid[data-count='7'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 740px) {
+  .stat-grid, .stat-grid[data-count='4'], .stat-grid[data-count='7'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .stat {
   display: flex;

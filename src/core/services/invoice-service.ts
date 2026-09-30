@@ -157,6 +157,8 @@ export class InvoiceService {
       patientPhone: row.patient_phone ?? '',
       patientAddress: row.patient_address ?? '',
       notes: row.notes,
+      invoiceDiscountType: row.discount_type as InvoiceDetail['invoiceDiscountType'],
+      invoiceDiscountValue: row.discount_value,
       items,
       payments,
       dentistId: row.dentist_id,
@@ -280,10 +282,13 @@ export class InvoiceService {
   update(id: number, input: InvoiceInput): void {
     requirePermission(this.context(), 'invoice.edit');
     const before = this.db.prepare(`SELECT * FROM invoices WHERE id = ? AND deleted_at IS NULL`).get(id) as
-      | { number: string; total_paisa: number; paid_paisa: number; is_void: number; date: string }
+      | { number: string; patient_id: number; total_paisa: number; paid_paisa: number; is_void: number; date: string }
       | undefined;
     if (!before) throw AppError.notFound('Invoice');
     if (fromBoolInt(before.is_void)) throw AppError.precondition('This invoice has been voided and cannot be edited.');
+    if (before.patient_id !== input.patientId && before.paid_paisa > 0) {
+      throw AppError.precondition('An invoice with payments cannot be transferred to another patient.');
+    }
     const computed = this.computeTotals(input);
     if (computed.total < asNumber(before.paid_paisa)) {
       throw AppError.precondition(
@@ -301,12 +306,14 @@ export class InvoiceService {
         .run(id);
       this.db
         .prepare(
-          `UPDATE invoices SET visit_id = @visitId, dentist_id = @dentistId, date = @date, subtotal_paisa = @subtotal,
+          `UPDATE invoices SET patient_id = @patientId, visit_id = @visitId, dentist_id = @dentistId,
+             date = @date, subtotal_paisa = @subtotal,
              discount_paisa = @discount, discount_type = @discountType, discount_value = @discountValue, total_paisa = @total,
              notes = @notes, updated_at = @updatedAt WHERE id = @id`,
         )
         .run({
           id,
+          patientId: input.patientId,
           visitId: input.visitId,
           dentistId: input.dentistId,
           date: input.date,

@@ -89,3 +89,10 @@ implementation paths. The previous self-check-only installed GUI gate missed a
 pre-readiness crash; `windows-check.ps1` now also starts the installed GUI normally.
 Do **not** merge, tag or publish until a real Windows acceptance run covers the
 expanded workflows and the exact final artifacts are checksummed.
+
+## Mandatory interactive acceptance record
+
+`WINDOWS-ACCEPTANCE-LEDGER.md` contains 44 steps and 25 Windows display
+combinations. No unexecuted row may be promoted to PASS based on CI, source
+inspection or Linux E2E. Real printer limitations must remain explicit. The
+owner's merge decision remains separate from technical acceptance.

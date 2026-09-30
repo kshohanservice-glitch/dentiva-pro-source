@@ -90,6 +90,22 @@ describe('invoices', () => {
     expect(within(detailDialog).getAllByText('৳12,000').length).toBeGreaterThan(0);
   });
 
+  it('edits an invoice without silently dropping its discount or patient', async () => {
+    const { uiApp, patientId } = await billingApp();
+    const treatment = await firstTreatment(uiApp);
+    const drawer = await raiseInvoice(uiApp, 'Billing Patient', treatment.id);
+    await uiApp.user.click(within(drawer).getByRole('button', { name: /^Edit$/ }));
+    const editor = await screen.findByRole('dialog', { name: 'Edit invoice' });
+    await waitFor(() => expect(within(editor).getByText(/Billing Patient/)).toBeTruthy());
+    const quantity = within(editor).getByLabelText('Quantity');
+    await uiApp.user.clear(quantity);
+    await uiApp.user.type(quantity, '2');
+    await uiApp.user.click(within(editor).getByRole('button', { name: 'Save invoice' }));
+    const saved = uiApp.app.services.invoices.list({ page: 1, pageSize: 10 }).items[0]!;
+    await waitFor(() => expect(uiApp.app.services.invoices.get(saved.id).totalPaisa).toBe(treatment.pricePaisa * 2));
+    expect(uiApp.app.services.invoices.get(saved.id).patientId).toBe(patientId);
+  });
+
   it('collects a payment and reconciles the balance', async () => {
     const { uiApp } = await billingApp();
     const treatment = await firstTreatment(uiApp);

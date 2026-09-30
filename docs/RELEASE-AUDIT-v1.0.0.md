@@ -33,3 +33,9 @@ new installer, portable and update manifest on the build runner. This is build
 provenance, **not** an approval to publish or a substitute for independent
 verification after downloading. The previous artifact download from this sandbox
 failed with an EOF from GitHub's artifact blob host.
+
+Further source review exposed a release-blocking invoice edit path (editor never
+reachable, patient/visit/whole-invoice discount not restored, patient transfer
+ignored by update) and a settings error path that cleared failed edits. These
+are repaired with regression tests. Manual Windows acceptance and visual review
+remain **NOT TESTABLE** from this Linux workspace; see the acceptance ledger.

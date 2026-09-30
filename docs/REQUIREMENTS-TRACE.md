@@ -80,3 +80,9 @@ CI and real-machine retest (see `RELEASE-AUDIT-v1.0.0.md`).
 services/data/permissions, existing tests and outstanding manual verification.
 The shared patient-picker regression covers keyboard and mouse selection in an
 invoice modal; it does not prove every patient-linked form on Windows.
+
+The new `WINDOWS-ACCEPTANCE-LEDGER.md` enumerates the 44 owner-requested
+real-user steps and 25 Windows display combinations. All are NOT TESTABLE from
+the current Linux workspace; CI evidence is separately identified, not conflated
+with real-user verification. Source audit repairs: settings save failure,
+invoice editor reachability/discount/patient ID, and dashboard grid layout.

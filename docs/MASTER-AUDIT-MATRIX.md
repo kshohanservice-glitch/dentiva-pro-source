@@ -45,3 +45,11 @@ automated coverage: `docs/REQUIREMENTS-TRACE.md`, `docs/TEST-REPORT.md`.
 - All interactive controls, RBAC presets and settings after restart; full
   backup→modify→restore→restart; normal-error and recovery states.
 - Download new exact-commit artifacts and compute SHA-256, then owner acceptance.
+
+## Real Windows acceptance status
+
+The 44-step item-by-item evidence ledger and all 25 required resolution × DPI
+combinations are in `WINDOWS-ACCEPTANCE-LEDGER.md`. Every unexecuted interactive
+Windows entry is **NOT TESTABLE in this workspace**, not PASS. The settings save
+failure and invoice edit paths found in the source audit have code and regression
+tests, but this does not close the manual gates.

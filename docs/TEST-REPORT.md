@@ -234,3 +234,15 @@ negative case, shortcut and registry installation, and uninstall retaining data.
 Activation/wizard/dashboard in the _installed Windows GUI_ were not traversed;
 Linux packaged E2E tests cover those flows on Linux, not Windows. The subsequent
 checksum-evidence commit requires its own CI run before these results apply to it.
+
+## Subsequent regression cases (pending final-commit gates)
+
+- Settings UI: simulated write failure must keep pending changes; successful
+  retry persists in SQLite and survives settings-tab remount.
+- Invoice core: price ৳2,500 × 1 with zero discount, two lines with discount,
+  patient transfer before payment, removing a line, refusing transfer after
+  payment; assertions read persisted paisa and ledger balances.
+- Invoice UI: edit button opens a populated form, quantity can be cleared and
+  replaced, and the saved invoice preserves its patient and recalculates total.
+- No 44-step Windows interactive workflow or physical printer test was run;
+  exact statuses: `WINDOWS-ACCEPTANCE-LEDGER.md`.

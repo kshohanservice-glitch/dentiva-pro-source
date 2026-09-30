@@ -291,3 +291,15 @@ CI run `36740789514` on `314ecc5` was green for both jobs. The installed Windows
 GUI opened its window and stayed alive on the clean runner; this does not verify
 complete real-user Windows acceptance. The next change adds SHA-256 evidence
 calculated inside Windows CI; do not treat the preceding run as final-commit CI.
+
+## Subsequent source audit — unresolved manual acceptance
+
+Fixed a settings failure path that discarded edits when `settings.update` failed;
+added a UI regression asserting edits remain and a later save persists across tab
+remount. Restored the missing invoice edit action and invoice-level discounts,
+corrected patient transfer before payment while prohibiting transfer after
+payment, and made quantity editing accept an empty intermediate value. Added
+SQLite arithmetic and invoice UI edit regressions. Dashboard card grid now uses
+predictable 3+3 or 4+3 desktop rows, with responsive collapse. Exact tests and
+CI for this new commit must be recorded after they run. The interactive Windows
+ledger (`WINDOWS-ACCEPTANCE-LEDGER.md`) remains 44/44 NOT TESTABLE here.
