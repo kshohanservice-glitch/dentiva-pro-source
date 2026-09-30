@@ -69,9 +69,18 @@ function Invoke-DentivaExecutable {
     return $process.ExitCode
 }
 
+# `-Condition` is deliberately [object], not [bool]: PowerShell refuses to bind a
+# string to a [bool] parameter ("Cannot convert value "System.String" to type
+# "System.Boolean""), and one of the checks below asserts that a message *exists*.
+# The rule is the PowerShell one — null, $false and the empty string are false,
+# anything else is true — and it is spelled out here so no check can be swallowed
+# by a conversion error.
 function Assert-Truthy {
-    param([bool]$Condition, [string]$Message)
-    if (-not $Condition) { throw $Message }
+    param([object]$Condition, [string]$Message)
+    $passed = if ($null -eq $Condition) { $false }
+    elseif ($Condition -is [bool]) { $Condition }
+    else { -not [string]::IsNullOrWhiteSpace([string]$Condition) }
+    if (-not $passed) { throw $Message }
     Write-Log "  ok: $Message"
 }
 
@@ -103,7 +112,9 @@ function Invoke-SelfCheck {
     $env:DENTIVA_LAUNCH_TRACE = '1'
 
     $stderrFile = Join-Path $env:RUNNER_TEMP "self-check-$Label.stderr.txt"
-    $exitCode = Invoke-DentivaExecutable -Arguments @('--self-check', "--self-check-file=$reportFile") -StdOut $stdoutFile -StdErr $stderrFile
+    # The path is quoted because Start-Process joins the argument list with spaces and
+    # a temporary folder may well contain one.
+    $exitCode = Invoke-DentivaExecutable -Arguments @('--self-check', "--self-check-file=`"$reportFile`"") -StdOut $stdoutFile -StdErr $stderrFile
     $onStdout = if ((Test-Path $stdoutFile) -and (Get-Content $stdoutFile -Raw)) { 'yes' } else { 'no' }
     $raw = if (Test-Path $reportFile) { Get-Content $reportFile -Raw } else { '' }
     if (-not $raw -and $onStdout -eq 'yes') { $raw = Get-Content $stdoutFile -Raw }
@@ -159,7 +170,7 @@ function Assert-SelfCheckReport {
     } else {
         Assert-Truthy ($ExitCode -eq 1) "the $Label self-check exited 1 (got $ExitCode)"
         Assert-Truthy ($Json.ok -eq $false) "the $Label self-check reports not-ok"
-        Assert-Truthy ($Json.error) "the $Label self-check explains the failure ($($Json.error))"
+        Assert-Truthy (-not [string]::IsNullOrWhiteSpace($Json.error)) "the $Label self-check explains the failure ($($Json.error))"
     }
 }
 

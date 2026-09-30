@@ -139,11 +139,18 @@ The `windows-installer` job runs `tools/ci/windows-check.ps1` on a fresh
 | Licence bundle                    | `build/licenses/OPEN-SOURCE-LICENCES.txt` generated and packaged                                                                         |
 | Third-party notices               | `resources/THIRD-PARTY-NOTICES.txt` present in the packaged application                                                                  |
 
-Two gates are still being proven by the next run: the installed application's own
-`--self-check` (the first attempt read an empty report, because a GUI-subsystem
-build does not always receive standard output — the check now also writes
-`--self-check-file`), and the uninstall keeping the clinic data folder and
-database. The job's evidence annotation and the uploaded
+Run 15 (commit `4308c79`) then proved the installed application's own self-check:
+
+| Gate                                    | Evidence                                                                                                                         |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Healthy self-check, default data folder | exit 0, `ok: true`, `packaged: true`, database inside `%APPDATA%\Dentiva Pro`                                                    |
+| Relocated data folder                   | exit 0, `ok: true`, database under `…\dentiva-relocated-data` — `DENTIVA_DATA_DIR` moves the whole folder, not just the file     |
+| Broken installation is reported         | a data folder whose parent is a file: exit **1**, `ok: false`, with a readable reason — the negative gate the release depends on |
+
+The same run also proved the install-time gates above. **One gate has not been
+observed yet**: the uninstall, which must remove the application, its shortcuts and
+its registry entry while keeping the clinic's data folder and database. The check
+reaches it next; the job's evidence annotation and the uploaded
 `windows-install-evidence.txt` are the source for this table.
 
 ## What is deliberately not automated
@@ -168,8 +175,8 @@ database. The job's evidence annotation and the uploaded
 ```bash
 npm ci
 npm run lint && npm run typecheck && npm run format:check
-npm test                       # 37 unit + 59 integration
-npm run test:ui                # 23 interface tests
+npm test                       # unit + integration, 101 tests
+npm run test:ui                # 24 interface tests
 DENTIVA_STRESS_PATIENTS=600 npm run test:stress
 npm run build && npm run test:e2e
 npm run test:e2e:electron      # needs the Electron binary

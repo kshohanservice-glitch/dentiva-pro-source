@@ -58,4 +58,9 @@ Every product requirement, where it lives in the code, and what proves it works.
 - The activation code is a good-faith local check. It is verified against a PBKDF2
   digest with constant-time comparison and machine binding, and the application
   says so on screen; a fully offline check cannot be made cryptographically
-  strong, and nothing here pretends otherwise.
+  strong, and nothing here pretends otherwise. The code itself appears in plain
+  text in exactly two places — the developer's end-to-end driver
+  (`tools/run-e2e.mjs`) and the stress-data seeder (`tools/seed-stress.mjs`),
+  both of which have to _type_ it — and in the test fixtures that prove the
+  screen accepts the right code and refuses the wrong one. The application
+  itself, its bundle, and every shipped file carry the digest only.
