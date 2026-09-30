@@ -20,6 +20,14 @@
 !macroend
 
 !macro customUnInstall
+  ; A silent uninstall must not wait for someone to click OK. NSIS shows a
+  ; MessageBox even in silent mode (only "/SD" suppresses one), so on a machine
+  ; with nobody at the keyboard — an unattended rollout, a scripted removal, or
+  ; this project's own clean-machine check — the message would leave the
+  ; uninstaller running until it is killed, and the application would look as
+  ; though it refuses to uninstall. The message is for the person who clicks
+  ; Uninstall, so it is shown exactly then.
+  ${IfNot} ${Silent}
   MessageBox MB_OK|MB_ICONINFORMATION \
     "Dentiva Pro has been removed from this computer.$\r$\n$\r$\n\
      Your clinic data has been kept in:$\r$\n\
@@ -29,4 +37,5 @@ inventory and accounts, together with your backups and the activation record. No
 that folder is deleted by this uninstaller.$\r$\n$\r$\n\
      Take a backup before reinstalling, and delete the folder yourself only when you are \
 certain you no longer need the records."
+  ${EndIf}
 !macroend

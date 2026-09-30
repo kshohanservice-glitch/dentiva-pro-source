@@ -295,9 +295,17 @@ try {
     Set-Content -Path $marker -Value 'clinic records must survive an uninstall' -Encoding utf8
     Assert-Truthy (Test-Path $database) "the clinic database exists at $database"
 
-    Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait
+    # Bounded, because a dialog nobody can dismiss would otherwise leave this step
+    # running until the job times out hours later, which says nothing to a maintainer.
+    $uninstallProcess = Start-Process -FilePath $uninstaller -ArgumentList '/S' -PassThru
+    if (-not $uninstallProcess.WaitForExit(180000)) {
+        Stop-Process -Id $uninstallProcess.Id -Force -ErrorAction SilentlyContinue
+        throw 'The uninstaller did not finish within three minutes; it may be waiting for a dialog that a silent uninstall must not show.'
+    }
 
-    $deadline = (Get-Date).AddSeconds(90)
+    # The uninstaller copies itself to a temporary folder and works from there, so the
+    # files may linger for a few seconds after the process above has exited.
+    $deadline = (Get-Date).AddSeconds(120)
     while ((Test-Path $appExe) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 3 }
     Assert-Truthy (-not (Test-Path $appExe)) 'the uninstaller removed the application executable'
     Assert-Truthy (-not (Test-Path $uninstaller)) 'the uninstaller removed its own files'
