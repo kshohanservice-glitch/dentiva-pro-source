@@ -73,3 +73,10 @@ Installed Windows normal GUI startup must not access Electron session before
 and verifies its window and continued process life. Self-check remains a separate
 path and cannot establish normal startup readiness. Release gate: pending Windows
 CI and real-machine retest (see `RELEASE-AUDIT-v1.0.0.md`).
+
+## Expanded owner-request coverage
+
+`MASTER-AUDIT-MATRIX.md` tracks the requested feature areas, the implementation,
+services/data/permissions, existing tests and outstanding manual verification.
+The shared patient-picker regression covers keyboard and mouse selection in an
+invoice modal; it does not prove every patient-linked form on Windows.

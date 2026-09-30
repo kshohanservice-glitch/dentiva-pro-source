@@ -32,7 +32,7 @@ async function raiseInvoice(uiApp: UiApp, patientName: string, treatmentId: numb
   const dialog = await screen.findByRole('dialog', { name: /Raise an invoice/ });
 
   await uiApp.user.type(within(dialog).getByPlaceholderText(/Start typing a name, code or phone/), patientName);
-  await uiApp.user.click(await within(dialog).findByRole('button', { name: new RegExp(patientName) }));
+  await uiApp.user.click(await within(dialog).findByRole('option', { name: new RegExp(patientName) }));
 
   const treatmentSelect = within(dialog)
     .getAllByRole('combobox')
@@ -50,6 +50,26 @@ afterEach(() => {
 });
 
 describe('invoices', () => {
+  it('selects the actual patient ID by keyboard and clears a stale search', async () => {
+    const { uiApp, patientId } = await billingApp();
+    const other = createPatient(uiApp.app, { firstName: 'Billing', lastName: 'Other', phone: '01611223345' });
+    await uiApp.user.click(screen.getAllByRole('button', { name: /Raise invoice/ })[0]!);
+    const dialog = await screen.findByRole('dialog', { name: /Raise an invoice/ });
+    const search = within(dialog).getByRole('combobox', { name: 'Patient' });
+    await uiApp.user.type(search, 'Billing');
+    const listbox = await within(dialog).findByRole('listbox', { name: 'Matching patients' });
+    const options = await within(listbox).findAllByRole('option');
+    expect(options.length).toBe(2);
+    await uiApp.user.keyboard('{ArrowDown}{Enter}');
+    expect(within(dialog).getAllByText(new RegExp(options[1]!.textContent!.match(/P-\d+/)![0])).length).toBeGreaterThan(0);
+    expect(within(dialog).queryByRole('listbox')).toBeNull();
+    await uiApp.user.click(within(dialog).getByRole('button', { name: 'Change' }));
+    await uiApp.user.type(within(dialog).getByRole('combobox', { name: 'Patient' }), 'Other');
+    await uiApp.user.click(await within(dialog).findByRole('option', { name: /Billing Other/ }));
+    expect(within(dialog).getAllByText(new RegExp(other.code)).length).toBeGreaterThan(0);
+    expect(other.id).not.toBe(patientId);
+  });
+
   it('raises an invoice from the catalogue and stores the exact amounts', async () => {
     const { uiApp, patientId } = await billingApp();
     const treatment = await firstTreatment(uiApp);

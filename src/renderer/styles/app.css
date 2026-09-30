@@ -1943,3 +1943,35 @@ a:hover {
     background: #fff;
   }
 }
+
+/* Patient search stays anchored inside dialogs rather than below unrelated fields. */
+.patient-picker {
+  position: relative;
+  min-width: 0;
+}
+.patient-picker__results {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + 4px);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 120;
+}
+.patient-picker__results > [role='status'],
+.patient-picker__results > [role='alert'] {
+  padding: var(--space-3);
+}
+.patient-picker__active,
+.patient-picker__results .menu__item:focus-visible {
+  background: var(--surface-3);
+  outline: 2px solid var(--accent);
+}
+.patient-picker__clear {
+  position: absolute;
+  inset-inline-end: 8px;
+  top: 6px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}

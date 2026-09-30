@@ -79,3 +79,13 @@ mark the release as broken in its notes, publish the previous version's artifact
 as the recommended download, and fix forward with a new version. Clinic data is
 portable between versions through the backup/restore path, so a clinic can always
 return to the previous version by installing it and restoring its own backup.
+
+## Post-merge comprehensive audit gate — BLOCKED
+
+The numbered gates above are insufficient on their own for the expanded product
+acceptance request. In addition, every row and cross-cutting item of
+`MASTER-AUDIT-MATRIX.md` must have recorded manual/automated results, not just
+implementation paths. The previous self-check-only installed GUI gate missed a
+pre-readiness crash; `windows-check.ps1` now also starts the installed GUI normally.
+Do **not** merge, tag or publish until a real Windows acceptance run covers the
+expanded workflows and the exact final artifacts are checksummed.

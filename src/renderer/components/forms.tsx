@@ -3,14 +3,15 @@
  * list chrome (toolbar + table + pagination) so that every list screen looks
  * and behaves the same.
  */
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { parseMoney } from '@shared/money';
 import { DATE_RANGE_PRESETS } from '@shared/dates';
 import type { Paged, PatientSummary, Dentist } from '@shared/types';
 import { useApi } from '@renderer/state/store';
+import { bridge, apiErrorMessage } from '@renderer/lib/bridge';
 import { fmtMoney, fmtQuantity } from '@renderer/lib/format';
-import { Button, Empty, ErrorState, Field, Input, LoadingBlock, Pagination, SearchInput, Select } from './ui';
+import { Button, Empty, ErrorState, Field, Input, LoadingBlock, Pagination, Select } from './ui';
 
 export const RANGE_PRESET_LABELS: ReadonlyArray<{ value: string; label: string }> = [
   { value: '', label: 'All time' },
@@ -244,51 +245,151 @@ export function PatientPicker({
 }): JSX.Element {
   const [term, setTerm] = useState('');
   const [open, setOpen] = useState(autoFocus);
-  const results = useApi('patients.quickSearch', term.trim().length >= 2 ? { query: term.trim(), limit: 8 } : null);
+  const [active, setActive] = useState(0);
+  const [response, setResponse] = useState<{ term: string; items: PatientSummary[]; error: string | null } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const listId = useId();
+  const query = term.trim();
+
+  useEffect(() => {
+    if (value || query.length < 2) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      bridge
+        .invoke('patients.quickSearch', { query, limit: 8 })
+        .then((items) => {
+          if (!cancelled) setResponse({ term: query, items, error: null });
+        })
+        .catch((error: unknown) => {
+          if (!cancelled) setResponse({ term: query, items: [], error: apiErrorMessage(error) });
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, 150);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [query, value]);
+
+  const current = response?.term === query ? response : null;
+  const items = current?.items ?? [];
+  const select = (patient: PatientSummary) => {
+    onChange(patient);
+    setOpen(false);
+    setTerm('');
+    setResponse(null);
+  };
 
   return (
-    <Field label={label} required={required} hint={value ? `${value.code} · ${value.phone}` : 'Search by name, code or phone'}>
+    <div className="field">
+      <span className="field__label">
+        {label}
+        {required ? (
+          <span aria-hidden className="text-danger">
+            {' '}
+            *
+          </span>
+        ) : null}
+      </span>
       {value ? (
         <div className="row row--between">
           <span>
             {value.name} <span className="mono small">({value.code})</span>
           </span>
-          <Button size="sm" variant="ghost" onClick={() => onChange(null)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              onChange(null);
+              setTerm('');
+              setOpen(true);
+            }}
+          >
             Change
           </Button>
         </div>
       ) : (
-        <>
-          <SearchInput
+        <div className="patient-picker">
+          <input
+            className="input"
+            role="combobox"
+            aria-label={label}
+            aria-autocomplete="list"
+            aria-expanded={open && query.length >= 2}
+            aria-controls={listId}
+            aria-activedescendant={open && items[active] ? `${listId}-${items[active].id}` : undefined}
             value={term}
             autoFocus={autoFocus}
             placeholder="Start typing a name, code or phone…"
-            onChange={(next) => {
-              setTerm(next);
+            onChange={(event) => {
+              setTerm(event.target.value);
+              setActive(0);
               setOpen(true);
             }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                setOpen(false);
+                event.stopPropagation();
+              }
+              if (event.key === 'ArrowDown' && items.length) {
+                event.preventDefault();
+                setOpen(true);
+                setActive((index) => (index + 1) % items.length);
+              }
+              if (event.key === 'ArrowUp' && items.length) {
+                event.preventDefault();
+                setOpen(true);
+                setActive((index) => (index - 1 + items.length) % items.length);
+              }
+              if (event.key === 'Enter' && open && items[active]) {
+                event.preventDefault();
+                select(items[active]);
+              }
+            }}
           />
-          {open && term.trim().length >= 2 ? (
-            <div className="menu" style={{ marginTop: 6 }}>
-              {results.loading ? (
-                <div className="small muted" style={{ padding: 8 }}>
+          {term ? (
+            <button
+              type="button"
+              className="patient-picker__clear"
+              onClick={() => {
+                setTerm('');
+                setResponse(null);
+                setActive(0);
+              }}
+              aria-label="Clear patient search"
+            >
+              ×
+            </button>
+          ) : null}
+          {open && query.length >= 2 ? (
+            <div className="menu patient-picker__results" id={listId} role="listbox" aria-label="Matching patients">
+              {loading || !current ? (
+                <div className="small muted" role="status">
                   Searching…
                 </div>
-              ) : (results.data ?? []).length === 0 ? (
-                <div className="small muted" style={{ padding: 8 }}>
+              ) : current.error ? (
+                <div className="field__error" role="alert">
+                  {current.error} Try searching again.
+                </div>
+              ) : items.length === 0 ? (
+                <div className="small muted" role="status">
                   No patient matched “{term}”.
                 </div>
               ) : (
-                (results.data ?? []).map((patient) => (
+                items.map((patient, index) => (
                   <button
                     key={patient.id}
+                    id={`${listId}-${patient.id}`}
                     type="button"
-                    className="menu__item"
-                    onClick={() => {
-                      onChange(patient);
-                      setOpen(false);
-                      setTerm('');
-                    }}
+                    role="option"
+                    aria-selected={index === active}
+                    className={`menu__item${index === active ? ' patient-picker__active' : ''}`}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => select(patient)}
                   >
                     <span className="row row--between">
                       <span>{patient.name}</span>
@@ -301,9 +402,10 @@ export function PatientPicker({
               )}
             </div>
           ) : null}
-        </>
+        </div>
       )}
-    </Field>
+      <span className="field__hint">{value ? `${value.code} · ${value.phone}` : 'Search by name, code or phone'}</span>
+    </div>
   );
 }
 

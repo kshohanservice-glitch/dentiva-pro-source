@@ -278,3 +278,11 @@ CSP registration into the ready callback, before window creation, and adds a
 normal installed GUI launch gate to Windows CI. The former uncommitted post-merge
 work was not present in this checkout; it has been reconstructed here. New CI
 and real Windows acceptance remain pending. See `RELEASE-AUDIT-v1.0.0.md`.
+
+## Expanded production audit (subsequent branch work)
+
+The inventory in `MASTER-AUDIT-MATRIX.md` records implementation and existing
+coverage but explicitly keeps the per-screen real Windows review open. Locally,
+the patient-picker repair passes 102 unit/integration, 25 UI, 8 stress and 38
+IPC E2E checks, plus lint, typecheck, format and production build. These are
+**not** evidence of full packaged manual acceptance; v1.0.0 remains blocked.

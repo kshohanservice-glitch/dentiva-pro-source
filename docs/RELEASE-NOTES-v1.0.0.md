@@ -8,3 +8,7 @@ Activation requires a valid product code. Clinic data is preserved on uninstall.
 readiness. Do not distribute the prior draft/tag or previous Windows artifacts.
 Populate final commit, build provenance and SHA-256 checksums only after the new
 Windows packaged GUI and clean-machine acceptance checks pass.
+
+The proposed build includes a patient-selection keyboard/accessibility repair.
+This is not a final release note: the comprehensive acceptance matrix, physical
+printer checks and exact-file SHA-256 remain outstanding.

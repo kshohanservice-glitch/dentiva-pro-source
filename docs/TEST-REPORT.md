@@ -216,3 +216,13 @@ an application window and a surviving process. Local Linux: typecheck, lint,
 format, 102 unit/integration tests (including hostile sort/direction/search),
 24 UI tests and production build passed. New Windows CI and real-machine
 acceptance have not yet passed; release remains blocked.
+
+## Expanded audit — patient picker regression
+
+A shared patient picker had no keyboard result navigation and no listbox
+semantics. An invoice UI test now searches, selects the second real patient
+using ArrowDown+Enter, changes the selection and selects another by mouse;
+the existing invoice creation tests remain passing. Local results: 102
+unit/integration, 25 UI, 8 stress and 38 IPC E2E checks; lint, typecheck,
+format and build passed. Windows GUI/DPI, hardware printing and exhaustive
+screen-by-screen acceptance are **not** verified by these local checks.
