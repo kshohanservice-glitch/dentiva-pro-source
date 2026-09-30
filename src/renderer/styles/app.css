@@ -1858,6 +1858,59 @@ a:hover {
   }
 }
 
+
+/* --- Bar chart (reports) -------------------------------------------------- */
+
+.chart__bar-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 22%) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+.chart__label {
+  font-size: var(--text-xs);
+  color: var(--ink-600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chart__track {
+  display: block;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface-3, var(--surface-2));
+  overflow: hidden;
+}
+.chart__bar {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent, #0f766e), var(--accent-strong, #115e59));
+  transition: width var(--motion-base, 220ms) ease;
+}
+.chart__value {
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-700);
+  white-space: nowrap;
+}
+.chart--bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* --- Semantic text tones -------------------------------------------------- */
+
+.text--success { color: var(--success-600, #15803d); }
+.text--danger { color: var(--danger-600, #b91c1c); }
+.text--warning { color: var(--warning-700, #b45309); }
+.text--muted { color: var(--ink-500); }
+
+@media (prefers-reduced-motion: reduce) {
+  .chart__bar { transition: none; }
+}
+
 @media (max-width: 1024px) {
   .shell {
     grid-template-columns: 76px minmax(0, 1fr);

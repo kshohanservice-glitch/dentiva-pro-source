@@ -2,39 +2,7 @@
  * Domain contracts shared by the core services, the IPC boundary and the UI.
  * These are plain data shapes: no behaviour, no framework, no Node APIs.
  */
-import type {
-  AccountingDirection,
-  AppointmentStatus,
-  AttachmentCategory,
-  AutoLockMinutes,
-  BackupIntervalDays,
-  BloodGroup,
-  DensityMode,
-  DentitionType,
-  Gender,
-  InventoryUnit,
-  InvoiceStatus,
-  MedicationForm,
-  MobilityGrade,
-  NotificationCategory,
-  NotificationSeverity,
-  PatientStatus,
-  PaymentMethodCategory,
-  PreferredContact,
-  QueuePriority,
-  QueueStatus,
-  ReferralStatus,
-  StockMovementType,
-  ThemeMode,
-  ToothFindingType,
-  ToothNumberingSystem,
-  ToothSurface,
-  FoodTiming,
-  ClinicalOptionCategory,
-  PrintTemplateKind,
-  PaperSizeKey,
-  NumberGrouping,
-} from './constants';
+import type { AccountingDirection, AppointmentStatus, AttachmentCategory, AutoLockMinutes, BackupIntervalDays, BloodGroup, ClinicalOptionCategory, DensityMode, DentistCredentialType, DentitionType, FoodTiming, Gender, InventoryUnit, InvoiceStatus, MedicationForm, MobilityGrade, NotificationCategory, NotificationSeverity, NumberGrouping, PaperSizeKey, PatientStatus, PaymentMethodCategory, PreferredContact, PrintTemplateKind, QueuePriority, QueueStatus, ReferralStatus, StockMovementType, ThemeMode, ToothFindingType, ToothNumberingSystem, ToothSurface } from './constants';
 import type { IsoDate, IsoInstant, IsoTime } from './dates';
 import type { Paisa } from './money';
 import type { SerializedError } from './errors';

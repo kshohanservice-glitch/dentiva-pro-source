@@ -18,6 +18,9 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     strictPort: true,
+    // The renderer is also opened through a proxied preview host during
+    // development, so that hostname has to be accepted by Vite as well.
+    allowedHosts: ['.e2b.app', 'localhost', '127.0.0.1'],
     // The browser preview talks to the locally running Dentiva core service.
     // Relative /api URLs keep the browser independent of sandbox networking details.
     proxy: {

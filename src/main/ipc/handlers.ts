@@ -62,7 +62,28 @@ export function createHandlers(): Record<ApiMethodName, Handler> {
     'setup.complete': (_payload, ctx) => ctx.container.services.setup.complete(),
 
     'clinic.get': (_payload, ctx) => ctx.container.services.settings.getClinic(),
-    'clinic.update': (payload, ctx) => ctx.container.services.settings.updateClinic(payload),
+    'clinic.update': async (payload, ctx) => {
+      const existing = ctx.container.services.settings.getClinic();
+      let logoPath = existing.logoPath;
+      if (payload.removeLogo) logoPath = null;
+      if (payload.logoSourcePath) {
+        logoPath = await ctx.container.services.attachments.storeProfileImage({
+          sourcePath: String(payload.logoSourcePath),
+          kind: 'clinic_logo',
+        });
+      }
+      return ctx.container.services.settings.updateClinic({
+        name: payload.name,
+        address: payload.address,
+        phone: payload.phone,
+        email: payload.email,
+        website: payload.website,
+        clinicMessage: payload.clinicMessage,
+        visitingHours: payload.visitingHours,
+        registrationNumber: payload.registrationNumber,
+        logoPath,
+      });
+    },
     'settings.get': (_payload, ctx) => ctx.container.services.settings.getSettings(),
     'settings.update': (payload, ctx) => ctx.container.services.settings.updateSettings(payload.patch),
 

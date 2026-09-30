@@ -66,7 +66,7 @@ export function ReportsScreen(): JSX.Element {
   const [dentistId, setDentistId] = useState<number | null>(null);
   const [result, setResult] = useState<ReportResult | null>(null);
 
-  const dentists = useApi('dentists.list', { pageSize: 100 });
+  const dentists = useApi('dentists.list', { includeInactive: false });
 
   useEffect(() => {
     if (!reportKey && catalogue.data && catalogue.data.length > 0) setReportKey(catalogue.data[0]!.key as ReportKey);
@@ -183,10 +183,7 @@ export function ReportsScreen(): JSX.Element {
             <Select
               value={dentistId === null ? '' : String(dentistId)}
               placeholder="All dentists"
-              options={((dentists.data?.items ?? []) as unknown as Array<{ id: number; fullName: string }>).map((dentist) => ({
-                value: String(dentist.id),
-                label: dentist.fullName,
-              }))}
+              options={(dentists.data ?? []).map((dentist) => ({ value: String(dentist.id), label: dentist.name }))}
               onChange={(event) => setDentistId(event.target.value ? Number(event.target.value) : null)}
             />
           </Field>
@@ -219,11 +216,11 @@ export function ReportsScreen(): JSX.Element {
 
           {result.chart && result.chart.length > 0 ? (
             <Card title="Trend" subtitle={`${result.chart.length} point(s)`}>
-              <div className="chart">
+              <div className="chart chart--bars">
                 {result.chart.map((point) => {
                   const max = Math.max(...result.chart!.map((entry) => entry.value));
                   return (
-                    <div key={point.label} className="chart__row">
+                    <div key={point.label} className="chart__bar-row">
                       <span className="chart__label">{point.label}</span>
                       <span className="chart__track">
                         <span className="chart__bar" style={{ width: `${sharePercent(point.value, max || 1)}%` }} />

@@ -625,6 +625,63 @@ export const PRINT_TEMPLATE_KINDS = options<PrintTemplateKind>([
 export const DPI_OPTIONS = [96, 150, 203, 300, 600] as const;
 
 // --- Settings -------------------------------------------------------------
+/**
+ * Date and time patterns offered in the setup wizard and Settings.
+ *
+ * These are the literal patterns the formatter understands (see
+ * `@shared/dates`), written the way a user reads them.
+ */
+export const DATE_FORMATS: ReadonlyArray<{ value: string; label: string; example: string }> = [
+  { value: 'DD MMM YYYY', label: 'Day Month Year', example: '05 Jan 2026' },
+  { value: 'DD/MM/YYYY', label: 'Day/Month/Year', example: '05/01/2026' },
+  { value: 'DD-MM-YYYY', label: 'Day-Month-Year', example: '05-01-2026' },
+  { value: 'YYYY-MM-DD', label: 'Year-Month-Day (ISO)', example: '2026-01-05' },
+  { value: 'DD MMMM YYYY', label: 'Day Month name Year', example: '05 January 2026' },
+  { value: 'ddd, DD MMM YYYY', label: 'Weekday, Day Month Year', example: 'Mon, 05 Jan 2026' },
+];
+
+export const TIME_FORMATS: ReadonlyArray<{ value: string; label: string; example: string }> = [
+  { value: 'hh:mm A', label: '12-hour', example: '05:30 PM' },
+  { value: 'HH:mm', label: '24-hour', example: '17:30' },
+  { value: 'hh:mm:ss A', label: '12-hour with seconds', example: '05:30:00 PM' },
+  { value: 'HH:mm:ss', label: '24-hour with seconds', example: '17:30:00' },
+];
+
+/**
+ * Time zones offered during setup. The application never uses the operating
+ * system's zone, so a clinic that moves its clock keeps consistent dates.
+ */
+export const TIME_ZONES: readonly string[] = [
+  'Asia/Dhaka',
+  'Asia/Kolkata',
+  'Asia/Kathmandu',
+  'Asia/Colombo',
+  'Asia/Karachi',
+  'Asia/Yangon',
+  'Asia/Dubai',
+  'Asia/Riyadh',
+  'Asia/Singapore',
+  'Asia/Kuala_Lumpur',
+  'Asia/Tokyo',
+  'Europe/London',
+  'Europe/Berlin',
+  'America/New_York',
+  'America/Los_Angeles',
+  'Australia/Sydney',
+  'UTC',
+];
+
+/** The categories of credential a dentist can show on a prescription. */
+export type DentistCredentialType = 'designation' | 'qualification' | 'certification';
+
+export const DENTIST_CREDENTIAL_TYPES = options<DentistCredentialType>([
+  ['designation', 'Designation'],
+  ['qualification', 'Qualification'],
+  ['certification', 'Certification / training'],
+]);
+
+export const DENTIST_CREDENTIAL_TYPE_LABELS = labelMap(DENTIST_CREDENTIAL_TYPES);
+
 export type ThemeMode = 'light' | 'dark' | 'system';
 export const THEME_MODES = options<ThemeMode>([
   ['light', 'Light'],
