@@ -82,6 +82,9 @@ function Invoke-SelfCheck {
     # The environment variable is the form the pipeline depends on; the command-line
     # flag is passed as well so both paths are exercised.
     $env:DENTIVA_SELF_CHECK_FILE = $reportFile
+    # Ask the application to record what it was started with, so a silent launch is
+    # never a mystery.
+    $env:DENTIVA_LAUNCH_TRACE = '1'
 
     & $appExe --self-check "--self-check-file=$reportFile" > $stdoutFile 2>&1
     $exitCode = $LASTEXITCODE
@@ -105,10 +108,20 @@ function Invoke-SelfCheck {
       Remove-Item Env:\DENTIVA_DATA_DIR -ErrorAction SilentlyContinue
       Remove-Item $probeParent -ErrorAction SilentlyContinue
 
+      $trace = Join-Path $env:TEMP 'dentiva-launch-trace.txt'
+      if (Test-Path $trace) {
+        Write-Log '  launch trace:'
+        foreach ($line in Get-Content $trace) { Write-Log "    $line" }
+      } else {
+        Write-Log '  launch trace: not written (the main process did not run this far)'
+      }
+      if (Test-Path $logCopy) { Write-Log "  logs copy found after all: $logCopy" }
+
+      $traceLine = if (Test-Path $trace) { (Get-Content $trace -Raw).Replace("`r`n", ' | ').Replace("`n", ' | ') } else { 'none' }
       throw ("The $Label self-check left no report (exit code $exitCode; probe with an unusable data folder " +
         "exited $probeExit where 1 means the self-check ran). Requested file written: $(Test-Path $reportFile); " +
         "logs copy written: $(Test-Path $logCopy); stdout: $(if ((Test-Path $stdoutFile) -and (Get-Content $stdoutFile -Raw)) { 'captured' } else { 'empty' }); " +
-        'DENTIVA_SELF_CHECK_FILE=' + $env:DENTIVA_SELF_CHECK_FILE)
+        "launch trace: $traceLine")
     }
 
     $json = $raw | ConvertFrom-Json

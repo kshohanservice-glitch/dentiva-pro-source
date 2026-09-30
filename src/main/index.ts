@@ -53,6 +53,32 @@ function isSelfCheckRun(): boolean {
 }
 
 /**
+ * `DENTIVA_LAUNCH_TRACE=1` writes what the main process was started with, before
+ * anything else happens. Diagnosing "the application did nothing" from a support
+ * e-mail needs exactly this: the arguments, whether the self-check was recognised,
+ * and which data folder was asked for. Off by default, and it never throws.
+ */
+if (process.env['DENTIVA_LAUNCH_TRACE'] === '1') {
+  try {
+    writeFileSync(
+      join(app.getPath('temp'), 'dentiva-launch-trace.txt'),
+      [
+        `argv=${JSON.stringify(process.argv.slice(1))}`,
+        `selfCheck=${String(isSelfCheckRun())}`,
+        `selfCheckFile=${selfCheckFile() ?? 'unset'}`,
+        `dataDir=${process.env['DENTIVA_DATA_DIR'] ?? 'unset'}`,
+        `packaged=${String(app.isPackaged)}`,
+        `startedAt=${new Date().toISOString()}`,
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+  } catch {
+    // Diagnostics must never break the application.
+  }
+}
+
+/**
  * Where a self-check report is written. The requested path comes first; the data
  * folder's own `logs` directory always gets a copy, so a support engineer can ask
  * for one file no matter how the application was started.
