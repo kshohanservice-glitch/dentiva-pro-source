@@ -210,9 +210,16 @@ complete application workflow over the real IPC surface.
 | 14  | `4308c79` | **passed**     | failed                      | `Start-Process -Wait` makes the installed self-check run at last — healthy on the default and the relocated data folder, exit 1 on a broken one — and then the check's own assertion helper threw on a string                     |
 | 15  | `16cd816` | **passed**     | cancelled (hung)            | the assertion helper is fixed and the check reached the uninstall — where the "your data was kept" dialog waited for a click on an unattended machine; the next push cancelled it through the workflow's own concurrency rule     |
 | 16  | `7b81c15` | **passed**     | **passed**                  | **every gate green**: install, shortcuts, uninstall entry, licence bundle, self-check healthy on the default and relocated folders and exit 1 on a broken one, uninstall removing the application while keeping the clinic's data |
+| 17  | `ec36938` | **passed**     | **passed**                  | the final commit of the branch: identical evidence to run 16, with the pull-request run on the same commit also green                                                                                                             |
 
 Run 6 built `DentivaPro-1.0.0-Windows-x64-Setup.exe` (106.98 MB) and
-`DentivaPro-1.0.0-Windows-x64-Portable.exe` (106.59 MB).
+`DentivaPro-1.0.0-Windows-x64-Portable.exe` (106.59 MB); run 17
+(`https://github.com/kshohanservice-glitch/dentiva-pro-source/actions/runs/36717846647`,
+commit `ec36938`) passed every gate on both jobs and uploaded the two artifacts,
+`latest.yml` and the evidence files as `dentiva-pro-windows` (223.98 MB). Any
+documentation-only commit after it re-runs the same pipeline — the workflow cannot
+tell a comment from code — so the Actions tab on the branch is the live answer, and
+the table below is the history.
 
 The pipeline publishes its reason where a maintainer always sees it: heavy steps
 keep transcripts, the Windows check writes a compact `=== FAILURE ===` block, and
