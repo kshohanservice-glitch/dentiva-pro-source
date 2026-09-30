@@ -1,0 +1,55 @@
+appId: com.dentivapro.desktop
+productName: Dentiva Pro
+copyright: Copyright (c) 2026 Shohan Khan. All rights reserved.
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - package.json
+  - '!**/*.map'
+  - '!**/{.editorconfig,tsconfig*.json,eslint.config.js,vitest.config.ts}'
+asar: true
+asarUnpack:
+  - '**/node_modules/better-sqlite3/**'
+extraResources:
+  - from: build/licenses
+    to: licenses
+  - from: build/THIRD-PARTY-NOTICES.txt
+    to: THIRD-PARTY-NOTICES.txt
+compression: maximum
+removePackageScripts: true
+publish:
+  - provider: github
+    releaseType: draft
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: build/icons/icon.ico
+  legalTrademarks: Dentiva Pro
+  requestedExecutionLevel: asInvoker
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Dentiva Pro
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false
+  artifactName: DentivaPro-${version}-Windows-x64-Setup.${ext}
+  installerIcon: build/icons/icon.ico
+  uninstallerIcon: build/icons/icon.ico
+  installerHeaderIcon: build/icons/icon.ico
+  uninstallDisplayName: Dentiva Pro ${version}
+  license: build/EULA.txt
+  include: build/installer.nsh
+portable:
+  artifactName: DentivaPro-${version}-Windows-x64-Portable.${ext}
+  unpackDirName: DentivaProPortable

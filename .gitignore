@@ -1,0 +1,30 @@
+node_modules/
+dist/
+release/
+out/
+coverage/
+.vite/
+.tmp/
+*.tsbuildinfo
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+# Local runtime data must never be committed
+data/
+.dentiva-dev/
+.local-data/
+tests/e2e/.artifacts/
+tests/e2e/tmp/
+tools/browser/node_modules/
+playwright-report/
+test-results/
+# Signing material must never be committed
+*.p12
+*.pfx
+*.pem
+*.key
+!build/**/*.public.pem

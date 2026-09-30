@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2023"],
+    "types": ["node"]
+  },
+  "include": [
+    "src/shared/**/*.ts",
+    "src/core/**/*.ts",
+    "src/main/**/*.ts",
+    "src/preload/**/*.ts",
+    "tests/**/*.ts",
+    "tools/**/*.mts",
+    "vite.config.main.ts",
+    "vite.config.preload.ts",
+    "vite.config.renderer.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": ["tests/ui/**", "node_modules", "dist"]
+}
