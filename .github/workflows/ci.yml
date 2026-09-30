@@ -1,0 +1,260 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint, typecheck, tests and the packaged smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Each heavy step keeps its own transcript. A failure is explained by the
+      # annotations at the end of the job, so the reason is visible without
+      # opening the raw log.
+      - name: Prepare the log folder
+        run: mkdir -p test-results
+
+      - name: Lint
+        id: lint
+        run: npm run lint
+
+      - name: Typecheck the main process and the renderer
+        id: types
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee test-results/typecheck.log
+
+      - name: Check formatting and the line-length policy
+        id: format
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run format:check 2>&1 | tee test-results/format.log
+
+      - name: Regenerate the licence notices and fail if they are stale
+        id: licences
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          {
+            npm run licenses
+            git diff --exit-code -- THIRD-PARTY-NOTICES.md src/renderer/generated/licenses.ts
+          } 2>&1 | tee test-results/licences.log
+
+      - name: Unit and integration tests
+        id: tests
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee test-results/tests.log
+
+      - name: Renderer tests (the real screens over the real core)
+        id: ui
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run test:ui 2>&1 | tee test-results/ui.log
+
+      - name: Stress test (600-patient clinic)
+        id: stress
+        continue-on-error: true
+        env:
+          DENTIVA_STRESS_PATIENTS: 600
+        run: |
+          set -o pipefail
+          npm run test:stress 2>&1 | tee test-results/stress.log
+
+      - name: Build main, preload and renderer bundles
+        id: build
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee test-results/build.log
+
+      - name: End-to-end run through the IPC surface
+        id: e2e
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run test:e2e 2>&1 | tee test-results/e2e.log
+
+      - name: Packaged application test (Playwright drives real Electron)
+        id: packaged
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          xvfb-run -a --server-args="-screen 0 1920x1080x24" npm run test:e2e:electron 2>&1 | tee test-results/packaged.log
+
+      # `failure()` is false when the only failures are in steps marked
+      # `continue-on-error`, so this step runs unconditionally and reads each
+      # step's own outcome. A masked failure still fails the job, and it is always
+      # explained: this is the channel the maintainers read.
+      # `failure()` is false when the only failures are in steps marked
+      # `continue-on-error`, so this step runs unconditionally and reads each
+      # step's own outcome. A masked failure still fails the job, and it is always
+      # explained: this is the channel the maintainers read.
+      - name: Explain what failed, in the job annotations
+        if: always()
+        shell: bash
+        run: |
+          outcomes=(
+            "lint=${{ steps.lint.outcome }}"
+            "types=${{ steps.types.outcome }}"
+            "format=${{ steps.format.outcome }}"
+            "licences=${{ steps.licences.outcome }}"
+            "tests=${{ steps.tests.outcome }}"
+            "ui=${{ steps.ui.outcome }}"
+            "stress=${{ steps.stress.outcome }}"
+            "build=${{ steps.build.outcome }}"
+            "e2e=${{ steps.e2e.outcome }}"
+            "packaged=${{ steps.packaged.outcome }}"
+          )
+
+          failures=()
+          for entry in "${outcomes[@]}"; do
+            case "${entry#*=}" in
+              failure|cancelled) failures+=("$entry") ;;
+            esac
+          done
+
+          if [ ${#failures[@]} -eq 0 ]; then
+            echo "Every step passed."
+            exit 0
+          fi
+
+          # Annotations are size-limited, so this is a précis: what failed, why, and
+          # the lines around the first failure of each log. The full transcripts and
+          # Playwright's page snapshots are in the `ci-logs` artifact.
+          {
+            echo "failing steps: ${failures[*]}"
+            echo "all steps: ${outcomes[*]}"
+
+            if [ -f test-results/packaged.log ]; then
+              echo "===== packaged test: first failure ====="
+              first=$(grep -n -m 1 -E '^\s+[0-9]+\) |^\s+Error:|^\s+✘' test-results/packaged.log | cut -d: -f1 || true)
+              if [ -n "${first:-}" ]; then
+                sed -n "${first},$((first + 22))p" test-results/packaged.log || true
+              else
+                tail -n 25 test-results/packaged.log || true
+              fi
+              echo "===== packaged test: summary ====="
+              grep -E '^\s+[0-9]+ (passed|failed|skipped)|passed \(|failed$|Error: No tests found' test-results/packaged.log | tail -n 12 || true
+            fi
+
+            # The suite's own step markers: where it got to, in order.
+            if [ -f test-results/e2e-diagnostics.log ]; then
+              echo "===== packaged test: diagnostics ====="
+              tail -n 20 test-results/e2e-diagnostics.log || true
+            fi
+
+            for log in e2e ui tests stress licences format typecheck; do
+              path="test-results/$log.log"
+              [ -f "$path" ] || continue
+              echo "===== $path (last 15 lines) ====="
+              grep -v -E 'assets/[A-Za-z0-9_.-]+ +[0-9.]{1,6} kB' "$path" | tail -n 15 || true
+            done
+
+            if [ "${{ steps.build.outcome }}" = "failure" ] && [ -f test-results/build.log ]; then
+              echo "===== test-results/build.log (last 25 lines) ====="
+              tail -n 25 test-results/build.log || true
+            fi
+          } > test-results/failure-annotation.txt
+          text=$(tr -d '\r' < test-results/failure-annotation.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          printf '::error title=CI failure::%s\n' "$text"
+          exit 1
+
+      - name: Upload the logs, the Playwright report and the traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-logs
+          path: |
+            test-results
+            playwright-report
+          if-no-files-found: warn
+
+  windows-installer:
+    name: Windows installer and clean-machine test
+    runs-on: windows-latest
+    timeout-minutes: 60
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # One script holds the whole check so the transcript, the assertions and the
+      # evidence summary cannot drift apart. It builds the installer, installs it
+      # silently on a clean machine, verifies the executable, the shortcuts, the
+      # uninstall entry and the installed application's self-check (default and
+      # relocated data folders), then uninstalls and proves the clinic data survived.
+      - name: Build, install and verify on a clean machine
+        id: installcheck
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path test-results | Out-Null
+          pwsh -NoProfile -File tools/ci/windows-check.ps1 *>&1 | Tee-Object -FilePath test-results/windows-check.log
+
+      - name: Explain a Windows check failure in the job annotations
+        if: steps.installcheck.outcome == 'failure'
+        shell: pwsh
+        run: |
+          # The transcript ends with a compact FAILURE block written by the script;
+          # fall back to the tail when the failure happened before that block existed.
+          $ansi = [regex]'\x1B\[[0-9;]*[a-zA-Z]'
+          $transcriptFile = 'test-results/windows-check-transcript.txt'
+          $logFile = 'test-results/windows-check.log'
+          if (Test-Path $transcriptFile) { $lines = Get-Content $transcriptFile }
+          elseif (Test-Path $logFile) { $lines = Get-Content $logFile }
+          else { $lines = @('(no transcript was written)') }
+
+          $start = ($lines | Select-String -Pattern '^=== FAILURE ===$' | Select-Object -Last 1).LineNumber
+          if ($start) { $lines = $lines[($start - 1)..($lines.Count - 1)] } else { $lines = $lines | Select-Object -Last 40 }
+          $clean = $lines | ForEach-Object { $ansi.Replace($_, '') }
+          $escaped = (($clean | ForEach-Object { $_.Replace('%', '%25') }) -join '%0A')
+          Write-Host "::error title=Windows installer check::$escaped"
+          exit 1
+
+      - name: Upload the release artifacts and the evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dentiva-pro-windows
+          path: |
+            release/*Setup.exe
+            release/*Portable.exe
+            release/*.yml
+            test-results/windows-install-evidence.txt
+            test-results/windows-check.log
+            test-results/windows-check-transcript.txt
+            test-results/windows-build.log
+          if-no-files-found: warn

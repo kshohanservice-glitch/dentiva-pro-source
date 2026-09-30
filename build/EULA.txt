@@ -1,0 +1,150 @@
+DENTIVA PRO — END USER LICENCE AGREEMENT
+========================================
+
+Version 1.0.0
+Copyright (c) 2026 Shohan Khan. All rights reserved.
+Contact: helloiamshohan@gmail.com
+
+Please read this agreement before installing Dentiva Pro. By installing or using
+the software you accept these terms. If you do not accept them, do not install
+the software and remove any copy you have made.
+
+
+1. WHAT YOU ARE LICENSED TO USE
+-------------------------------
+
+"Dentiva Pro" means the dental clinic management software, its installer, its
+documentation and any update supplied under this agreement. The software is
+licensed, not sold.
+
+Subject to this agreement, you are granted a perpetual, non-exclusive,
+non-transferable licence to install and use one copy of Dentiva Pro on the
+computers owned or controlled by a single dental clinic, for that clinic's own
+internal practice management. A clinic may install the software on more than one
+computer of its own, provided the records kept by those computers remain the
+records of that clinic.
+
+
+2. ACTIVATION
+-------------
+
+Dentiva Pro is a fully offline product. It does not contact any server, and it
+contains no telemetry, advertising, cloud storage or online service of any kind.
+
+The installation is unlocked by a one-time activation code that is verified on
+the machine itself and bound to a machine identifier stored in the clinic's own
+data folder. The activation is a good-faith licence check. Because it happens
+entirely offline, it cannot be made cryptographically strong, and this agreement
+does not claim otherwise.
+
+You may not share, publish or redistribute the activation code, and you may not
+attempt to remove, bypass or misrepresent the activation check.
+
+
+3. RESTRICTIONS
+---------------
+
+You may not:
+
+  a) copy, sell, rent, lease, sublicense, distribute or otherwise make the
+     software available to any third party;
+  b) modify, adapt, translate or create derivative works of the software;
+  c) reverse engineer, decompile or disassemble the software, except to the
+     extent that this restriction is not permitted by applicable law;
+  d) remove, obscure or alter any copyright notice, licence notice or other
+     proprietary marking on or in the software; or
+  e) use the software to provide a commercial service to other clinics, such as
+     a paid bureau or hosting service, without a separate written agreement.
+
+
+4. YOUR DATA BELONGS TO YOU
+---------------------------
+
+All clinical and business records you enter — patients, visits, charts,
+prescriptions, invoices, payments, inventory and accounts — are stored on your
+own computer, in your own user profile. They are your clinic's records, not the
+licensor's. The licensor has no access to them, no copy of them and no ability
+to retrieve them.
+
+You are responsible for:
+
+  a) keeping the computer and the Windows account secure, including appropriate
+     user accounts, roles and passwords inside Dentiva Pro;
+  b) taking regular backups, using the backup tools provided by the software or
+     your own procedures, and storing those backups safely outside the clinic
+     computer; and
+  c) complying with the law that applies to your clinic, including any legal
+     requirements for the retention of medical records and patient consent.
+
+
+5. CLINICAL JUDGEMENT
+---------------------
+
+Dentiva Pro records and organises the information you enter. It does not
+diagnose, does not recommend treatment and does not give medical advice. Clinical
+decisions, and the accuracy of everything entered, remain the responsibility of
+the licensed dental professional using the software. The software is not a
+medical device and is not certified as one.
+
+
+6. UPDATES, SUPPORT AND THIRD-PARTY COMPONENTS
+----------------------------------------------
+
+Any update supplied to you is licensed on these same terms. Support and
+maintenance are provided only if separately agreed in writing.
+
+Dentiva Pro is built on free and open-source software. Every component is used
+under a licence that permits commercial distribution, and every licence is
+credited on the About screen and in the notice files shipped with the
+application (THIRD-PARTY-NOTICES.txt and licenses/OPEN-SOURCE-LICENCES.txt).
+
+
+7. WARRANTY DISCLAIMER
+----------------------
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, ACCURACY AND NON-INFRINGEMENT. THE LICENSOR
+DOES NOT WARRANT THAT THE SOFTWARE WILL BE ERROR-FREE OR WILL OPERATE WITHOUT
+INTERRUPTION, OR THAT DEFECTS WILL BE CORRECTED.
+
+
+8. LIMITATION OF LIABILITY
+--------------------------
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSOR SHALL NOT BE
+LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL OR PUNITIVE DAMAGES,
+OR FOR ANY LOSS OF PROFITS, REVENUE, DATA OR GOODWILL, ARISING OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THIS AGREEMENT, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGES. THE LICENSOR'S TOTAL LIABILITY UNDER THIS AGREEMENT
+SHALL NOT EXCEED THE AMOUNT YOU PAID FOR THE LICENCE.
+
+Nothing in this agreement excludes liability that cannot lawfully be excluded.
+
+
+9. TERM AND TERMINATION
+-----------------------
+
+This agreement is effective until terminated. It terminates automatically if you
+breach it. On termination you must stop using the software and remove the
+installed application. Your clinic data remains yours: uninstalling the
+application does not delete your records, and you may keep, copy or delete them
+as you wish.
+
+
+10. GOVERNING LAW
+-----------------
+
+This agreement is governed by the laws of the People's Republic of Bangladesh,
+and the courts of Dhaka shall have exclusive jurisdiction, unless a mandatory
+rule of your local law requires otherwise.
+
+
+11. ENTIRE AGREEMENT
+--------------------
+
+This agreement is the entire agreement between you and the licensor about the
+software, and replaces any earlier statement about it. If any provision is held
+unenforceable, the rest remains in force.
+
+Questions about this licence: helloiamshohan@gmail.com
