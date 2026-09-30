@@ -143,15 +143,15 @@ jobs:
           {
             echo "failing steps: ${failures[*]}"
             echo "all steps: ${outcomes[*]}"
-            for log in test-results/*.log; do
-              [ -f "$log" ] || continue
-              echo "===== $log (last 60 lines) ====="
-              tail -n 60 "$log"
+            # Most relevant first, and never the bundler's asset listing (it is
+            # hundreds of lines of file sizes that hide the actual failure).
+            for log in packaged e2e-diagnostics e2e ui tests stress licences format typecheck build; do
+              path="test-results/$log.log"
+              [ -f "$path" ] || continue
+              if [ "$log" = "build" ] && [ "${{ steps.build.outcome }}" != "failure" ]; then continue; fi
+              echo "===== $path (last 40 lines) ====="
+              grep -v -E 'assets/[A-Za-z0-9_.-]+ +[0-9.]{1,6} kB' "$path" | tail -n 40
             done
-            if [ -f test-results/e2e-diagnostics.log ]; then
-              echo "===== test-results/e2e-diagnostics.log (last 60 lines) ====="
-              tail -n 60 test-results/e2e-diagnostics.log
-            fi
           } > test-results/failure-annotation.txt
           text=$(tr -d '\r' < test-results/failure-annotation.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
           printf '::error title=CI failure::%s\n' "$text"
