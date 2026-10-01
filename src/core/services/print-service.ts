@@ -15,6 +15,7 @@
  *     signature, because it is not a clinical record.
  */
 import { readFile } from 'node:fs/promises';
+import { extname } from 'node:path';
 import type { SqliteDatabase } from '../db/connection';
 import type { CoreContext } from '../context';
 import { hasPermission, requirePermission } from '../context';
@@ -1011,12 +1012,20 @@ export class PrintService implements ReportPrinterPort {
     const absolute = this.attachments.profileImagePath(relativePath);
     if (!absolute) return null;
     try {
-      const extension = /\.png$/i.test(relativePath ?? '')
-        ? 'image/png'
-        : /\.webp$/i.test(relativePath ?? '')
-          ? 'image/webp'
-          : 'image/jpeg';
-      return `data:${extension};base64,${(await readFile(absolute)).toString('base64')}`;
+      const extension = extname(relativePath ?? '').toLowerCase();
+      const mime =
+        extension === '.png'
+          ? 'image/png'
+          : extension === '.webp'
+            ? 'image/webp'
+            : extension === '.bmp'
+              ? 'image/bmp'
+              : extension === '.tif' || extension === '.tiff'
+                ? 'image/tiff'
+                : 'image/jpeg';
+      const bytes = await readFile(absolute);
+      if (bytes.length === 0) return null;
+      return `data:${mime};base64,${bytes.toString('base64')}`;
     } catch {
       return null;
     }
